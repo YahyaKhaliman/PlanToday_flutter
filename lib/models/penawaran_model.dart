@@ -45,6 +45,62 @@ class PenawaranListItem {
   }
 }
 
+class PenawaranHeader {
+  final String nomor;
+  final String tanggal;
+  final String divisi;
+  final String tipe;
+  final String perusahaanKode;
+  final String perusahaan;
+  final String customerKode;
+  final String customer;
+  final String customerAlamat;
+  final String salesKode;
+  final String sales;
+  final String keterangan;
+  final String note;
+  final double nominal;
+  final String approvalState;
+
+  const PenawaranHeader({
+    required this.nomor,
+    required this.tanggal,
+    this.divisi = '',
+    this.tipe = '',
+    this.perusahaanKode = '',
+    this.perusahaan = '',
+    this.customerKode = '',
+    this.customer = '',
+    this.customerAlamat = '',
+    this.salesKode = '',
+    this.sales = '',
+    this.keterangan = '',
+    this.note = '',
+    this.nominal = 0.0,
+    this.approvalState = '',
+  });
+
+  factory PenawaranHeader.fromJson(Map<String, dynamic> json) {
+    return PenawaranHeader(
+      nomor: json['nomor']?.toString() ?? '',
+      tanggal: json['tanggal']?.toString() ?? '',
+      divisi: json['divisi']?.toString() ?? json['divisi_nama']?.toString() ?? '',
+      tipe: json['tipe']?.toString() ?? '',
+      perusahaanKode: json['perusahaan_kode']?.toString() ?? '',
+      perusahaan: json['perusahaan']?.toString() ?? '',
+      customerKode: json['customer_kode']?.toString() ?? '',
+      customer: json['customer']?.toString() ?? '',
+      customerAlamat: json['customer_alamat']?.toString() ?? '',
+      salesKode: json['sales_kode']?.toString() ?? '',
+      sales: json['sales']?.toString() ?? '',
+      keterangan: json['keterangan']?.toString() ?? '',
+      note: json['note']?.toString() ?? '',
+      nominal: (json['nominal'] as num?)?.toDouble() ?? 0.0,
+      approvalState: json['approval_state']?.toString() ?? '',
+    );
+  }
+}
+
 class PenawaranDetailItem {
   final String id;
   final int urutan;
@@ -90,4 +146,14 @@ class PenawaranDetailItem {
       status: json['status']?.toString() ?? '',
     );
   }
+}
+
+class PenawaranDetailData {
+  final PenawaranHeader? header;
+  final List<PenawaranDetailItem> details;
+
+  const PenawaranDetailData({
+    this.header,
+    required this.details,
+  });
 }

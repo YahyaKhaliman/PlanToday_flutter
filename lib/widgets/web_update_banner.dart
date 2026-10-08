@@ -69,7 +69,7 @@ class WebUpdateBanner extends ConsumerWidget {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                'Versi baru (${versionState.fullLatestVersion}) telah dirilis. Silakan muat ulang halaman.',
+                                'Versi baru (${versionState.latestVersion ?? ''}) telah dirilis. Silakan muat ulang halaman.',
                                 style: const TextStyle(
                                   color: AppColors.muted,
                                   fontSize: 11,

@@ -45,23 +45,29 @@ class PenawaranRepository {
     }
   }
 
-  Future<List<PenawaranDetailItem>> getPenawaranDetail(String nomor) async {
+  Future<PenawaranDetailData?> getPenawaranDetail(String nomor) async {
     try {
       // Backend route is GET /penawaran/:nomor
       final response = await _api.dio.get('/penawaran/$nomor');
       final data = response.data;
       if (data != null && data['data'] != null) {
-        // Backend returns: data: { header: {...}, details: [...] }
-        final detailsRaw = data['data']['details'] ?? data['data'];
-        if (detailsRaw is List) {
-          return detailsRaw
-              .map((item) => PenawaranDetailItem.fromJson(item as Map<String, dynamic>))
-              .toList();
+        final payload = data['data'];
+
+        PenawaranHeader? header;
+        if (payload['header'] != null && payload['header'] is Map<String, dynamic>) {
+          header = PenawaranHeader.fromJson(payload['header'] as Map<String, dynamic>);
         }
+
+        final detailsRaw = payload['details'] ?? (payload is List ? payload : []);
+        final details = (detailsRaw as List? ?? [])
+            .map((item) => PenawaranDetailItem.fromJson(item as Map<String, dynamic>))
+            .toList();
+
+        return PenawaranDetailData(header: header, details: details);
       }
-      return [];
+      return null;
     } catch (_) {
-      return [];
+      return null;
     }
   }
 

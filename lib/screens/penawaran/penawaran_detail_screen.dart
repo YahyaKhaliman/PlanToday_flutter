@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import '../../core/constants/asset_constants.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/responsive_helper.dart';
 import '../../models/penawaran_model.dart';
 import '../../repositories/penawaran_repository.dart';
+import '../../widgets/ui/app_badge.dart';
+import '../../widgets/ui/app_card.dart';
 
 class PenawaranDetailScreen extends ConsumerStatefulWidget {
   final String nomor;
@@ -15,7 +19,7 @@ class PenawaranDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
-  List<PenawaranDetailItem> _items = [];
+  PenawaranDetailData? _detailData;
   bool _isLoading = false;
 
   @override
@@ -27,11 +31,11 @@ class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
   Future<void> _fetchDetail() async {
     setState(() => _isLoading = true);
     final repo = ref.read(penawaranRepositoryProvider);
-    final items = await repo.getPenawaranDetail(widget.nomor);
+    final data = await repo.getPenawaranDetail(widget.nomor);
 
     if (mounted) {
       setState(() {
-        _items = items;
+        _detailData = data;
         _isLoading = false;
       });
     }
@@ -108,7 +112,9 @@ class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final currencyFormat = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-    final grandTotal = _items.fold<double>(0.0, (acc, curr) => acc + curr.total);
+    final header = _detailData?.header;
+    final items = _detailData?.details ?? [];
+    final grandTotal = items.fold<double>(0.0, (acc, curr) => acc + curr.total);
 
     return Scaffold(
       appBar: AppBar(
@@ -123,136 +129,214 @@ class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                Expanded(
-                  child: _items.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'Tidak ada rincian barang',
-                            style: TextStyle(color: AppColors.muted),
-                          ),
-                        )
-                      : ListView.separated(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _items.length,
-                          separatorBuilder: (ctx, i) => const SizedBox(height: 12),
-                          itemBuilder: (context, index) {
-                            final item = _items[index];
-                            return Container(
-                              decoration: BoxDecoration(
-                                color: AppColors.card,
-                                borderRadius: BorderRadius.circular(AppRadius.card),
-                                border: Border.all(color: AppColors.border),
-                                boxShadow: AppShadows.softCard,
+          : ResponsiveContainer(
+              maxWidth: 900,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Kop Surat Perusahaan Dinamis dari Aset
+                          if (header != null) ...[
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(AppRadius.medium),
+                              child: Image.asset(
+                                AppAssets.getPenawaranKop(header.perusahaanKode),
+                                fit: BoxFit.fitWidth,
+                                errorBuilder: (ctx, err, stack) => const SizedBox.shrink(),
                               ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            item.namaBarang,
-                                            style: const TextStyle(
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.w800,
-                                              color: AppColors.ink,
-                                              letterSpacing: -0.2,
-                                            ),
-                                          ),
-                                        ),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                                          decoration: BoxDecoration(
-                                            color: AppColors.primary.withValues(alpha: 0.1),
-                                            borderRadius: BorderRadius.circular(AppRadius.small),
-                                          ),
-                                          child: Text(
-                                            '${item.qty.toInt()} ${item.satuan}',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w700,
-                                              fontSize: 12,
-                                              color: AppColors.primary,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    if (item.bahan.isNotEmpty) ...[
-                                      const SizedBox(height: 4),
+                            ),
+                            const SizedBox(height: 14),
+
+                            // Header Summary Card
+                            AppCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
                                       Text(
-                                        'Bahan: ${item.bahan}',
+                                        header.nomor,
                                         style: const TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
-                                          color: AppColors.muted,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w900,
+                                          color: AppColors.primary,
+                                          letterSpacing: -0.2,
                                         ),
                                       ),
+                                      if (header.approvalState.isNotEmpty)
+                                        AppBadge(
+                                          label: header.approvalState,
+                                          variant: header.approvalState == 'ACC'
+                                              ? BadgeVariant.success
+                                              : (header.approvalState == 'TOLAK'
+                                                  ? BadgeVariant.danger
+                                                  : BadgeVariant.warning),
+                                        ),
                                     ],
-                                    const Divider(height: 18, color: AppColors.border),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    header.customer,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.ink,
+                                    ),
+                                  ),
+                                  if (header.perusahaan.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Perusahaan: ${header.perusahaan}',
+                                      style: const TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w500),
+                                    ),
+                                  ],
+                                  const Divider(height: 18, color: AppColors.border),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'Sales: ${header.sales}',
+                                        style: const TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600),
+                                      ),
+                                      Text(
+                                        'Tanggal: ${header.tanggal}',
+                                        style: const TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+
+                          // Section Title
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                            child: Text(
+                              'Rincian Barang',
+                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.ink),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+
+                          // Items List
+                          if (items.isEmpty)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(32),
+                                child: Text('Tidak ada rincian barang', style: TextStyle(color: AppColors.muted)),
+                              ),
+                            )
+                          else
+                            ...items.map((item) {
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: AppCard(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              item.namaBarang,
+                                              style: const TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w800,
+                                                color: AppColors.ink,
+                                                letterSpacing: -0.2,
+                                              ),
+                                            ),
+                                          ),
+                                          AppBadge(
+                                            label: '${item.qty.toInt()} ${item.satuan}',
+                                            variant: BadgeVariant.primary,
+                                          ),
+                                        ],
+                                      ),
+                                      if (item.bahan.isNotEmpty) ...[
+                                        const SizedBox(height: 4),
                                         Text(
-                                          '@ ${currencyFormat.format(item.harga)}',
+                                          'Bahan: ${item.bahan}',
                                           style: const TextStyle(
                                             fontSize: 12,
+                                            fontWeight: FontWeight.w500,
                                             color: AppColors.muted,
                                           ),
                                         ),
-                                        Text(
-                                          currencyFormat.format(item.total),
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w900,
-                                            color: AppColors.ink,
-                                          ),
-                                        ),
                                       ],
-                                    ),
-                                  ],
+                                      const Divider(height: 18, color: AppColors.border),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            '@ ${currencyFormat.format(item.harga)}',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: AppColors.muted,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          Text(
+                                            currencyFormat.format(item.total),
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w900,
+                                              color: AppColors.ink,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
-                        ),
-                ),
-                // Footer Total dengan Shadow
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: AppColors.card,
-                    border: const Border(top: BorderSide(color: AppColors.border)),
-                    boxShadow: AppShadows.card,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Grand Total:',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.muted,
-                        ),
+                              );
+                            }),
+                        ],
                       ),
-                      Text(
-                        currencyFormat.format(grandTotal),
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: AppColors.primary,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
+
+                  // Footer Total
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      border: const Border(top: BorderSide(color: AppColors.border)),
+                      boxShadow: AppShadows.card,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Grand Total:',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.muted,
+                          ),
+                        ),
+                        Text(
+                          currencyFormat.format(grandTotal),
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.primary,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
     );
   }

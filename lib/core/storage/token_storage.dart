@@ -1,23 +1,61 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../constants/app_constants.dart';
 import '../../models/user_model.dart';
 
 class TokenStorage {
-  static const _tokenKey = 'auth_token';
-  static const _userKey = 'auth_user';
-  static const _rememberMeKey = 'remember_me';
+  static const _tokenKey = StorageKeys.token;
+  static const _userKey = StorageKeys.userData;
+  static const _rememberMeKey = StorageKeys.rememberMe;
 
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
+  final Map<String, String> _memoryStorage = {};
 
-  // Simpan Token
+  // Simpan Token (Web-safe: gunakan SharedPreferences di Web untuk menghindari crash Web Crypto API di HTTP)
   Future<void> saveToken(String token) async {
-    await _secureStorage.write(key: _tokenKey, value: token);
+    _memoryStorage[_tokenKey] = token;
+    if (kIsWeb) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_tokenKey, token);
+      } catch (_) {}
+      return;
+    }
+    try {
+      await _secureStorage.write(key: _tokenKey, value: token);
+    } catch (_) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_tokenKey, token);
+      } catch (_) {}
+    }
   }
 
-  // Ambil Token
+  // Ambil Token (Web-safe)
   Future<String?> getToken() async {
-    return await _secureStorage.read(key: _tokenKey);
+    if (kIsWeb) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        return prefs.getString(_tokenKey) ?? _memoryStorage[_tokenKey];
+      } catch (_) {
+        return _memoryStorage[_tokenKey];
+      }
+    }
+    try {
+      final token = await _secureStorage.read(key: _tokenKey);
+      if (token != null) return token;
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_tokenKey) ?? _memoryStorage[_tokenKey];
+    } catch (_) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        return prefs.getString(_tokenKey) ?? _memoryStorage[_tokenKey];
+      } catch (_) {
+        return _memoryStorage[_tokenKey];
+      }
+    }
   }
 
   // Simpan Data User
@@ -40,8 +78,14 @@ class TokenStorage {
 
   // Hapus Sesi (Logout)
   Future<void> clearSession() async {
-    await _secureStorage.delete(key: _tokenKey);
+    _memoryStorage.remove(_tokenKey);
+    try {
+      if (!kIsWeb) {
+        await _secureStorage.delete(key: _tokenKey);
+      }
+    } catch (_) {}
     final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
     await prefs.remove(_userKey);
   }
 

@@ -19,6 +19,7 @@ import '../../repositories/tracking_repository.dart';
 import '../../repositories/visit_repository.dart';
 import '../../widgets/ui/app_badge.dart';
 import '../../widgets/ui/segmented_bar.dart';
+import '../../providers/version_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -344,20 +345,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             onPressed: () => _scaffoldKey.currentState?.openDrawer(),
           ),
 
-          // PlanToday Gradient Brand Title
-          ShaderMask(
-            shaderCallback: (bounds) => const LinearGradient(
-              colors: [AppColors.primary, AppColors.accent],
-            ).createShader(bounds),
-            child: const Text(
-              'PlanToday',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.5,
-                color: Colors.white,
+          // PlanToday Gradient Brand Title + Small Version Below
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ShaderMask(
+                shaderCallback: (bounds) => const LinearGradient(
+                  colors: [AppColors.primary, AppColors.accent],
+                ).createShader(bounds),
+                child: const Text(
+                  'PlanToday',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5,
+                    color: Colors.white,
+                  ),
+                ),
               ),
-            ),
+              Consumer(
+                builder: (context, ref, _) {
+                  final version =
+                      ref.watch(versionProvider).currentVersion;
+                  return Text(
+                    version,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.muted,
+                      letterSpacing: 0.2,
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
 
           // Bell Notification Button with dynamic badge

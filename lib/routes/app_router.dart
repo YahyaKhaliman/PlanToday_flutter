@@ -23,12 +23,25 @@ import '../screens/visit/tambah_visit_screen.dart';
 import '../screens/visit/visit_plan_screen.dart';
 import '../screens/visit/visit_screen.dart';
 
+class AuthRouterNotifier extends ChangeNotifier {
+  final Ref _ref;
+  AuthRouterNotifier(this._ref) {
+    _ref.listen<AuthState>(authProvider, (_, _) => notifyListeners());
+  }
+}
+
+final authRouterNotifierProvider = Provider<AuthRouterNotifier>((ref) {
+  return AuthRouterNotifier(ref);
+});
+
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
+  final notifier = ref.watch(authRouterNotifierProvider);
 
   return GoRouter(
     initialLocation: '/',
+    refreshListenable: notifier,
     redirect: (context, state) {
+      final authState = ref.read(authProvider);
       if (authState.isLoading) return null;
 
       final isLoggingIn = state.matchedLocation == '/login';

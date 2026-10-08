@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/version_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -87,6 +88,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final versionState = ref.watch(versionProvider);
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -290,6 +293,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   ],
                                 ),
                               ),
+                            ),
+                          ),
+
+                          // Versi Aplikasi & Status Update (seperti di React Native loginScreen.tsx)
+                          const SizedBox(height: 18),
+                          Text(
+                            'Versi ${versionState.currentVersion}',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.muted.withValues(alpha: 0.8),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            versionState.isChecking
+                                ? 'Memeriksa pembaruan aplikasi...'
+                                : versionState.hasUpdate
+                                    ? 'Update tersedia • Versi terbaru ${versionState.latestVersion}'
+                                    : 'Aplikasi sudah versi terbaru',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: versionState.hasUpdate
+                                  ? AppColors.warning
+                                  : AppColors.muted,
                             ),
                           ),
                         ],
