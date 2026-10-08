@@ -108,13 +108,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Logo Aset Aplikasi
-                    Image.asset(
-                      'assets/images/logo.png',
-                      height: 68,
-                      errorBuilder: (ctx, err, stack) => const SizedBox.shrink(),
-                    ),
-                    const SizedBox(height: 12),
 
                     // Gradient Logo / Header Text
                     ShaderMask(

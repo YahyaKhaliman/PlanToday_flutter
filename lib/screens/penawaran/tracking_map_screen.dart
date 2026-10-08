@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/responsive_helper.dart';
 import '../../models/tracking_model.dart';
 import '../../repositories/tracking_repository.dart';
+import '../../widgets/ui/app_badge.dart';
 import '../../widgets/ui/app_card.dart';
 
 class TrackingMapScreen extends ConsumerStatefulWidget {
@@ -57,60 +59,63 @@ class _TrackingMapScreenState extends ConsumerState<TrackingMapScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppRadius.medium),
-                boxShadow: AppShadows.softCard,
-              ),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Cari nomor MAP, customer, surat jalan...',
-                  prefixIcon: const Icon(Icons.search, color: AppColors.muted),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, color: AppColors.muted),
-                          onPressed: () {
-                            _searchController.clear();
-                            _fetchData();
-                          },
-                        )
-                      : null,
+      body: ResponsiveContainer(
+        maxWidth: 1000,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(AppRadius.medium),
+                  boxShadow: AppShadows.softCard,
                 ),
-                onSubmitted: (q) => _fetchData(q),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Cari nomor MAP, customer, surat jalan...',
+                    prefixIcon: const Icon(Icons.search, color: AppColors.muted),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, color: AppColors.muted),
+                            onPressed: () {
+                              _searchController.clear();
+                              _fetchData();
+                            },
+                          )
+                        : null,
+                  ),
+                  onSubmitted: (q) => _fetchData(q),
+                ),
               ),
             ),
-          ),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _items.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'Tidak ada data tracking MAP',
-                          style: TextStyle(color: AppColors.muted),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _items.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'Tidak ada data tracking MAP',
+                            style: TextStyle(color: AppColors.muted),
+                          ),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: () => _fetchData(),
+                          child: ListView.separated(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            itemCount: _items.length,
+                            separatorBuilder: (ctx, i) =>
+                                const SizedBox(height: 12),
+                            itemBuilder: (context, index) {
+                              final item = _items[index];
+                              return _TrackingMapCard(item: item);
+                            },
+                          ),
                         ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: () => _fetchData(),
-                        child: ListView.separated(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
-                          itemCount: _items.length,
-                          separatorBuilder: (ctx, i) =>
-                              const SizedBox(height: 12),
-                          itemBuilder: (context, index) {
-                            final item = _items[index];
-                            return _TrackingMapCard(item: item);
-                          },
-                        ),
-                      ),
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -123,6 +128,8 @@ class _TrackingMapCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasSj = item.nomorSj.isNotEmpty;
+
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -139,9 +146,18 @@ class _TrackingMapCard extends StatelessWidget {
                   letterSpacing: -0.2,
                 ),
               ),
-              Text(
-                item.tanggalMap,
-                style: const TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w500),
+              Row(
+                children: [
+                  AppBadge(
+                    label: hasSj ? 'SJ SIAP' : 'PROSES MAP',
+                    variant: hasSj ? BadgeVariant.success : BadgeVariant.warning,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    item.tanggalMap,
+                    style: const TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w500),
+                  ),
+                ],
               ),
             ],
           ),
@@ -173,7 +189,7 @@ class _TrackingMapCard extends StatelessWidget {
                 color: AppColors.ink,
               ),
             ),
-          if (item.nomorSj.isNotEmpty) ...[
+          if (hasSj) ...[
             const SizedBox(height: 4),
             Row(
               children: [

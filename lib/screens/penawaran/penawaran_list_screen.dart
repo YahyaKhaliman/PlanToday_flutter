@@ -21,8 +21,10 @@ class _PenawaranListScreenState extends ConsumerState<PenawaranListScreen> {
   List<PenawaranListItem> _penawaranList = [];
   bool _isLoading = false;
   String _selectedStatus = 'ALL';
+  String _selectedApproval = 'ALL'; // ALL, APPROVED, UNAPPROVED
 
   final List<String> _statusFilters = ['ALL', 'OPEN', 'BATAL', 'CLOSE'];
+  final List<String> _approvalFilters = ['ALL', 'APPROVED', 'UNAPPROVED'];
 
   @override
   void initState() {
@@ -57,6 +59,12 @@ class _PenawaranListScreenState extends ConsumerState<PenawaranListScreen> {
   Widget build(BuildContext context) {
     final currencyFormat = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
+    final filteredList = _penawaranList.where((p) {
+      if (_selectedApproval == 'APPROVED') return p.isApproved;
+      if (_selectedApproval == 'UNAPPROVED') return !p.isApproved;
+      return true;
+    }).toList();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Daftar Penawaran'),
@@ -71,102 +79,128 @@ class _PenawaranListScreenState extends ConsumerState<PenawaranListScreen> {
         maxWidth: 1000,
         child: Column(
           children: [
-          // Search & Filter Bar
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(AppRadius.medium),
-                    boxShadow: AppShadows.softCard,
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Cari nomor, customer, atau sales...',
-                      prefixIcon: const Icon(Icons.search, color: AppColors.muted),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear, color: AppColors.muted),
-                              onPressed: () {
-                                _searchController.clear();
-                                _fetchPenawaran();
-                              },
-                            )
-                          : null,
+            // Search & Filter Bar
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(AppRadius.medium),
+                      boxShadow: AppShadows.softCard,
                     ),
-                    onSubmitted: (q) => _fetchPenawaran(q),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Status Filter Chips
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: _statusFilters.map((st) {
-                      final isSelected = _selectedStatus == st;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8.0),
-                        child: ChoiceChip(
-                          label: Text(st),
-                          selected: isSelected,
-                          selectedColor: AppColors.primary,
-                          labelStyle: TextStyle(
-                            color: isSelected ? Colors.white : AppColors.ink,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
-                          ),
-                          onSelected: (val) {
-                            if (val) {
-                              setState(() => _selectedStatus = st);
-                              _fetchPenawaran();
-                            }
-                          },
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // List Items
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _penawaranList.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'Tidak ada data penawaran',
-                          style: TextStyle(color: AppColors.muted),
-                        ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: () => _fetchPenawaran(),
-                        child: ListView.separated(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          itemCount: _penawaranList.length,
-                          separatorBuilder: (ctx, i) => const SizedBox(height: 12),
-                          itemBuilder: (context, index) {
-                            final item = _penawaranList[index];
-                            return _PenawaranCard(
-                              item: item,
-                              currencyFormat: currencyFormat,
-                              onTap: () {
-                                context.push('/penawaran/${item.nomor}');
-                              },
-                            );
-                          },
-                        ),
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: 'Cari nomor, customer, atau sales...',
+                        prefixIcon: const Icon(Icons.search, color: AppColors.muted),
+                        suffixIcon: _searchController.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, color: AppColors.muted),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  _fetchPenawaran();
+                                },
+                              )
+                            : null,
                       ),
-          ),
-        ],
+                      onSubmitted: (q) => _fetchPenawaran(q),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Status Filter Chips
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: _statusFilters.map((st) {
+                        final isSelected = _selectedStatus == st;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: ChoiceChip(
+                            label: Text(st),
+                            selected: isSelected,
+                            selectedColor: AppColors.primary,
+                            labelStyle: TextStyle(
+                              color: isSelected ? Colors.white : AppColors.ink,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                            onSelected: (val) {
+                              if (val) {
+                                setState(() => _selectedStatus = st);
+                                _fetchPenawaran();
+                              }
+                            },
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Approval Filter Chips
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: _approvalFilters.map((ap) {
+                        final isSelected = _selectedApproval == ap;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: ChoiceChip(
+                            label: Text(ap == 'ALL' ? 'Semua Approval' : ap),
+                            selected: isSelected,
+                            selectedColor: ap == 'APPROVED' ? AppColors.success : (ap == 'UNAPPROVED' ? AppColors.warning : AppColors.primary),
+                            labelStyle: TextStyle(
+                              color: isSelected ? Colors.white : AppColors.muted,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 11,
+                            ),
+                            onSelected: (val) {
+                              if (val) setState(() => _selectedApproval = ap);
+                            },
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // List Items
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : filteredList.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'Tidak ada data penawaran',
+                            style: TextStyle(color: AppColors.muted),
+                          ),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: () => _fetchPenawaran(),
+                          child: ListView.separated(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            itemCount: filteredList.length,
+                            separatorBuilder: (ctx, i) => const SizedBox(height: 12),
+                            itemBuilder: (context, index) {
+                              final item = filteredList[index];
+                              return _PenawaranCard(
+                                item: item,
+                                currencyFormat: currencyFormat,
+                                onTap: () {
+                                  context.push('/penawaran/${item.nomor}');
+                                },
+                              );
+                            },
+                          ),
+                        ),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 }
 
 class _PenawaranCard extends StatelessWidget {

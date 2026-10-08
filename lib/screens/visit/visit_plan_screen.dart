@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/responsive_helper.dart';
@@ -22,6 +23,9 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
 
   List<VisitModel> _plans = [];
   bool _isLoading = false;
+  String _selectedStatus = 'SEMUA'; // SEMUA, SELESAI, BELUM
+
+  final List<String> _statusOptions = ['SEMUA', 'SELESAI', 'BELUM'];
 
   @override
   void initState() {
@@ -76,6 +80,12 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
   Widget build(BuildContext context) {
     final dmyFormat = DateFormat('dd MMM yyyy');
 
+    final filteredPlans = _plans.where((p) {
+      if (_selectedStatus == 'SELESAI') return p.realisasi == 'Y';
+      if (_selectedStatus == 'BELUM') return p.realisasi != 'Y';
+      return true;
+    }).toList();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Visit Plan'),
@@ -96,80 +106,114 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
         maxWidth: 1000,
         child: Column(
           children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.08),
-              border: const Border(bottom: BorderSide(color: AppColors.border)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.calendar_today, size: 16, color: AppColors.accent),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${dmyFormat.format(_startDate)} - ${dmyFormat.format(_endDate)}',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                  ],
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppColors.card,
-                    borderRadius: BorderRadius.circular(AppRadius.small),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Text(
-                    '${_plans.length} Rencana',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _plans.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'Tidak ada rencana visit pada periode ini',
-                          style: TextStyle(color: AppColors.muted),
+            // Filter Range Banner & Status Chips
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.08),
+                border: const Border(bottom: BorderSide(color: AppColors.border)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      InkWell(
+                        onTap: _selectDateRange,
+                        child: Row(
+                          children: [
+                            const Icon(Icons.calendar_today, size: 16, color: AppColors.accent),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${dmyFormat.format(_startDate)} - ${dmyFormat.format(_endDate)}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.ink,
+                              ),
+                            ),
+                          ],
                         ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _fetchPlans,
-                        child: ListView.separated(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _plans.length,
-                          separatorBuilder: (ctx, i) => const SizedBox(height: 12),
-                          itemBuilder: (context, index) {
-                            final plan = _plans[index];
-                            return _PlanCard(plan: plan);
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.card,
+                          borderRadius: BorderRadius.circular(AppRadius.small),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Text(
+                          '${filteredPlans.length} Rencana',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.ink,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  // Filter Status Chips
+                  Row(
+                    children: _statusOptions.map((st) {
+                      final isSelected = _selectedStatus == st;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: ChoiceChip(
+                          label: Text(st),
+                          selected: isSelected,
+                          selectedColor: AppColors.primary,
+                          labelStyle: TextStyle(
+                            color: isSelected ? Colors.white : AppColors.ink,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11,
+                          ),
+                          onSelected: (val) {
+                            if (val) setState(() => _selectedStatus = st);
                           },
                         ),
-                      ),
-          ),
-        ],
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+
+            // List Items
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : filteredPlans.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'Tidak ada rencana visit pada periode ini',
+                            style: TextStyle(color: AppColors.muted),
+                          ),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: _fetchPlans,
+                          child: ListView.separated(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: filteredPlans.length,
+                            separatorBuilder: (ctx, i) => const SizedBox(height: 12),
+                            itemBuilder: (context, index) {
+                              final plan = filteredPlans[index];
+                              return _PlanCard(plan: plan);
+                            },
+                          ),
+                        ),
+            ),
+          ],
+        ),
       ),
-    ),
-    floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton(
         backgroundColor: AppColors.primary,
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Form Tambah Visit Plan')),
-          );
+        onPressed: () async {
+          final refresh = await context.push<bool>('/visit/tambah');
+          if (refresh == true) {
+            _fetchPlans();
+          }
         },
         child: const Icon(Icons.add, color: Colors.white),
       ),
@@ -184,6 +228,8 @@ class _PlanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDone = plan.realisasi == 'Y';
+
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -203,8 +249,8 @@ class _PlanCard extends StatelessWidget {
                 ),
               ),
               AppBadge(
-                label: plan.tanggal,
-                variant: BadgeVariant.primary,
+                label: isDone ? 'SELESAI' : plan.tanggal,
+                variant: isDone ? BadgeVariant.success : BadgeVariant.primary,
               ),
             ],
           ),
@@ -216,13 +262,32 @@ class _PlanCard extends StatelessWidget {
             ),
           if (plan.note.isNotEmpty) ...[
             const Divider(height: 18, color: AppColors.border),
-            Text(
-              'Agenda: ${plan.note}',
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: AppColors.ink,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Agenda: ${plan.note}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                ),
+                if (!isDone)
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(64, 30),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      backgroundColor: AppColors.primary,
+                    ),
+                    onPressed: () {
+                      context.push('/visit/tambah');
+                    },
+                    child: const Text('Visit', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white)),
+                  ),
+              ],
             ),
           ],
         ],

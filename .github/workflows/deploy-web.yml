@@ -1,56 +1,67 @@
 name: Build & Deploy Flutter Web to VPS
 
 on:
-    push:
-        branches:
-            - main
-    workflow_dispatch:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
-    build-and-deploy:
-        name: Auto Release PlanToday Web
-        runs-on: ubuntu-latest
+  build-and-deploy:
+    name: Build Web & Deploy via SSH
+    runs-on: ubuntu-latest
 
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v4
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-            - name: Setup Flutter environment
-              uses: subosito/flutter-action@v2
-              with:
-                  channel: "stable"
-                  cache: true
+      - name: Setup Flutter environment
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
 
-            - name: Install dependencies
-              run: flutter pub get
+      - name: Install dependencies
+        run: flutter pub get
 
-            - name: Build Flutter web release
-              run: |
-                  flutter build web --release \
-                    --base-href "/" \
-                    --dart-define=API_BASE_URL="${{ secrets.API_BASE_URL }}"
+      - name: Build Flutter web release
+        run: |
+          flutter build web --release \
+            --base-href "/" \
+            --dart-define=API_BASE_URL="${{ secrets.API_BASE_URL }}"
 
-            - name: Deploy to VPS via SCP
-              uses: appleboy/scp-action@v0.1.7
-              with:
-                  host: ${{ secrets.VPS_HOST }}
-                  username: ${{ secrets.VPS_USER }}
-                  key: ${{ secrets.VPS_SSH_KEY }}
-                  port: ${{ secrets.VPS_PORT || 22 }}
-                  source: "build/web/*"
-                  target: ${{ secrets.VPS_TARGET_PATH }}
-                  strip_components: 2
-                  rm: false
+      - name: Prepare target folder on VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            sudo mkdir -p ${{ secrets.VPS_TARGET_PATH }}
+            sudo chown -R ${{ secrets.VPS_USER }}:${{ secrets.VPS_USER }} ${{ secrets.VPS_TARGET_PATH }}
+            sudo rm -rf ${{ secrets.VPS_TARGET_PATH }}/*
 
-            - name: Set folder permissions and reload Nginx
-              uses: appleboy/ssh-action@v1.0.3
-              if: always()
-              with:
-                  host: ${{ secrets.VPS_HOST }}
-                  username: ${{ secrets.VPS_USER }}
-                  key: ${{ secrets.VPS_SSH_KEY }}
-                  port: ${{ secrets.VPS_PORT || 22 }}
-                  script: |
-                      sudo chown -R www-data:www-data ${{ secrets.VPS_TARGET_PATH }} || true
-                      sudo chmod -R 755 ${{ secrets.VPS_TARGET_PATH }} || true
-                      sudo systemctl reload nginx || true
+      - name: Deploy to VPS via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          source: "build/web/*"
+          target: ${{ secrets.VPS_TARGET_PATH }}
+          strip_components: 2
+          rm: false
+
+      - name: Set folder permissions and reload Nginx
+        uses: appleboy/ssh-action@v1.0.3
+        if: always()
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            sudo chmod -R 755 ${{ secrets.VPS_TARGET_PATH }} || true
+            sudo systemctl reload nginx || true

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/customer_model.dart';
 import '../../repositories/customer_repository.dart';
@@ -136,6 +137,20 @@ class _CustomerCard extends StatelessWidget {
 
   const _CustomerCard({required this.customer});
 
+  Future<void> _launchWhatsApp(String phone) async {
+    final cleanPhone = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    if (cleanPhone.isEmpty) return;
+    final normalizedPhone = cleanPhone.startsWith('0')
+        ? '62${cleanPhone.substring(1)}'
+        : (cleanPhone.startsWith('62') ? cleanPhone : '62$cleanPhone');
+    final uri = Uri.parse('https://wa.me/$normalizedPhone');
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppCard(
@@ -201,20 +216,31 @@ class _CustomerCard extends StatelessWidget {
                     ),
                   ),
                 if (customer.telp.isNotEmpty)
-                  Row(
-                    children: [
-                      const Icon(Icons.phone_outlined,
-                          size: 14, color: AppColors.wa),
-                      const SizedBox(width: 4),
-                      Text(
-                        customer.telp,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.wa,
-                          fontWeight: FontWeight.w700,
-                        ),
+                  InkWell(
+                    onTap: () => _launchWhatsApp(customer.telp),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.wa.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                    ],
+                      child: Row(
+                        children: [
+                          const Icon(Icons.chat_bubble_outline,
+                              size: 13, color: AppColors.wa),
+                          const SizedBox(width: 4),
+                          Text(
+                            customer.telp,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.wa,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
               ],
             ),
