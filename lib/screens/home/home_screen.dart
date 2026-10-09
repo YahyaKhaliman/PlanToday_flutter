@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -20,6 +21,7 @@ import '../../repositories/visit_repository.dart';
 import '../../widgets/ui/app_badge.dart';
 import '../../widgets/ui/segmented_bar.dart';
 import '../../providers/version_provider.dart';
+import '../../widgets/web_shortcut_guide_modal.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -528,7 +530,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ],
               ),
               InkWell(
-                onTap: () => context.push('/visit/tambah'),
+                onTap: () => context.push('/visit-plan/tambah'),
                 child: const Row(
                   children: [
                     Icon(Icons.add_circle_outline, size: 16, color: AppColors.primary),
@@ -608,49 +610,59 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           else
             ..._visitPlans.map((vp) {
               final isDone = vp.realisasi == 'Y';
-              return Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.soft,
-                  borderRadius: BorderRadius.circular(AppRadius.medium),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(vp.cusNama, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.ink)),
-                          if (vp.cusAlamat.isNotEmpty)
-                            Text(vp.cusAlamat, style: const TextStyle(fontSize: 11, color: AppColors.muted), maxLines: 1, overflow: TextOverflow.ellipsis),
-                          if (vp.note.isNotEmpty)
-                            Text('Note: ${vp.note}', style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: AppColors.ink)),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    if (isDone)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.success.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(4),
+              return InkWell(
+                onTap: () {
+                  if (isDone) {
+                    context.push('/visit/edit', extra: vp);
+                  } else {
+                    context.push('/visit-plan/edit', extra: vp);
+                  }
+                },
+                borderRadius: BorderRadius.circular(AppRadius.medium),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.soft,
+                    borderRadius: BorderRadius.circular(AppRadius.medium),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(vp.cusNama, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.ink)),
+                            if (vp.cusAlamat.isNotEmpty)
+                              Text(vp.cusAlamat, style: const TextStyle(fontSize: 11, color: AppColors.muted), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            if (vp.note.isNotEmpty)
+                              Text('Note: ${vp.note}', style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: AppColors.ink)),
+                          ],
                         ),
-                        child: const Text('SELESAI', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.success)),
-                      )
-                    else
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size(64, 32),
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          backgroundColor: AppColors.primary,
-                        ),
-                        onPressed: () => context.push('/visit/tambah'),
-                        child: const Text('Visit', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
                       ),
-                  ],
+                      const SizedBox(width: 8),
+                      if (isDone)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.success.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text('SELESAI', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.success)),
+                        )
+                      else
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(64, 32),
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            backgroundColor: AppColors.primary,
+                          ),
+                          onPressed: () => context.push('/visit/tambah'),
+                          child: const Text('Visit', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                        ),
+                    ],
+                  ),
                 ),
               );
             }),
@@ -1264,6 +1276,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 }).toList(),
               ),
             ),
+
+            // Tombol Bantuan Pintasan (hanya di Web)
+            if (kIsWeb)
+              Container(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                decoration: const BoxDecoration(
+                  border: Border(top: BorderSide(color: AppColors.border)),
+                ),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    Navigator.pop(context);
+                    showShortcutGuide(context);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4F46E5).withValues(alpha: 0.07),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFF4F46E5).withValues(alpha: 0.2)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.shortcut_rounded, size: 16, color: Color(0xFF4F46E5)),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Cara Buat Pintasan di HP / PC',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF4F46E5)),
+                          ),
+                        ),
+                        Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Color(0xFF4F46E5)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

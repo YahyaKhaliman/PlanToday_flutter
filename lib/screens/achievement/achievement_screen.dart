@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/responsive_helper.dart';
@@ -242,6 +243,15 @@ class _AchievementScreenState extends ConsumerState<AchievementScreen> {
                             return _AchievementUserCard(
                               row: row,
                               currencyFormat: currencyFormat,
+                              onTap: () {
+                                context.push('/achievement/detail', extra: {
+                                  'userRow': row,
+                                  'fromYear': _selectedYear,
+                                  'fromMonth': _selectedMonth,
+                                  'toYear': _selectedYear,
+                                  'toMonth': _selectedMonth,
+                                });
+                              },
                             );
                           },
                         ),
@@ -257,10 +267,12 @@ class _AchievementScreenState extends ConsumerState<AchievementScreen> {
 class _AchievementUserCard extends StatelessWidget {
   final AchievementUserRow row;
   final NumberFormat currencyFormat;
+  final VoidCallback onTap;
 
   const _AchievementUserCard({
     required this.row,
     required this.currencyFormat,
+    required this.onTap,
   });
 
   @override
@@ -269,6 +281,7 @@ class _AchievementUserCard extends StatelessWidget {
     final isTargetMet = achPct >= 100;
 
     return AppCard(
+      onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

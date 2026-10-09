@@ -41,4 +41,30 @@ class AchievementRepository {
       return [];
     }
   }
+
+  Future<List<AchievementMonthlyItem>> getMonthlyOmsetByUser({
+    required String kode,
+    required String fromYm,
+    required String toYm,
+  }) async {
+    try {
+      final response = await _api.dio.get(
+        '/achievement/omset/month/$kode',
+        queryParameters: {
+          'from': fromYm,
+          'to': toYm,
+        },
+      );
+
+      final data = response.data;
+      if (data != null && data['data'] is List) {
+        return (data['data'] as List)
+            .map((item) => AchievementMonthlyItem.fromJson(item as Map<String, dynamic>))
+            .toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
 }

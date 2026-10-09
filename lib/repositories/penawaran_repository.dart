@@ -82,4 +82,67 @@ class PenawaranRepository {
       return false;
     }
   }
+
+  Future<bool> createPenawaran(Map<String, dynamic> payload) async {
+    try {
+      final response = await _api.dio.post(
+        '/penawaran',
+        data: payload,
+      );
+      return response.data != null && response.data['success'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> updatePenawaranStatusDetail(
+    String nomor,
+    List<Map<String, dynamic>> updates,
+  ) async {
+    try {
+      final response = await _api.dio.put(
+        '/penawaran/$nomor/status',
+        data: {'updates': updates},
+      );
+      return response.data != null && response.data['success'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<List<Map<String, String>>> getMasterPenawaranBatal() async {
+    try {
+      final response = await _api.dio.get('/penawaran/master/batal');
+      final data = response.data;
+      if (data != null && data['data'] is List) {
+        return (data['data'] as List)
+            .map((item) => {
+                  'kode': item['kode']?.toString() ?? '',
+                  'nama': item['nama']?.toString() ?? '',
+                })
+            .toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, String>>> getMasterPenawaranConfirm() async {
+    try {
+      final response = await _api.dio.get('/penawaran/master/confirm');
+      final data = response.data;
+      if (data != null && data['data'] is List) {
+        return (data['data'] as List)
+            .map((item) => {
+                  'kode': item['kode']?.toString() ?? '',
+                  'nama': item['nama']?.toString() ?? '',
+                })
+            .toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
 }

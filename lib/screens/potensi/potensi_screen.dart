@@ -6,6 +6,7 @@ import '../../models/potensi_model.dart';
 import '../../repositories/potensi_repository.dart';
 import '../../widgets/ui/app_badge.dart';
 import '../../widgets/ui/app_card.dart';
+import 'tambah_potensi_sheet.dart';
 
 class PotensiScreen extends ConsumerStatefulWidget {
   const PotensiScreen({super.key});
@@ -264,6 +265,21 @@ class _PotensiScreenState extends ConsumerState<PotensiScreen> {
                       ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: AppColors.primary,
+        onPressed: () async {
+          final refresh = await showModalBottomSheet<bool>(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (ctx) => const TambahPotensiSheet(),
+          );
+          if (refresh == true) {
+            _fetchPotensi();
+          }
+        },
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }

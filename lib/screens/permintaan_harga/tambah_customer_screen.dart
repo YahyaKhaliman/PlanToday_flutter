@@ -3,22 +3,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/responsive_helper.dart';
-import '../../models/customer_model.dart';
 import '../../providers/auth_provider.dart';
-import '../../repositories/customer_repository.dart';
+import '../../repositories/permintaan_harga_repository.dart';
 import '../../widgets/ui/app_button.dart';
 import '../../widgets/ui/app_card.dart';
 
-class TambahCalonCustomerScreen extends ConsumerStatefulWidget {
-  const TambahCalonCustomerScreen({super.key});
+class TambahCustomerPermintaanHargaScreen extends ConsumerStatefulWidget {
+  const TambahCustomerPermintaanHargaScreen({super.key});
 
   @override
-  ConsumerState<TambahCalonCustomerScreen> createState() =>
-      _TambahCalonCustomerScreenState();
+  ConsumerState<TambahCustomerPermintaanHargaScreen> createState() =>
+      _TambahCustomerPermintaanHargaScreenState();
 }
 
-class _TambahCalonCustomerScreenState
-    extends ConsumerState<TambahCalonCustomerScreen> {
+class _TambahCustomerPermintaanHargaScreenState
+    extends ConsumerState<TambahCustomerPermintaanHargaScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final _namaController = TextEditingController();
@@ -86,40 +85,37 @@ class _TambahCalonCustomerScreenState
     setState(() => _isLoading = true);
 
     final user = ref.read(authProvider).user;
-    final repo = ref.read(customerRepositoryProvider);
+    final repo = ref.read(permintaanHargaRepositoryProvider);
 
-    final customer = CustomerModel(
-      kode: '',
-      nama: _namaController.text.trim(),
-      alamat: _alamatController.text.trim(),
-      kota: _kotaController.text.trim(),
-      telp: _telpController.text.trim(),
-      cp: _cpController.text.trim(),
-      email: _emailController.text.trim(),
-      korporasi: _korporasi,
-      jenisUsaha: _jenisUsahaController.text.trim(),
-      npwp: _npwpController.text.trim(),
-      namaNpwp: _namaNpwpController.text.trim(),
-      alamatNpwp: _alamatNpwpController.text.trim(),
-      kotaNpwp: _kotaNpwpController.text.trim(),
-    );
+    final payload = {
+      'nama': _namaController.text.trim(),
+      'alamat': _alamatController.text.trim(),
+      'kota': _kotaController.text.trim(),
+      'cus_telp': _telpController.text.trim(),
+      'cus_cp': _cpController.text.trim(),
+      'cus_email': _emailController.text.trim(),
+      'user_create': user?.nama ?? '',
+      'cus_korporasi': _korporasi,
+      'cus_jenisusaha': _jenisUsahaController.text.trim(),
+      'cus_npwp': _npwpController.text.trim(),
+      'cus_nama_npwp': _namaNpwpController.text.trim(),
+      'cus_alamat_npwp': _alamatNpwpController.text.trim(),
+      'cus_kota_npwp': _kotaNpwpController.text.trim(),
+    };
 
-    final success = await repo.createCalonCustomer(
-      customer,
-      user?.nama ?? 'User',
-    );
+    final created = await repo.createPermintaanHargaCustomer(payload);
 
     if (mounted) {
       setState(() => _isLoading = false);
 
-      if (success) {
+      if (created != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Customer berhasil ditambahkan'),
+          SnackBar(
+            content: Text('Customer ${created['nama'] ?? payload['nama']} berhasil ditambahkan'),
             backgroundColor: AppColors.success,
           ),
         );
-        context.pop(true);
+        context.pop(created);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -137,7 +133,7 @@ class _TambahCalonCustomerScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tambah Calon Customer'),
+        title: const Text('Tambah Customer (PH)'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -160,7 +156,7 @@ class _TambahCalonCustomerScreenState
                           color: AppColors.ink,
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
 
                       TextFormField(
                         controller: _namaController,

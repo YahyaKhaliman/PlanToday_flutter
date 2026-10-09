@@ -1,10 +1,14 @@
+import 'dart:io';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/version_provider.dart';
+import '../../widgets/web_shortcut_guide_modal.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -16,26 +20,98 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _showPassword = false;
+
+  bool _showPass = false;
   bool _rememberMe = false;
-  bool _isLoading = false;
+  bool _loading = false;
+
+  String _deviceId = 'unknown';
+  String _appVersion = 'Versi 1.0.0 (build 1)';
+  String _versiAppShort = 'V. 1.0.0';
+  final String _updateStatusText = 'Aplikasi sudah versi terbaru';
+
+  bool get _canLogin =>
+      _usernameController.text.trim().isNotEmpty &&
+      _passwordController.text.isNotEmpty &&
+      !_loading;
 
   @override
   void initState() {
     super.initState();
-    _loadRememberedData();
+    _initDeviceAndVersion();
+    // Tampilkan panduan pintasan otomatis saat pertama kali buka di web
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      showShortcutGuide(context, auto: true);
+    });
   }
 
-  Future<void> _loadRememberedData() async {
+  Future<void> _initDeviceAndVersion() async {
+    // 1. Ambil Device ID
+    try {
+      final deviceInfo = DeviceInfoPlugin();
+      if (kIsWeb) {
+        _deviceId = 'web-client';
+      } else if (Platform.isAndroid) {
+        final androidInfo = await deviceInfo.androidInfo;
+        _deviceId = androidInfo.id;
+      } else if (Platform.isIOS) {
+        final iosInfo = await deviceInfo.iosInfo;
+        _deviceId = iosInfo.identifierForVendor ?? 'ios-device';
+      } else if (Platform.isWindows) {
+        final windowsInfo = await deviceInfo.windowsInfo;
+        _deviceId = windowsInfo.deviceId;
+      }
+    } catch (_) {}
+
+    // 2. Ambil Info Versi Aplikasi
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() {
+          _appVersion =
+              'Versi ${packageInfo.version} (build ${packageInfo.buildNumber})';
+          _versiAppShort = 'V. ${packageInfo.version}';
+        });
+      }
+    } catch (_) {}
+
+    // 3. Periksa Remember Me & Check-Device API
     final storage = ref.read(tokenStorageProvider);
-    final data = await storage.getRememberMe();
-    if (data != null && mounted) {
-      setState(() {
-        _rememberMe = true;
-        _usernameController.text = data['username'] ?? '';
-        _passwordController.text = data['password'] ?? '';
-      });
-    }
+    final api = ref.read(apiClientProvider);
+
+    try {
+      final rememberFlag = await storage.getRememberMeFlag();
+      if (mounted) {
+        setState(() => _rememberMe = rememberFlag);
+      }
+
+      if (!rememberFlag) {
+        _usernameController.text = '';
+        return;
+      }
+
+      final rememberedUser = await storage.getRememberedUsername();
+      if (rememberedUser != null && rememberedUser.isNotEmpty) {
+        if (mounted) {
+          setState(() => _usernameController.text = rememberedUser);
+        }
+        return;
+      }
+
+      if (_deviceId != 'unknown') {
+        final res =
+            await api.dio.post('/check-device', data: {'deviceId': _deviceId});
+        if (res.data != null &&
+            res.data['success'] == true &&
+            res.data['username'] != null) {
+          final resolved = res.data['username'].toString().trim();
+          if (mounted) {
+            setState(() => _usernameController.text = resolved);
+          }
+          await storage.setRememberedUsername(resolved);
+        }
+      }
+    } catch (_) {}
   }
 
   @override
@@ -46,36 +122,36 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
+    if (!_canLogin) return;
+
     final username = _usernameController.text.trim();
     final password = _passwordController.text;
 
-    if (username.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Harap isi username dan password'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
-      return;
-    }
+    setState(() => _loading = true);
 
-    setState(() => _isLoading = true);
-
-    final success = await ref.read(authProvider.notifier).login(username, password);
+    final success = await ref.read(authProvider.notifier).login(
+      username,
+      password,
+      deviceId: _deviceId,
+      versiApp: _versiAppShort,
+    );
 
     if (mounted) {
-      setState(() => _isLoading = false);
+      setState(() => _loading = false);
 
       if (success) {
         final storage = ref.read(tokenStorageProvider);
+        await storage.setRememberMeFlag(_rememberMe);
         if (_rememberMe) {
-          await storage.saveRememberMe(username: username, password: password);
+          await storage.setRememberedUsername(username);
         } else {
-          await storage.clearRememberMe();
+          await storage.clearRememberedUsername();
         }
+
         if (mounted) context.go('/');
       } else {
-        final err = ref.read(authProvider).errorMessage ?? 'Login gagal. Periksa kembali akun Anda.';
+        final err = ref.read(authProvider).errorMessage ??
+            'Login gagal. Periksa kembali akun Anda.';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(err),
@@ -88,239 +164,396 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final versionState = ref.watch(versionProvider);
-
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppColors.bgTop, AppColors.bgBottom],
-          ),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: ResponsiveContainer(
-                maxWidth: 440,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
+      backgroundColor: const Color(0xFFF7F9FF),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: ResponsiveContainer(
+              maxWidth: 420,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 20),
 
-                    // Gradient Logo / Header Text
-                    ShaderMask(
+                  // HEADER LOGO Teks Gradient persis Screenshot Image 1
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 32),
+                    child: ShaderMask(
                       shaderCallback: (bounds) => const LinearGradient(
-                        colors: [AppColors.primary, AppColors.accent],
+                        colors: [Color(0xFF4F46E5), Color(0xFF00B4D8)],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
                       ).createShader(bounds),
                       child: const Text(
                         'PlanToday',
                         style: TextStyle(
-                          fontSize: 38,
+                          fontSize: 46,
                           fontWeight: FontWeight.w900,
                           letterSpacing: -0.5,
                           color: Colors.white,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 28),
+                  ),
 
-                    // Form Card
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: AppColors.card,
-                        borderRadius: BorderRadius.circular(AppRadius.card),
-                        border: Border.all(color: AppColors.border),
-                        boxShadow: AppShadows.card,
+                  // FORM CARD persis Screenshot Image 1
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 22, vertical: 26),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(
+                        color: const Color.fromRGBO(15, 23, 42, 0.08),
+                        width: 1,
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const Text(
-                            'LOGIN',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              color: AppColors.ink,
-                              letterSpacing: 1.2,
-                            ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color.fromRGBO(15, 23, 42, 0.06),
+                          blurRadius: 24,
+                          offset: Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Title LOGIN
+                        const Text(
+                          'LOGIN',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF475569),
+                            letterSpacing: 0.8,
                           ),
-                          const SizedBox(height: 24),
+                        ),
+                        const SizedBox(height: 20),
 
-                          // Username
-                          const Text(
-                            'Username',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.ink,
+                        // Label USERNAME
+                        const Text(
+                          'USERNAME',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF64748B),
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+
+                        // Input Container USERNAME
+                        Container(
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: const Color.fromRGBO(15, 23, 42, 0.06),
                             ),
                           ),
-                          const SizedBox(height: 6),
-                          TextField(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          alignment: Alignment.centerLeft,
+                          child: TextField(
                             controller: _usernameController,
+                            enabled: !_loading,
                             textInputAction: TextInputAction.next,
-                            decoration: const InputDecoration(
-                              hintText: 'Masukkan username',
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Password
-                          const Text(
-                            'Password',
-                            style: TextStyle(
-                              fontSize: 13,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              color: Color(0xFF0F172A),
                               fontWeight: FontWeight.w700,
-                              color: AppColors.ink,
                             ),
-                          ),
-                          const SizedBox(height: 6),
-                          TextField(
-                            controller: _passwordController,
-                            obscureText: !_showPassword,
-                            textInputAction: TextInputAction.done,
-                            onSubmitted: (_) => _handleLogin(),
-                            decoration: InputDecoration(
-                              hintText: 'Masukkan password',
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _showPassword ? Icons.visibility : Icons.visibility_off,
-                                  color: AppColors.muted,
-                                  size: 20,
-                                ),
-                                onPressed: () {
-                                  setState(() => _showPassword = !_showPassword);
-                                },
+                            decoration: const InputDecoration(
+                              hintText: '...',
+                              hintStyle: TextStyle(
+                                color: Color(0xFF94A3B8),
+                                fontSize: 14,
                               ),
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Label PASSWORD
+                        const Text(
+                          'PASSWORD',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF64748B),
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+
+                        // Input Container PASSWORD
+                        Container(
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: const Color.fromRGBO(15, 23, 42, 0.06),
                             ),
                           ),
-                          const SizedBox(height: 12),
-
-                          // Remember Me Checkbox
-                          Row(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          alignment: Alignment.centerLeft,
+                          child: Row(
                             children: [
-                              Checkbox(
-                                value: _rememberMe,
-                                activeColor: AppColors.primary,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(4),
+                              Expanded(
+                                child: TextField(
+                                  controller: _passwordController,
+                                  obscureText: !_showPass,
+                                  enabled: !_loading,
+                                  textInputAction: TextInputAction.done,
+                                  onSubmitted: (_) => _handleLogin(),
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    color: Color(0xFF0F172A),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    hintText: '***',
+                                    hintStyle: TextStyle(
+                                      color: Color(0xFF94A3B8),
+                                      fontSize: 14,
+                                    ),
+                                    border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                  onChanged: (_) => setState(() {}),
                                 ),
-                                onChanged: (val) {
-                                  setState(() => _rememberMe = val ?? false);
-                                },
                               ),
                               GestureDetector(
-                                onTap: () => setState(() => _rememberMe = !_rememberMe),
-                                child: const Text(
-                                  'Remember Me',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: AppColors.muted,
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                                behavior: HitTestBehavior.opaque,
+                                onTap: () =>
+                                    setState(() => _showPass = !_showPass),
+                                child: Icon(
+                                  _showPass
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                  size: 20,
+                                  color: const Color(0xFF64748B),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 16),
+                        ),
+                        const SizedBox(height: 14),
 
-                          // Gradient Login Button
-                          Container(
+                        // Remember Me Checkbox
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: _loading
+                              ? null
+                              : () => setState(
+                                  () => _rememberMe = !_rememberMe),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 18,
+                                  height: 18,
+                                  decoration: BoxDecoration(
+                                    color: _rememberMe
+                                        ? const Color(0xFF4F46E5)
+                                        : Colors.white,
+                                    borderRadius: BorderRadius.circular(5),
+                                    border: Border.all(
+                                      color: _rememberMe
+                                          ? const Color(0xFF4F46E5)
+                                          : const Color(0xFF94A3B8),
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: _rememberMe
+                                      ? const Icon(
+                                          Icons.check,
+                                          size: 13,
+                                          color: Colors.white,
+                                        )
+                                      : null,
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Remember Me',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFF475569),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+
+                        // Tombol Login Gradient
+                        Opacity(
+                          opacity: _canLogin ? 1.0 : 0.65,
+                          child: Container(
+                            height: 48,
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
-                                colors: [AppColors.primary, AppColors.accent],
+                                colors: [Color(0xFF6366F1), Color(0xFF38BDF8)],
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
                               ),
-                              borderRadius: BorderRadius.circular(AppRadius.medium),
+                              borderRadius: BorderRadius.circular(14),
                             ),
-                            child: ElevatedButton(
-                              onPressed: _isLoading ? null : _handleLogin,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.transparent,
-                                shadowColor: Colors.transparent,
-                                minimumSize: const Size(double.infinity, 48),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(AppRadius.medium),
-                                ),
-                              ),
-                              child: _isLoading
-                                  ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Text(
-                                      'Login',
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w900,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-
-                          // Footer Link ke Register
-                          GestureDetector(
-                            onTap: () => context.push('/register'),
-                            child: const Center(
-                              child: Text.rich(
-                                TextSpan(
-                                  text: 'Belum punya akun? ',
-                                  style: TextStyle(fontSize: 13, color: AppColors.muted),
-                                  children: [
-                                    TextSpan(
-                                      text: 'Register',
-                                      style: TextStyle(
-                                        color: AppColors.primary,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                  ],
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: _canLogin ? _handleLogin : null,
+                                borderRadius: BorderRadius.circular(14),
+                                child: Center(
+                                  child: _loading
+                                      ? const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Text(
+                                          'Login',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w800,
+                                            color: Colors.white,
+                                            letterSpacing: 0.2,
+                                          ),
+                                        ),
                                 ),
                               ),
                             ),
                           ),
+                        ),
+                        const SizedBox(height: 20),
 
-                          // Versi Aplikasi & Status Update (seperti di React Native loginScreen.tsx)
-                          const SizedBox(height: 18),
-                          Text(
-                            'Versi ${versionState.currentVersion}',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.muted.withValues(alpha: 0.8),
+                        // Link Footer Register
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: _loading
+                              ? null
+                              : () => context.push('/register'),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 4),
+                            child: Text.rich(
+                              TextSpan(
+                                text: 'Belum punya akun? ',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Color(0xFF64748B),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                children: [
+                                  TextSpan(
+                                    text: 'Register',
+                                    style: TextStyle(
+                                      color: Color(0xFF0F172A),
+                                      fontWeight: FontWeight.w800,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              textAlign: TextAlign.center,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            versionState.isChecking
-                                ? 'Memeriksa pembaruan aplikasi...'
-                                : versionState.hasUpdate
-                                    ? 'Update tersedia • Versi terbaru ${versionState.latestVersion}'
-                                    : 'Aplikasi sudah versi terbaru',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: versionState.hasUpdate
-                                  ? AppColors.warning
-                                  : AppColors.muted,
+                        ),
+                        const SizedBox(height: 18),
+
+                        // Catatan Versi & Status
+                        Text(
+                          _appVersion,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w500,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _updateStatusText,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF475569),
+                            fontWeight: FontWeight.w500,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        if (kIsWeb) ...[
+                          const SizedBox(height: 14),
+                          Center(
+                            child: Material(
+                              color: const Color(0xFFEEF2FF),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                                side: const BorderSide(
+                                  color: Color(0xFFE0E7FF),
+                                  width: 1,
+                                ),
+                              ),
+                              child: InkWell(
+                                onTap: () => showShortcutGuide(context),
+                                borderRadius: BorderRadius.circular(20),
+                                hoverColor: const Color(0xFFE0E7FF).withValues(alpha: 0.6),
+                                splashColor: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.devices_rounded,
+                                        size: 15,
+                                        color: Color(0xFF4F46E5),
+                                      ),
+                                      SizedBox(width: 7),
+                                      Text(
+                                        'Cara Buat Pintasan di HP / PC',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          color: Color(0xFF4338CA),
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 0.1,
+                                        ),
+                                      ),
+                                      SizedBox(width: 4),
+                                      Icon(
+                                        Icons.chevron_right_rounded,
+                                        size: 15,
+                                        color: Color(0xFF6366F1),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ],
-                      ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),

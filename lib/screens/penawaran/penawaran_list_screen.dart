@@ -199,6 +199,16 @@ class _PenawaranListScreenState extends ConsumerState<PenawaranListScreen> {
           ],
         ),
       ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: AppColors.primary,
+        onPressed: () async {
+          final refresh = await context.push<bool>('/penawaran/create');
+          if (refresh == true) {
+            _fetchPenawaran();
+          }
+        },
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
     );
   }
 }

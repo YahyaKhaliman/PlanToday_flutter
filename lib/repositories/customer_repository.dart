@@ -16,7 +16,7 @@ class CustomerRepository {
 
   Future<List<CustomerModel>> getRekapCalonCustomer() async {
     try {
-      final response = await _api.dio.get('/rekap-calon-customer');
+      final response = await _api.dio.get(ApiConfig.rekapCalonCustomer);
       final data = response.data;
       if (data != null && data['data'] is List) {
         return (data['data'] as List)
@@ -56,6 +56,31 @@ class CustomerRepository {
       return response.data != null && response.data['success'] == true;
     } catch (_) {
       return false;
+    }
+  }
+
+  Future<bool> updateCalonCustomer(String ccKode, CustomerModel customer) async {
+    final payload = customer.toJson();
+
+    try {
+      final response = await _api.dio.put('/update-customer/$ccKode', data: payload);
+      return response.data != null && response.data['success'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<String?> getRekapCalonCustomerWA(String? keyword) async {
+    try {
+      final response = await _api.dio.get(
+        '/rekap-calon-customer/wa',
+        queryParameters: {
+          if (keyword != null && keyword.trim().isNotEmpty) 'cc_nama': keyword.trim(),
+        },
+      );
+      return response.data?['wa_text']?.toString();
+    } catch (_) {
+      return null;
     }
   }
 }

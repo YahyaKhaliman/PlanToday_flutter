@@ -1,8 +1,8 @@
-name: PlanToday
+name: plantoday_flutter
 description: "PlanToday - Sales Management"
 publish_to: "none"
 
-version: 1.0.4+4 # Naikkan setiap kali ada update
+version: 1.0.5+5 # Naikkan setiap kali ada update
 
 environment:
     sdk: ^3.12.1
@@ -21,6 +21,7 @@ dependencies:
     image_picker: ^1.2.4
     package_info_plus: ^10.2.2
     url_launcher: ^6.3.3
+    device_info_plus: ^13.3.0
 
 dev_dependencies:
     flutter_test:

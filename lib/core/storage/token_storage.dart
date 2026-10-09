@@ -8,6 +8,8 @@ import '../../models/user_model.dart';
 class TokenStorage {
   static const _tokenKey = StorageKeys.token;
   static const _userKey = StorageKeys.userData;
+  static const _rememberMeFlagKey = 'remember_me_flag';
+  static const _rememberedUsernameKey = 'remembered_username';
   static const _rememberMeKey = StorageKeys.rememberMe;
 
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
@@ -89,7 +91,33 @@ class TokenStorage {
     await prefs.remove(_userKey);
   }
 
-  // Remember Me Storage
+  // Remember Me Persistence sesuai React Native rememberMeStorage.tsx
+  Future<void> setRememberMeFlag(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_rememberMeFlagKey, value);
+  }
+
+  Future<bool> getRememberMeFlag() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_rememberMeFlagKey) ?? false;
+  }
+
+  Future<void> setRememberedUsername(String username) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_rememberedUsernameKey, username);
+  }
+
+  Future<String?> getRememberedUsername() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_rememberedUsernameKey);
+  }
+
+  Future<void> clearRememberedUsername() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_rememberedUsernameKey);
+  }
+
+  // Legacy helper
   Future<void> saveRememberMe({required String username, required String password}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_rememberMeKey, jsonEncode({'username': username, 'password': password}));

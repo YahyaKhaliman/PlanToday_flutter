@@ -210,7 +210,7 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppColors.primary,
         onPressed: () async {
-          final refresh = await context.push<bool>('/visit/tambah');
+          final refresh = await context.push<bool>('/visit-plan/tambah');
           if (refresh == true) {
             _fetchPlans();
           }
@@ -231,6 +231,9 @@ class _PlanCard extends StatelessWidget {
     final isDone = plan.realisasi == 'Y';
 
     return AppCard(
+      onTap: () {
+        context.push('/visit-plan/edit', extra: plan);
+      },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -174,6 +174,16 @@ class _PermintaanHargaListScreenState
         ],
       ),
     ),
+    floatingActionButton: FloatingActionButton(
+      backgroundColor: AppColors.primary,
+      onPressed: () async {
+        final refresh = await context.push<bool>('/permintaan-harga/kalkulasi');
+        if (refresh == true) {
+          _fetchList();
+        }
+      },
+      child: const Icon(Icons.add, color: Colors.white),
+    ),
   );
 }
 }

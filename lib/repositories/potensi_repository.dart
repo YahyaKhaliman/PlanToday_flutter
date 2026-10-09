@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/network/api_client.dart';
+import '../models/potensi_kandidat_model.dart';
 import '../models/potensi_model.dart';
 import '../providers/auth_provider.dart';
 
@@ -86,6 +87,47 @@ class PotensiRepository {
       final response = await _api.dio.post(
         '/potensi/$nomor/batal',
         data: {'alasan': alasan},
+      );
+      return response.data != null && response.data['success'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<List<PotensiKandidatItem>> getPotensiKandidatList({
+    String? sales,
+    String? search,
+    String sumber = 'ALL',
+  }) async {
+    try {
+      final queryParams = <String, dynamic>{
+        'sumber': sumber,
+      };
+      if (sales != null && sales.isNotEmpty) queryParams['sales'] = sales;
+      if (search != null && search.isNotEmpty) queryParams['search'] = search;
+
+      final response = await _api.dio.get(
+        '/potensi/kandidat',
+        queryParameters: queryParams,
+      );
+
+      final data = response.data;
+      if (data != null && data['data'] is List) {
+        return (data['data'] as List)
+            .map((item) => PotensiKandidatItem.fromJson(item as Map<String, dynamic>))
+            .toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<bool> createPotensiBatch(List<Map<String, dynamic>> items) async {
+    try {
+      final response = await _api.dio.post(
+        '/potensi',
+        data: {'items': items},
       );
       return response.data != null && response.data['success'] == true;
     } catch (_) {

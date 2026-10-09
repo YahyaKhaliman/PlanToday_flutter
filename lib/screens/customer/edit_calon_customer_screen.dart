@@ -4,40 +4,62 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../models/customer_model.dart';
-import '../../providers/auth_provider.dart';
 import '../../repositories/customer_repository.dart';
 import '../../widgets/ui/app_button.dart';
 import '../../widgets/ui/app_card.dart';
 
-class TambahCalonCustomerScreen extends ConsumerStatefulWidget {
-  const TambahCalonCustomerScreen({super.key});
+class EditCalonCustomerScreen extends ConsumerStatefulWidget {
+  final CustomerModel customer;
+
+  const EditCalonCustomerScreen({super.key, required this.customer});
 
   @override
-  ConsumerState<TambahCalonCustomerScreen> createState() =>
-      _TambahCalonCustomerScreenState();
+  ConsumerState<EditCalonCustomerScreen> createState() =>
+      _EditCalonCustomerScreenState();
 }
 
-class _TambahCalonCustomerScreenState
-    extends ConsumerState<TambahCalonCustomerScreen> {
+class _EditCalonCustomerScreenState
+    extends ConsumerState<EditCalonCustomerScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  final _namaController = TextEditingController();
-  final _alamatController = TextEditingController();
-  final _kotaController = TextEditingController();
-  final _telpController = TextEditingController();
-  final _cpController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _jenisUsahaController = TextEditingController();
-  final _npwpController = TextEditingController();
-  final _namaNpwpController = TextEditingController();
-  final _alamatNpwpController = TextEditingController();
-  final _kotaNpwpController = TextEditingController();
+  late final TextEditingController _kodeController;
+  late final TextEditingController _namaController;
+  late final TextEditingController _alamatController;
+  late final TextEditingController _kotaController;
+  late final TextEditingController _telpController;
+  late final TextEditingController _cpController;
+  late final TextEditingController _emailController;
+  late final TextEditingController _jenisUsahaController;
+  late final TextEditingController _npwpController;
+  late final TextEditingController _namaNpwpController;
+  late final TextEditingController _alamatNpwpController;
+  late final TextEditingController _kotaNpwpController;
 
-  String _korporasi = 'N';
+  late String _korporasi;
   bool _isLoading = false;
 
   @override
+  void initState() {
+    super.initState();
+    final c = widget.customer;
+    _kodeController = TextEditingController(text: c.kode);
+    _namaController = TextEditingController(text: c.nama);
+    _alamatController = TextEditingController(text: c.alamat);
+    _kotaController = TextEditingController(text: c.kota);
+    _telpController = TextEditingController(text: c.telp);
+    _cpController = TextEditingController(text: c.cp);
+    _emailController = TextEditingController(text: c.email);
+    _jenisUsahaController = TextEditingController(text: c.jenisUsaha);
+    _npwpController = TextEditingController(text: c.npwp);
+    _namaNpwpController = TextEditingController(text: c.namaNpwp);
+    _alamatNpwpController = TextEditingController(text: c.alamatNpwp);
+    _kotaNpwpController = TextEditingController(text: c.kotaNpwp);
+    _korporasi = c.korporasi;
+  }
+
+  @override
   void dispose() {
+    _kodeController.dispose();
     _namaController.dispose();
     _alamatController.dispose();
     _kotaController.dispose();
@@ -71,25 +93,12 @@ class _TambahCalonCustomerScreenState
       return;
     }
 
-    if (_korporasi == 'Y' &&
-        (_jenisUsahaController.text.trim().isEmpty ||
-            _npwpController.text.trim().isEmpty)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Jenis Usaha dan NPWP wajib diisi untuk Korporasi'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
-      return;
-    }
-
     setState(() => _isLoading = true);
 
-    final user = ref.read(authProvider).user;
     final repo = ref.read(customerRepositoryProvider);
-
-    final customer = CustomerModel(
-      kode: '',
+    final updatedCustomer = CustomerModel(
+      id: widget.customer.id,
+      kode: widget.customer.kode,
       nama: _namaController.text.trim(),
       alamat: _alamatController.text.trim(),
       kota: _kotaController.text.trim(),
@@ -104,9 +113,9 @@ class _TambahCalonCustomerScreenState
       kotaNpwp: _kotaNpwpController.text.trim(),
     );
 
-    final success = await repo.createCalonCustomer(
-      customer,
-      user?.nama ?? 'User',
+    final success = await repo.updateCalonCustomer(
+      widget.customer.kode,
+      updatedCustomer,
     );
 
     if (mounted) {
@@ -115,7 +124,7 @@ class _TambahCalonCustomerScreenState
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Customer berhasil ditambahkan'),
+            content: Text('Data customer berhasil diperbarui'),
             backgroundColor: AppColors.success,
           ),
         );
@@ -123,7 +132,7 @@ class _TambahCalonCustomerScreenState
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Gagal menambahkan customer'),
+            content: Text('Gagal memperbarui data customer'),
             backgroundColor: AppColors.danger,
           ),
         );
@@ -137,7 +146,7 @@ class _TambahCalonCustomerScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tambah Calon Customer'),
+        title: const Text('Edit Customer'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -153,7 +162,7 @@ class _TambahCalonCustomerScreenState
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       const Text(
-                        'Informasi Utama',
+                        'Informasi Customer',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
@@ -161,6 +170,18 @@ class _TambahCalonCustomerScreenState
                         ),
                       ),
                       const SizedBox(height: 16),
+
+                      // Kode Customer (Read-only persis React Native)
+                      TextFormField(
+                        controller: _kodeController,
+                        readOnly: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Kode Customer',
+                          prefixIcon: Icon(Icons.qr_code, size: 20, color: AppColors.muted),
+                          filled: true,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
 
                       TextFormField(
                         controller: _namaController,
@@ -285,7 +306,7 @@ class _TambahCalonCustomerScreenState
                         TextFormField(
                           controller: _jenisUsahaController,
                           decoration: const InputDecoration(
-                            labelText: 'Jenis Usaha *',
+                            labelText: 'Jenis Usaha',
                             prefixIcon: Icon(Icons.storefront_outlined, size: 20, color: AppColors.muted),
                           ),
                         ),
@@ -294,7 +315,7 @@ class _TambahCalonCustomerScreenState
                         TextFormField(
                           controller: _npwpController,
                           decoration: const InputDecoration(
-                            labelText: 'Nomor NPWP *',
+                            labelText: 'Nomor NPWP',
                             prefixIcon: Icon(Icons.credit_card_outlined, size: 20, color: AppColors.muted),
                           ),
                         ),
@@ -332,7 +353,7 @@ class _TambahCalonCustomerScreenState
 
                 const SizedBox(height: 20),
                 AppButton(
-                  text: 'Simpan Customer',
+                  text: 'Simpan Perubahan',
                   isLoading: _isLoading,
                   onPressed: _submit,
                 ),

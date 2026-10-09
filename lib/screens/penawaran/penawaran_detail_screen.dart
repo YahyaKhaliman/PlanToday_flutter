@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/asset_constants.dart';
 import '../../core/theme/app_colors.dart';
@@ -120,6 +121,14 @@ class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
       appBar: AppBar(
         title: Text(widget.nomor),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.rule_folder_outlined, color: AppColors.primary),
+            tooltip: 'Status Item',
+            onPressed: () async {
+              await context.push('/penawaran/${widget.nomor}/status');
+              _fetchDetail();
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.check_circle_outline, color: AppColors.primary),
             tooltip: 'Approve',

@@ -67,12 +67,24 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
-  Future<bool> login(String username, String password) async {
+  Future<bool> login(
+    String username,
+    String password, {
+    String? deviceId,
+    String? versiApp,
+  }) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
+      final payload = <String, dynamic>{
+        'username': username,
+        'password': password,
+      };
+      if (deviceId != null) payload['deviceId'] = deviceId;
+      if (versiApp != null) payload['versiApp'] = versiApp;
+
       final response = await _api.dio.post(
         '/login',
-        data: {'username': username, 'password': password},
+        data: payload,
       );
 
       final data = response.data;

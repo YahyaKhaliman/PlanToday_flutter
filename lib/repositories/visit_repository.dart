@@ -61,8 +61,10 @@ class VisitRepository {
         'user': sales,
         'tanggal_awal': startDate,
         'tanggal_akhir': endDate,
-        if (isManager) 'is_manager': 'true',
       };
+      if (isManager) {
+        queryParams['is_manager'] = 'true';
+      }
       if (cabang.isNotEmpty) {
         queryParams['cabang'] = cabang;
       }
@@ -97,20 +99,19 @@ class VisitRepository {
     File? photo,
   }) async {
     try {
-      // 1. Backend homeController.js expects JSON body to POST /visits
       final payload = <String, dynamic>{
         'user': sales,
         'cus_kode': customerKode,
         'tanggal': tanggal,
         'note': note,
-        'latitude': ?latitude,
-        'longitude': ?longitude,
+        'catatan': catatan,
       };
+      if (latitude != null) payload['latitude'] = latitude;
+      if (longitude != null) payload['longitude'] = longitude;
 
       final response = await _api.dio.post(ApiConfig.visit, data: payload);
       final isSuccess = response.data != null && response.data['success'] == true;
 
-      // 2. Jika ada foto dan id kunjungan berhasil didapat, upload ke /visits/:id/photo
       final createdId = response.data?['data']?['id'] ?? response.data?['id'];
       if (isSuccess && photo != null && createdId != null) {
         try {
@@ -125,6 +126,86 @@ class VisitRepository {
       }
 
       return isSuccess;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> updateVisit({
+    required int id,
+    required String note,
+    required String catatan,
+    required String tanggal,
+    double? latitude,
+    double? longitude,
+    File? photo,
+  }) async {
+    try {
+      final payload = <String, dynamic>{
+        'note': note,
+        'catatan': catatan,
+        'tanggal': tanggal,
+      };
+      if (latitude != null) payload['latitude'] = latitude;
+      if (longitude != null) payload['longitude'] = longitude;
+
+      final response = await _api.dio.put('${ApiConfig.visit}/$id', data: payload);
+      final isSuccess = response.data != null && response.data['success'] == true;
+
+      if (isSuccess && photo != null) {
+        try {
+          final formData = FormData.fromMap({
+            'file': await MultipartFile.fromFile(
+              photo.path,
+              filename: photo.path.split(Platform.pathSeparator).last,
+            ),
+          });
+          await _api.dio.post('${ApiConfig.visit}/$id/photo', data: formData);
+        } catch (_) {}
+      }
+
+      return isSuccess;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> createVisitPlan({
+    required String cusKode,
+    required String user,
+    required String tanggalPlan,
+    required String note,
+  }) async {
+    try {
+      final payload = <String, dynamic>{
+        'cus_kode': cusKode,
+        'user': user,
+        'tanggal_plan': tanggalPlan,
+        'note': note,
+      };
+
+      final response = await _api.dio.post(ApiConfig.visitPlan, data: payload);
+      return response.data != null && response.data['success'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> updateVisitPlan({
+    required int id,
+    required String tanggalPlan,
+    required String note,
+    String? catatan,
+  }) async {
+    try {
+      final payload = <String, dynamic>{
+        'tanggal_plan': tanggalPlan,
+        'note': note,
+      };
+      if (catatan != null) payload['catatan'] = catatan;
+
+      final response = await _api.dio.put('${ApiConfig.visitPlan}/$id', data: payload);
+      return response.data != null && response.data['success'] == true;
     } catch (_) {
       return false;
     }

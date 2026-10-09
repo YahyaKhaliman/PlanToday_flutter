@@ -58,4 +58,21 @@ class PermintaanHargaRepository {
       return null;
     }
   }
+
+  Future<Map<String, dynamic>?> createPermintaanHargaCustomer(
+    Map<String, dynamic> payload,
+  ) async {
+    try {
+      final response = await _api.dio.post(
+        '/permintaan-harga/customer',
+        data: payload,
+      );
+      if (response.data != null && response.data['success'] == true) {
+        return (response.data['data'] as Map<String, dynamic>?) ?? payload;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
 }
