@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/constants/app_constants.dart';
 import '../core/network/api_client.dart';
@@ -61,6 +63,58 @@ class KurirRepository {
       return [];
     } catch (_) {
       return [];
+    }
+  }
+
+  Future<bool> createPengiriman(Map<String, dynamic> payload) async {
+    try {
+      final response = await _api.dio.post(
+        '/kurir/pengiriman',
+        data: payload,
+      );
+      return response.data != null && response.data['success'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> prosesPengiriman({
+    required int id,
+    required String catatan,
+    double? latitude,
+    double? longitude,
+    File? photo,
+  }) async {
+    try {
+      final payload = <String, dynamic>{
+        'status': 'delivered',
+        'catatan': catatan,
+      };
+      if (latitude != null) payload['latitude'] = latitude;
+      if (longitude != null) payload['longitude'] = longitude;
+
+      final resStatus = await _api.dio.patch(
+        '/kurir/pengiriman/$id/status',
+        data: payload,
+      );
+
+      final isSuccess = resStatus.data != null && resStatus.data['success'] == true;
+
+      if (isSuccess && photo != null) {
+        try {
+          final formData = FormData.fromMap({
+            'file': await MultipartFile.fromFile(
+              photo.path,
+              filename: photo.path.split(Platform.pathSeparator).last,
+            ),
+          });
+          await _api.dio.post('/kurir/pengiriman/$id/photo', data: formData);
+        } catch (_) {}
+      }
+
+      return isSuccess;
+    } catch (_) {
+      return false;
     }
   }
 }

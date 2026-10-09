@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import '../../core/theme/app_colors.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../models/achievement_model.dart';
 import '../../repositories/achievement_repository.dart';
@@ -82,182 +82,347 @@ class _AchievementDetailUserScreenState
     final isTargetMet = totalAch >= 100;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Detail: ${u.nama}'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _fetchMonthlyDetail,
-          ),
-        ],
-      ),
-      body: ResponsiveContainer(
-        maxWidth: 900,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+      backgroundColor: const Color(0xFFF7F9FF),
+      body: SafeArea(
+        child: ResponsiveContainer(
+          maxWidth: 900,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 1. HEADER USER SUMMARY CARD
-              AppCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              // 1. TOP HEADER ALA UI-STYLING
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Row(
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => context.pop(),
+                      child: Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: const Color.fromRGBO(15, 23, 42, 0.08),
+                          ),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color.fromRGBO(15, 23, 42, 0.03),
+                              blurRadius: 6,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.chevron_left_rounded,
+                          size: 26,
+                          color: Color(0xFF4F46E5),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Text(
                             u.nama,
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w900,
-                              color: AppColors.ink,
+                              color: Color(0xFF0F172A),
                               letterSpacing: -0.3,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                        AppBadge(
-                          label: '${totalAch.toStringAsFixed(1)}%',
-                          variant: isTargetMet ? BadgeVariant.success : BadgeVariant.primary,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${u.jabatan} • Kode: ${u.kode}',
-                      style: const TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        const Icon(Icons.calendar_today, size: 13, color: AppColors.primary),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Periode: $periodLabel',
-                          style: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w700),
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 20, color: AppColors.border),
-
-                    // Metrics Row
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Total Target', style: TextStyle(fontSize: 11, color: AppColors.muted, fontWeight: FontWeight.w600)),
-                            const SizedBox(height: 2),
-                            Text(
-                              currencyFormat.format(u.target),
-                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.ink),
-                            ),
-                          ],
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            const Text('Total Realisasi', style: TextStyle(fontSize: 11, color: AppColors.muted, fontWeight: FontWeight.w600)),
-                            const SizedBox(height: 2),
-                            Text(
-                              currencyFormat.format(u.realisasi),
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w900,
-                                color: isTargetMet ? AppColors.success : AppColors.ink,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // 2. SECTION TITLE BREAKDOWN BULANAN
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                child: Text(
-                  'Rincian Realisasi Bulanan',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.ink),
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // 3. MONTHLY BREAKDOWN LIST
-              if (_isLoading)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(32),
-                    child: CircularProgressIndicator(),
-                  ),
-                )
-              else if (_monthlyItems.isEmpty)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Text('Tidak ada rincian bulanan', style: TextStyle(color: AppColors.muted)),
-                  ),
-                )
-              else
-                ..._monthlyItems.map((m) {
-                  final achPct = m.ach;
-                  final isMet = achPct >= 100;
-                  Color barColor = AppColors.danger;
-                  if (achPct >= 80) {
-                    barColor = AppColors.success;
-                  } else if (achPct >= 50) {
-                    barColor = AppColors.warning;
-                  }
-
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    child: AppCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                m.bulan.isNotEmpty ? m.bulan : 'Bulan ${m.bulanNum} ${m.tahun}',
-                                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.ink),
-                              ),
-                              AppBadge(
-                                label: '${achPct.toStringAsFixed(1)}%',
-                                customColor: isMet ? AppColors.success : barColor,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('Target: ${currencyFormat.format(m.target)}', style: const TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w500)),
-                              Text('Realisasi: ${currencyFormat.format(m.realisasi)}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: isMet ? AppColors.success : AppColors.ink)),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-
-                          // Progress Indicator
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(99),
-                            child: LinearProgressIndicator(
-                              value: (achPct / 100).clamp(0.0, 1.0),
-                              backgroundColor: Colors.black12,
-                              valueColor: AlwaysStoppedAnimation<Color>(barColor),
-                              minHeight: 6,
+                          const SizedBox(height: 2),
+                          const Text(
+                            'Detail Realisasi Omset',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF64748B),
                             ),
                           ),
                         ],
                       ),
                     ),
-                  );
-                }),
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _fetchMonthlyDetail,
+                      child: Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: const Color.fromRGBO(15, 23, 42, 0.08),
+                          ),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color.fromRGBO(15, 23, 42, 0.03),
+                              blurRadius: 6,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.refresh_rounded,
+                          size: 20,
+                          color: Color(0xFF4F46E5),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // 2. KONTEN DETAIL
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // USER SUMMARY CARD
+                      AppCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    u.nama,
+                                    style: const TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w900,
+                                      color: Color(0xFF0F172A),
+                                      letterSpacing: -0.3,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                AppBadge(
+                                  label: '${totalAch.toStringAsFixed(1)}%',
+                                  variant: isTargetMet
+                                      ? BadgeVariant.success
+                                      : BadgeVariant.primary,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${u.jabatan} • Kode: ${u.kode}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.calendar_month_rounded,
+                                  size: 14,
+                                  color: Color(0xFF4F46E5),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Periode: $periodLabel',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF4F46E5),
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Divider(height: 20, color: Color(0xFFF1F5F9)),
+
+                            // Metrics Row
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Total Target',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Color(0xFF64748B),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      currencyFormat.format(u.target),
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w900,
+                                        color: Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    const Text(
+                                      'Total Realisasi',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Color(0xFF64748B),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      currencyFormat.format(u.realisasi),
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w900,
+                                        color: isTargetMet
+                                            ? const Color(0xFF10B981)
+                                            : const Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // SECTION TITLE BREAKDOWN BULANAN
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                        child: Text(
+                          'Rincian Realisasi Bulanan',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // MONTHLY BREAKDOWN LIST
+                      if (_isLoading)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(32),
+                            child: CircularProgressIndicator(
+                              color: Color(0xFF4F46E5),
+                            ),
+                          ),
+                        )
+                      else if (_monthlyItems.isEmpty)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(32),
+                            child: Text(
+                              'Tidak ada rincian bulanan.',
+                              style: TextStyle(color: Color(0xFF64748B)),
+                            ),
+                          ),
+                        )
+                      else
+                        ..._monthlyItems.map((m) {
+                          final achPct = m.ach;
+                          final isMet = achPct >= 100;
+                          Color barColor = const Color(0xFFEF4444);
+                          if (achPct >= 80) {
+                            barColor = const Color(0xFF10B981);
+                          } else if (achPct >= 50) {
+                            barColor = const Color(0xFFF59E0B);
+                          }
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            child: AppCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        m.bulan.isNotEmpty
+                                            ? m.bulan
+                                            : 'Bulan ${m.bulanNum} ${m.tahun}',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 14,
+                                          color: Color(0xFF0F172A),
+                                        ),
+                                      ),
+                                      AppBadge(
+                                        label: '${achPct.toStringAsFixed(1)}%',
+                                        customColor: isMet
+                                            ? const Color(0xFF10B981)
+                                            : barColor,
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'Target: ${currencyFormat.format(m.target)}',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF64748B),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Realisasi: ${currencyFormat.format(m.realisasi)}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w800,
+                                          color: isMet
+                                              ? const Color(0xFF10B981)
+                                              : const Color(0xFF0F172A),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+
+                                  // Progress Indicator Bar
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(99),
+                                    child: LinearProgressIndicator(
+                                      value: (achPct / 100).clamp(0.0, 1.0),
+                                      backgroundColor: const Color(0xFFE2E8F0),
+                                      valueColor:
+                                          AlwaysStoppedAnimation<Color>(barColor),
+                                      minHeight: 6,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         ),

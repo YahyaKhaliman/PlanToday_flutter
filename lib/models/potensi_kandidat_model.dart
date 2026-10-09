@@ -56,6 +56,8 @@ class PotensiKandidatItem {
       'pen_nomor': penNomor,
       'mspk_nomor': mspkNomor,
       'item_id': itemId,
+      'pend_id': itemId,
+      'pot_pend_id': itemId,
       'nama_item': namaItem,
       'harga': harga,
       'qty': qty,

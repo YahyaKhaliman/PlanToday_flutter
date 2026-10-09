@@ -115,241 +115,324 @@ class _PermintaanHargaFormScreenState
         NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Kalkulator Harga'),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+      backgroundColor: const Color(0xFFF7F9FF),
+      body: SafeArea(
         child: ResponsiveContainer(
           maxWidth: 600,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Identitas Pesanan
-              AppCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              // 1. TOP HEADER ALA UI-STYLING
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Row(
                   children: [
-                    const Text(
-                      'Data Pesanan',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.ink,
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => context.pop(),
+                      child: Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: const Color.fromRGBO(15, 23, 42, 0.08),
+                          ),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color.fromRGBO(15, 23, 42, 0.03),
+                              blurRadius: 6,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.chevron_left_rounded,
+                          size: 26,
+                          color: Color(0xFF4F46E5),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _customerNamaController,
-                      decoration:
-                          const InputDecoration(labelText: 'Nama Customer'),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _barangController,
-                      decoration: const InputDecoration(
-                          labelText: 'Nama Barang / Model'),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _qtyController,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                                labelText: 'Order Qty (pcs)'),
-                            onChanged: (_) => _recalculate(),
+                    Expanded(
+                      child: Column(
+                        children: const [
+                          Text(
+                            'Kalkulator Harga',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF0F172A),
+                              letterSpacing: -0.3,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            controller: _alokasiKotaController,
-                            decoration: const InputDecoration(
-                                labelText: 'Tujuan Kirim / Kota'),
-                            onChanged: (_) => _recalculate(),
+                          SizedBox(height: 2),
+                          Text(
+                            'Simulasi harga & estimasi ongkir otomatis',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF64748B),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: 42),
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
 
-              // Parameter Bordir & Desain
-              AppCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Spesifikasi Bordir',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Panjang: ${_bordirPanjang.toStringAsFixed(1)} cm',
-                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                          ),
-                        ),
-                        Slider(
-                          value: _bordirPanjang,
-                          min: 0,
-                          max: 30,
-                          activeColor: AppColors.primary,
-                          onChanged: (v) {
-                            setState(() => _bordirPanjang = v);
-                            _recalculate();
-                          },
-                        ),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Lebar: ${_bordirLebar.toStringAsFixed(1)} cm',
-                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                          ),
-                        ),
-                        Slider(
-                          value: _bordirLebar,
-                          min: 0,
-                          max: 30,
-                          activeColor: AppColors.primary,
-                          onChanged: (v) {
-                            setState(() => _bordirLebar = v);
-                            _recalculate();
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Margin & Allowance
-              AppCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Margin & Allowance',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Allowance: ${_allowancePct.toInt()}%', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                        Text('Laba: ${_labaPct.toInt()}%', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.primary)),
-                      ],
-                    ),
-                    Slider(
-                      value: _labaPct,
-                      min: 0,
-                      max: 50,
-                      divisions: 10,
-                      activeColor: AppColors.primary,
-                      onChanged: (v) {
-                        setState(() => _labaPct = v);
-                        _recalculate();
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Hasil Perhitungan Engine
-              if (_kalkulasiResult != null)
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppColors.primary, AppColors.accent],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(AppRadius.card),
-                    boxShadow: AppShadows.card,
-                  ),
+              // 2. FORM KONTEN
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Text(
-                        'HASIL KALKULASI HARGA (PER PCS)',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.0,
+                      // Identitas Pesanan
+                      AppCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Data Pesanan',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            TextField(
+                              controller: _customerNamaController,
+                              decoration: const InputDecoration(
+                                labelText: 'Nama Customer',
+                                prefixIcon: Icon(Icons.person_outline, size: 20),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: _barangController,
+                              decoration: const InputDecoration(
+                                labelText: 'Nama Barang / Model',
+                                prefixIcon: Icon(Icons.checkroom_outlined, size: 20),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: _qtyController,
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Order Qty (pcs)',
+                                      prefixIcon: Icon(Icons.numbers_outlined, size: 20),
+                                    ),
+                                    onChanged: (_) => _recalculate(),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _alokasiKotaController,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Tujuan Kirim / Kota',
+                                      prefixIcon: Icon(Icons.location_city_outlined, size: 20),
+                                    ),
+                                    onChanged: (_) => _recalculate(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 14),
-                      _ResultLine(
-                        label: 'Total HPP Murni:',
-                        value: currencyFormat
-                            .format(_kalkulasiResult!.hppMurni.round()),
+
+                      // Parameter Bordir & Desain
+                      AppCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Spesifikasi Bordir',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Panjang: ${_bordirPanjang.toStringAsFixed(1)} cm',
+                                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                                ),
+                                Text(
+                                  'Lebar: ${_bordirLebar.toStringAsFixed(1)} cm',
+                                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                                ),
+                              ],
+                            ),
+                            Slider(
+                              value: _bordirPanjang,
+                              min: 0,
+                              max: 30,
+                              activeColor: const Color(0xFF4F46E5),
+                              onChanged: (v) {
+                                setState(() => _bordirPanjang = v);
+                                _recalculate();
+                              },
+                            ),
+                            Slider(
+                              value: _bordirLebar,
+                              min: 0,
+                              max: 30,
+                              activeColor: const Color(0xFF00B4D8),
+                              onChanged: (v) {
+                                setState(() => _bordirLebar = v);
+                                _recalculate();
+                              },
+                            ),
+                          ],
+                        ),
                       ),
-                      _ResultLine(
-                        label: 'Harga Sesuai (Excl. PPN):',
-                        value: currencyFormat
-                            .format(_kalkulasiResult!.hargaSesuai),
+                      const SizedBox(height: 14),
+
+                      // Margin & Allowance
+                      AppCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Margin & Allowance',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Allowance: ${_allowancePct.toInt()}%',
+                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                ),
+                                Text(
+                                  'Laba: ${_labaPct.toInt()}%',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 13,
+                                    color: Color(0xFF4F46E5),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Slider(
+                              value: _labaPct,
+                              min: 0,
+                              max: 50,
+                              divisions: 10,
+                              activeColor: const Color(0xFF4F46E5),
+                              onChanged: (v) {
+                                setState(() => _labaPct = v);
+                                _recalculate();
+                              },
+                            ),
+                          ],
+                        ),
                       ),
-                      _ResultLine(
-                        label: 'Harga Rekomendasi (Inc. PPN):',
-                        value: currencyFormat
-                            .format(_kalkulasiResult!.hargaSesuaiPpn),
-                        isHighlight: true,
-                      ),
-                      if (_ongkirResult != null) ...[
-                        const Divider(color: Colors.white24, height: 20),
-                        Text(
-                          'Ongkir: ${_ongkirResult!.ringkasan}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                      const SizedBox(height: 16),
+
+                      // Hasil Perhitungan Engine Card
+                      if (_kalkulasiResult != null)
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF4F46E5), Color(0xFF00B4D8)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: AppShadows.card,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'HASIL KALKULASI HARGA (PER PCS)',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.0,
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              _ResultLine(
+                                label: 'Total HPP Murni:',
+                                value: currencyFormat
+                                    .format(_kalkulasiResult!.hppMurni.round()),
+                              ),
+                              _ResultLine(
+                                label: 'Harga Sesuai (Excl. PPN):',
+                                value: currencyFormat
+                                    .format(_kalkulasiResult!.hargaSesuai),
+                              ),
+                              _ResultLine(
+                                label: 'Harga Rekomendasi (Inc. PPN):',
+                                value: currencyFormat
+                                    .format(_kalkulasiResult!.hargaSesuaiPpn),
+                                isHighlight: true,
+                              ),
+                              if (_ongkirResult != null) ...[
+                                const Divider(color: Colors.white24, height: 20),
+                                Text(
+                                  'Ongkir: ${_ongkirResult!.ringkasan}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Ongkir / Pcs: ${currencyFormat.format(_ongkirResult!.ongkirPerPcs)}',
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
-                        Text(
-                          'Ongkir / Pcs: ${currencyFormat.format(_ongkirResult!.ongkirPerPcs)}',
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
+                      const SizedBox(height: 20),
+
+                      AppButton(
+                        text: 'Gunakan Harga Ini',
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Harga kalkulasi disimpan ke sistem'),
+                              backgroundColor: AppColors.success,
+                            ),
+                          );
+                          context.pop();
+                        },
+                      ),
+                      const SizedBox(height: 24),
                     ],
                   ),
                 ),
-              const SizedBox(height: 20),
-
-              AppButton(
-                text: 'Gunakan Harga Ini',
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Harga kalkulasi disimpan ke sistem'),
-                      backgroundColor: AppColors.success,
-                    ),
-                  );
-                  context.pop();
-                },
               ),
             ],
           ),
@@ -389,7 +472,7 @@ class _ResultLine extends StatelessWidget {
             value,
             style: TextStyle(
               color: Colors.white,
-              fontSize: isHighlight ? 17 : 13,
+              fontSize: isHighlight ? 16 : 13,
               fontWeight: FontWeight.w900,
             ),
           ),

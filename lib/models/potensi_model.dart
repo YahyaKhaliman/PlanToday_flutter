@@ -7,6 +7,9 @@ class PotensiListItem {
   final String status;
   final String? tanggal;
   final String? alasanBatal;
+  final String tipeSumber; // 'PENAWARAN' | 'MAP'
+  final String? nomorSumber; // pen_nomor atau mspk_nomor
+  final bool isRealisasi; // true jika sudah terbit SPK / SO
 
   const PotensiListItem({
     required this.nomor,
@@ -17,9 +20,29 @@ class PotensiListItem {
     this.status = 'OPEN',
     this.tanggal,
     this.alasanBatal,
+    this.tipeSumber = '',
+    this.nomorSumber,
+    this.isRealisasi = false,
   });
 
   factory PotensiListItem.fromJson(Map<String, dynamic> json) {
+    final rawIsRealisasi = json['is_realisasi'] ?? json['IsRealisasi'];
+    final bool isRealisasiBool = rawIsRealisasi == 1 ||
+        rawIsRealisasi == '1' ||
+        rawIsRealisasi == true;
+
+    final String sumber = json['tipe_sumber']?.toString() ??
+        json['sumber']?.toString() ??
+        json['Sumber']?.toString() ??
+        (json['pot_pen_nomor'] != null ? 'PENAWARAN' : 'MAP');
+
+    final String? noSumber = json['nomor_sumber']?.toString() ??
+        json['NomorSumber']?.toString() ??
+        json['pot_pen_nomor']?.toString() ??
+        json['pot_mspk_nomor']?.toString() ??
+        json['pen_nomor']?.toString() ??
+        json['mspk_nomor']?.toString();
+
     return PotensiListItem(
       nomor: json['pot_nomor']?.toString() ?? json['nomor']?.toString() ?? '',
       salesNama: json['sales_nama']?.toString() ?? json['sal_nama']?.toString() ?? '',
@@ -29,6 +52,9 @@ class PotensiListItem {
       status: json['status']?.toString() ?? json['pot_status']?.toString() ?? 'OPEN',
       tanggal: json['pot_tanggal']?.toString() ?? json['tanggal']?.toString(),
       alasanBatal: json['alasan_batal']?.toString() ?? json['pot_alasan_batal']?.toString(),
+      tipeSumber: sumber,
+      nomorSumber: noSumber,
+      isRealisasi: isRealisasiBool,
     );
   }
 }

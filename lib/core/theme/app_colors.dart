@@ -60,19 +60,38 @@ class AppRadius {
 }
 
 class AppShadows {
+  // Layered subtle shadow ala shadcn / Tailwind (elevation halus tanpa warna hitam pekat)
   static const List<BoxShadow> card = [
     BoxShadow(
-      color: Color(0x0F000000), // rgba(0,0,0,0.06)
-      blurRadius: 18,
-      offset: Offset(0, 10),
+      color: Color.fromRGBO(15, 23, 42, 0.03),
+      blurRadius: 4,
+      offset: Offset(0, 1),
+    ),
+    BoxShadow(
+      color: Color.fromRGBO(15, 23, 42, 0.05),
+      blurRadius: 16,
+      offset: Offset(0, 8),
     ),
   ];
 
   static const List<BoxShadow> softCard = [
     BoxShadow(
-      color: Color(0x0D000000), // rgba(0,0,0,0.05)
-      blurRadius: 14,
-      offset: Offset(0, 8),
+      color: Color.fromRGBO(15, 23, 42, 0.02),
+      blurRadius: 3,
+      offset: Offset(0, 1),
+    ),
+    BoxShadow(
+      color: Color.fromRGBO(15, 23, 42, 0.04),
+      blurRadius: 12,
+      offset: Offset(0, 6),
+    ),
+  ];
+
+  static const List<BoxShadow> button = [
+    BoxShadow(
+      color: Color.fromRGBO(79, 70, 229, 0.20),
+      blurRadius: 8,
+      offset: Offset(0, 3),
     ),
   ];
 }

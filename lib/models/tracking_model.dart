@@ -96,6 +96,7 @@ class TrackingSpkListItem {
   final String sales;
   final String namaBarang;
   final double qty;
+  final double realisasiTotal;
   final String status;
 
   const TrackingSpkListItem({
@@ -105,6 +106,7 @@ class TrackingSpkListItem {
     this.sales = '',
     this.namaBarang = '',
     this.qty = 0.0,
+    this.realisasiTotal = 0.0,
     this.status = '',
   });
 
@@ -139,6 +141,7 @@ class TrackingSpkListItem {
           json['mspk_nama']?.toString() ??
           '',
       qty: qty,
+      realisasiTotal: realisasi,
       status: computedStatus,
     );
   }

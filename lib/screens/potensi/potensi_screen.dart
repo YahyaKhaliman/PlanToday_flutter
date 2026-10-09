@@ -348,19 +348,43 @@ class _PotensiCard extends StatelessWidget {
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                item.nomor,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.primary,
-                  letterSpacing: -0.2,
+              Expanded(
+                child: Text(
+                  item.nomor,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.primary,
+                    letterSpacing: -0.2,
+                  ),
                 ),
               ),
-              AppBadge(
-                label: item.status,
-                customColor: badgeColor,
+              Wrap(
+                spacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (item.isRealisasi)
+                    const AppBadge(
+                      label: 'REALISASI',
+                      variant: BadgeVariant.success,
+                    ),
+                  if (item.tipeSumber.isNotEmpty)
+                    AppBadge(
+                      label: item.tipeSumber,
+                      variant: item.tipeSumber == 'PENAWARAN'
+                          ? BadgeVariant.primary
+                          : BadgeVariant.neutral,
+                      customColor: item.tipeSumber == 'MAP'
+                          ? const Color(0xFF0284C7)
+                          : null,
+                    ),
+                  AppBadge(
+                    label: item.status,
+                    customColor: badgeColor,
+                  ),
+                ],
               ),
             ],
           ),
@@ -377,7 +401,41 @@ class _PotensiCard extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               item.namaItem,
-              style: const TextStyle(fontSize: 13, color: AppColors.muted, fontWeight: FontWeight.w500),
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.ink,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+          if (item.nomorSumber != null && item.nomorSumber!.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              'Doc: ${item.nomorSumber}',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.muted,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+          if (item.status == 'BATAL' && (item.alasanBatal ?? '').isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.danger.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppColors.danger.withValues(alpha: 0.2)),
+              ),
+              child: Text(
+                'Alasan Batal: ${item.alasanBatal}',
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  color: AppColors.danger,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ],
           const Divider(height: 18, color: AppColors.border),
@@ -386,7 +444,11 @@ class _PotensiCard extends StatelessWidget {
             children: [
               Text(
                 'Sales: ${item.salesNama}',
-                style: const TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.muted,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               Text(
                 currencyFormat.format(item.harga),
@@ -409,7 +471,10 @@ class _PotensiCard extends StatelessWidget {
                   visualDensity: VisualDensity.compact,
                 ),
                 icon: const Icon(Icons.cancel_outlined, size: 16),
-                label: const Text('Batalkan', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                label: const Text(
+                  'Batalkan',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                ),
               ),
             ),
           ],

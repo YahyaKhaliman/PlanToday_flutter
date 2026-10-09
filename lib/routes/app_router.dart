@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../models/achievement_model.dart';
 import '../models/customer_model.dart';
+import '../models/kurir_model.dart';
 import '../models/visit_model.dart';
 import '../providers/auth_provider.dart';
 import '../screens/achievement/achievement_detail_user_screen.dart';
@@ -15,6 +16,8 @@ import '../screens/customer/tambah_calon_customer_screen.dart';
 import '../screens/home/ganti_password_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/kurir/kurir_menu_screen.dart';
+import '../screens/kurir/proses_pengiriman_screen.dart';
+import '../screens/kurir/tambah_pengiriman_screen.dart';
 import '../screens/penawaran/penawaran_create_screen.dart';
 import '../screens/penawaran/penawaran_detail_screen.dart';
 import '../screens/penawaran/penawaran_list_screen.dart';
@@ -26,6 +29,7 @@ import '../screens/permintaan_harga/permintaan_harga_detail_screen.dart';
 import '../screens/permintaan_harga/permintaan_harga_form_screen.dart';
 import '../screens/permintaan_harga/permintaan_harga_list_screen.dart';
 import '../screens/permintaan_harga/tambah_customer_screen.dart';
+import '../screens/potensi/laporan_potensi_screen.dart';
 import '../screens/potensi/potensi_screen.dart';
 import '../screens/visit/edit_visit_plan_screen.dart';
 import '../screens/visit/edit_visit_screen.dart';
@@ -235,6 +239,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'potensi',
         builder: (context, state) => const PotensiScreen(),
       ),
+      GoRoute(
+        path: '/laporan-potensi',
+        name: 'laporan-potensi',
+        builder: (context, state) => const LaporanPotensiScreen(),
+      ),
 
       // Modul Achievement
       GoRoute(
@@ -264,6 +273,21 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/kurir',
         name: 'kurir',
         builder: (context, state) => const KurirMenuScreen(),
+        routes: [
+          GoRoute(
+            path: 'tambah',
+            name: 'tambah-pengiriman',
+            builder: (context, state) => const TambahPengirimanScreen(),
+          ),
+          GoRoute(
+            path: 'proses',
+            name: 'proses-pengiriman',
+            builder: (context, state) {
+              final item = state.extra as KurirRencanaItem;
+              return ProsesPengirimanScreen(item: item);
+            },
+          ),
+        ],
       ),
 
       // Ganti Password

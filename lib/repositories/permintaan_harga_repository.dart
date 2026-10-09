@@ -75,4 +75,30 @@ class PermintaanHargaRepository {
       return null;
     }
   }
+
+  Future<Map<String, int>> getStatusCounts({
+    String? startDate,
+    String? endDate,
+  }) async {
+    try {
+      final queryParams = <String, dynamic>{};
+      if (startDate != null) queryParams['startDate'] = startDate;
+      if (endDate != null) queryParams['endDate'] = endDate;
+      final response = await _api.dio.get(
+        '/permintaan-harga/status-counts',
+        queryParameters: queryParams,
+      );
+      final data = response.data;
+      if (data != null && data['data'] is Map) {
+        final map = <String, int>{};
+        (data['data'] as Map).forEach((k, v) {
+          map[k.toString().toUpperCase()] = (v as num?)?.toInt() ?? 0;
+        });
+        return map;
+      }
+      return {};
+    } catch (_) {
+      return {};
+    }
+  }
 }

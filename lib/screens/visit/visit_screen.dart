@@ -8,6 +8,7 @@ import '../../core/utils/responsive_helper.dart';
 import '../../models/visit_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/visit_repository.dart';
+import '../../widgets/app_date_range_picker_modal.dart';
 import '../../widgets/ui/app_badge.dart';
 import '../../widgets/ui/app_card.dart';
 
@@ -60,11 +61,10 @@ class _VisitScreenState extends ConsumerState<VisitScreen> {
   }
 
   Future<void> _selectDateRange() async {
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-      initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
+    final picked = await showAppDateRangePicker(
+      context,
+      initialStartDate: _startDate,
+      initialEndDate: _endDate,
     );
 
     if (picked != null) {
@@ -101,136 +101,245 @@ class _VisitScreenState extends ConsumerState<VisitScreen> {
     }).toList();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Rekap Visit'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.date_range),
-            onPressed: _selectDateRange,
-            tooltip: 'Filter Tanggal',
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _fetchVisits,
-            tooltip: 'Refresh Data',
-          ),
-        ],
-      ),
-      body: ResponsiveContainer(
-        maxWidth: 1000,
-        child: Column(
-          children: [
-            // Filter Range Banner & Status Chips
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.06),
-                border: const Border(bottom: BorderSide(color: AppColors.border)),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      InkWell(
-                        onTap: _selectDateRange,
-                        child: Row(
-                          children: [
-                            const Icon(Icons.calendar_today, size: 16, color: AppColors.primary),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${dmyFormat.format(_startDate)} - ${dmyFormat.format(_endDate)}',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.primary,
-                              ),
+      backgroundColor: const Color(0xFFF7F9FF),
+      body: SafeArea(
+        child: ResponsiveContainer(
+          maxWidth: 1000,
+          child: Column(
+            children: [
+              // 1. TOP HEADER ALA UI-STYLING
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => context.pop(),
+                      child: Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: const Color.fromRGBO(15, 23, 42, 0.08),
+                          ),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color.fromRGBO(15, 23, 42, 0.03),
+                              blurRadius: 6,
+                              offset: Offset(0, 2),
                             ),
                           ],
                         ),
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.chevron_left_rounded,
+                          size: 26,
+                          color: Color(0xFF4F46E5),
+                        ),
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AppColors.card,
-                          borderRadius: BorderRadius.circular(AppRadius.small),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: Text(
-                          '${filteredVisits.length} Kunjungan',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.ink,
+                    ),
+                    Expanded(
+                      child: Column(
+                        children: const [
+                          Text(
+                            'Rekap Visit',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF0F172A),
+                              letterSpacing: -0.3,
+                            ),
                           ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Riwayat realisasi kunjungan sales',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _fetchVisits,
+                      child: Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: const Color.fromRGBO(15, 23, 42, 0.08),
+                          ),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color.fromRGBO(15, 23, 42, 0.03),
+                              blurRadius: 6,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
                         ),
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.refresh_rounded,
+                          size: 20,
+                          color: Color(0xFF4F46E5),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // 2. FILTER RANGE BANNER & STATUS CHIPS
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: const Color.fromRGBO(15, 23, 42, 0.08),
+                    ),
+                    boxShadow: AppShadows.softCard,
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: _selectDateRange,
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEEF2FF),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.calendar_month_rounded,
+                                    size: 16,
+                                    color: Color(0xFF4F46E5),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '${dmyFormat.format(_startDate)} - ${dmyFormat.format(_endDate)}',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF0F172A),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '${filteredVisits.length} Kunjungan',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: _statusOptions.map((st) {
+                          final isSelected = _selectedStatus == st;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8.0),
+                            child: ChoiceChip(
+                              label: Text(st),
+                              selected: isSelected,
+                              selectedColor: const Color(0xFF4F46E5),
+                              labelStyle: TextStyle(
+                                color: isSelected ? Colors.white : const Color(0xFF0F172A),
+                                fontWeight: FontWeight.w800,
+                                fontSize: 11,
+                              ),
+                              onSelected: (val) {
+                                if (val) setState(() => _selectedStatus = st);
+                              },
+                            ),
+                          );
+                        }).toList(),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  // Filter Status Chips (SEMUA, SELESAI, BELUM)
-                  Row(
-                    children: _statusOptions.map((st) {
-                      final isSelected = _selectedStatus == st;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8.0),
-                        child: ChoiceChip(
-                          label: Text(st),
-                          selected: isSelected,
-                          selectedColor: AppColors.primary,
-                          labelStyle: TextStyle(
-                            color: isSelected ? Colors.white : AppColors.ink,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 11,
-                          ),
-                          onSelected: (val) {
-                            if (val) setState(() => _selectedStatus = st);
-                          },
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
+                ),
               ),
-            ),
+              const SizedBox(height: 12),
 
-            // List Data
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : filteredVisits.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'Tidak ada data kunjungan pada periode ini',
-                            style: TextStyle(color: AppColors.muted),
-                          ),
-                        )
-                      : RefreshIndicator(
-                          onRefresh: _fetchVisits,
-                          child: ListView.separated(
-                            padding: const EdgeInsets.all(16),
-                            itemCount: filteredVisits.length,
-                            separatorBuilder: (ctx, i) => const SizedBox(height: 12),
-                            itemBuilder: (context, index) {
-                              final visit = filteredVisits[index];
-                              return _VisitCard(
-                                visit: visit,
-                                onWhatsApp: () => _launchWhatsApp(visit.note),
-                              );
-                            },
-                          ),
+              // 3. DAFTAR KARTU VISIT
+              Expanded(
+                child: _isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF4F46E5),
                         ),
-            ),
-          ],
+                      )
+                    : filteredVisits.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'Tidak ada data kunjungan pada periode ini.',
+                              style: TextStyle(
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          )
+                        : RefreshIndicator(
+                            color: const Color(0xFF4F46E5),
+                            onRefresh: _fetchVisits,
+                            child: ListView.separated(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 6,
+                              ),
+                              itemCount: filteredVisits.length,
+                              separatorBuilder: (ctx, i) =>
+                                  const SizedBox(height: 12),
+                              itemBuilder: (context, index) {
+                                final visit = filteredVisits[index];
+                                return _VisitCard(
+                                  visit: visit,
+                                  onWhatsApp: () => _launchWhatsApp(visit.note),
+                                );
+                              },
+                            ),
+                          ),
+              ),
+            ],
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: AppColors.primary,
+        backgroundColor: const Color(0xFF4F46E5),
         onPressed: () async {
           final refresh = await context.push<bool>('/visit/tambah');
-          if (refresh == true) {
-            _fetchVisits();
-          }
+          if (refresh == true) _fetchVisits();
         },
         child: const Icon(Icons.add, color: Colors.white),
       ),
@@ -249,6 +358,9 @@ class _VisitCard extends StatelessWidget {
     final isRealized = visit.realisasi == 'Y';
 
     return AppCard(
+      onTap: () {
+        context.push('/visit/edit', extra: visit);
+      },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -259,11 +371,13 @@ class _VisitCard extends StatelessWidget {
                 child: Text(
                   visit.cusNama,
                   style: const TextStyle(
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w900,
                     fontSize: 15,
-                    color: AppColors.ink,
+                    color: Color(0xFF0F172A),
                     letterSpacing: -0.2,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               AppBadge(
@@ -274,36 +388,76 @@ class _VisitCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           if (visit.cusAlamat.isNotEmpty)
-            Text(
-              visit.cusAlamat,
-              style: const TextStyle(fontSize: 13, color: AppColors.muted),
+            Row(
+              children: [
+                const Icon(
+                  Icons.place_rounded,
+                  size: 14,
+                  color: Color(0xFF00B4D8),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    visit.cusAlamat,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF64748B),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
           const SizedBox(height: 8),
           Row(
             children: [
-              const Icon(Icons.calendar_month, size: 14, color: AppColors.muted),
+              const Icon(
+                Icons.calendar_month_rounded,
+                size: 14,
+                color: Color(0xFF64748B),
+              ),
               const SizedBox(width: 4),
               Text(
                 visit.tanggal,
-                style: const TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF64748B),
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               if (visit.latitude != null && visit.longitude != null) ...[
-                const SizedBox(width: 16),
-                const Icon(Icons.pin_drop, size: 14, color: AppColors.primary),
-                const SizedBox(width: 4),
-                const Text(
-                  'GPS Tercatat',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w700,
+                const SizedBox(width: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF2FF),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: const Color(0xFF4F46E5).withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.pin_drop_rounded, size: 12, color: Color(0xFF4F46E5)),
+                      SizedBox(width: 3),
+                      Text(
+                        'GPS Tercatat',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          color: Color(0xFF4F46E5),
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ],
           ),
           if (visit.note.isNotEmpty) ...[
-            const Divider(height: 18, color: AppColors.border),
+            const Divider(height: 18, color: Color(0xFFF1F5F9)),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -313,22 +467,33 @@ class _VisitCard extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 12,
                       fontStyle: FontStyle.italic,
-                      color: AppColors.ink,
+                      color: Color(0xFF475569),
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 if (!isRealized)
-                  InkWell(
-                    onTap: () {
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(64, 30),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      backgroundColor: const Color(0xFF4F46E5),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    onPressed: () {
                       context.push('/visit/tambah');
                     },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(4),
+                    child: const Text(
+                      'Check In',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
                       ),
-                      child: const Text('Check In', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.primary)),
                     ),
                   ),
               ],

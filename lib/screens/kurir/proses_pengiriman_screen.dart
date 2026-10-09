@@ -4,36 +4,32 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/responsive_helper.dart';
-import '../../models/customer_model.dart';
-import '../../providers/auth_provider.dart';
-import '../../repositories/visit_repository.dart';
-import '../../widgets/customer_picker_modal.dart';
+import '../../models/kurir_model.dart';
+import '../../repositories/kurir_repository.dart';
 import '../../widgets/ui/app_button.dart';
 import '../../widgets/ui/app_card.dart';
 
-class TambahVisitScreen extends ConsumerStatefulWidget {
-  const TambahVisitScreen({super.key});
+class ProsesPengirimanScreen extends ConsumerStatefulWidget {
+  final KurirRencanaItem item;
+
+  const ProsesPengirimanScreen({super.key, required this.item});
 
   @override
-  ConsumerState<TambahVisitScreen> createState() => _TambahVisitScreenState();
+  ConsumerState<ProsesPengirimanScreen> createState() =>
+      _ProsesPengirimanScreenState();
 }
 
-class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
+class _ProsesPengirimanScreenState extends ConsumerState<ProsesPengirimanScreen> {
   final _formKey = GlobalKey<FormState>();
-
-  DateTime _selectedDate = DateTime.now();
-  CustomerModel? _selectedCustomer;
-  final _noteController = TextEditingController();
   final _catatanController = TextEditingController();
 
   double? _latitude;
   double? _longitude;
   bool _isGettingGps = false;
 
-  File? _imageFile;
+  File? _photoFile;
   final ImagePicker _picker = ImagePicker();
   bool _isLoading = false;
 
@@ -45,7 +41,6 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
 
   @override
   void dispose() {
-    _noteController.dispose();
     _catatanController.dispose();
     super.dispose();
   }
@@ -90,7 +85,7 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
         imageQuality: 75,
       );
       if (picked != null && mounted) {
-        setState(() => _imageFile = File(picked.path));
+        setState(() => _photoFile = File(picked.path));
       }
     } catch (_) {}
   }
@@ -120,7 +115,7 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
                 ),
               ),
               const Text(
-                'Ambil Foto Kunjungan',
+                'Ambil Bukti Penerimaan Barang',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
@@ -180,44 +175,28 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
     );
   }
 
-  Future<void> _selectCustomer() async {
-    final selected = await showCustomerPickerModal(context);
-    if (selected != null && mounted) {
-      setState(() => _selectedCustomer = selected);
-    }
-  }
-
   Future<void> _submit() async {
-    if (_selectedCustomer == null) {
+    if (!_formKey.currentState!.validate()) return;
+
+    if (_photoFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Harap pilih customer terlebih dahulu'),
+          content: Text('Foto bukti penerimaan barang wajib dilampirkan'),
           backgroundColor: AppColors.danger,
         ),
       );
       return;
     }
 
-    if (!_formKey.currentState!.validate()) return;
-
     setState(() => _isLoading = true);
 
-    final user = ref.read(authProvider).user;
-    final repo = ref.read(visitRepositoryProvider);
-
-    final ymd = DateFormat('yyyy-MM-dd').format(_selectedDate);
-
-    final success = await repo.createVisit(
-      tanggal: ymd,
-      customerKode: _selectedCustomer!.kode,
-      customerNama: _selectedCustomer!.nama,
-      note: _noteController.text.trim(),
+    final repo = ref.read(kurirRepositoryProvider);
+    final success = await repo.prosesPengiriman(
+      id: widget.item.id,
       catatan: _catatanController.text.trim(),
-      cabang: user?.cabang ?? '',
-      sales: user?.nama ?? '',
       latitude: _latitude,
       longitude: _longitude,
-      photo: _imageFile,
+      photo: _photoFile,
     );
 
     if (mounted) {
@@ -226,7 +205,7 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Laporan visit berhasil dikirim'),
+            content: Text('Pengiriman berhasil diselesaikan'),
             backgroundColor: AppColors.success,
           ),
         );
@@ -234,7 +213,7 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Gagal menyimpan visit'),
+            content: Text('Gagal memproses pengiriman. Periksa koneksi.'),
             backgroundColor: AppColors.danger,
           ),
         );
@@ -244,8 +223,6 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final dmyFormat = DateFormat('dd MMMM yyyy');
-
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FF),
       body: SafeArea(
@@ -290,7 +267,7 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
                       child: Column(
                         children: const [
                           Text(
-                            'Tambah Kunjungan (Visit)',
+                            'Proses Pengiriman',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w900,
@@ -300,7 +277,7 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
                           ),
                           SizedBox(height: 2),
                           Text(
-                            'Formulir check-in realisasi kunjungan sales',
+                            'Konfirmasi serah terima barang ke penerima',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
@@ -325,12 +302,76 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        // INFO PENERIMA CARD
+                        AppCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    widget.item.kodePengiriman,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w900,
+                                      color: Color(0xFF4F46E5),
+                                    ),
+                                  ),
+                                  Text(
+                                    '${widget.item.tanggalPlan} ${widget.item.jamPlan}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF64748B),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Tujuan: ${widget.item.receiver}',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              if (widget.item.sender.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Dari: ${widget.item.sender}',
+                                  style: const TextStyle(
+                                    fontSize: 12.5,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                              if (widget.item.note.isNotEmpty) ...[
+                                const Divider(
+                                    height: 18, color: Color(0xFFF1F5F9)),
+                                Text(
+                                  'Keterangan: ${widget.item.note}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontStyle: FontStyle.italic,
+                                    color: Color(0xFF475569),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+
+                        // FORM BUKTI SERAH TERIMA
                         AppCard(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               const Text(
-                                'Data Kunjungan',
+                                'Bukti Serah Terima Barang',
                                 style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w900,
@@ -339,121 +380,7 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
                               ),
                               const SizedBox(height: 14),
 
-                              // Pilih Customer
-                              const Text(
-                                'Customer *',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
-                                  color: Color(0xFF0F172A),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              InkWell(
-                                onTap: _selectCustomer,
-                                borderRadius: BorderRadius.circular(12),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF1F5F9),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: const Color.fromRGBO(15, 23, 42, 0.06),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          _selectedCustomer?.nama ??
-                                              'Ketuk untuk pilih customer...',
-                                          style: TextStyle(
-                                            color: _selectedCustomer != null
-                                                ? const Color(0xFF0F172A)
-                                                : const Color(0xFF64748B),
-                                            fontWeight: _selectedCustomer != null
-                                                ? FontWeight.w700
-                                                : FontWeight.w500,
-                                            fontSize: 13,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      const Icon(
-                                        Icons.arrow_drop_down_rounded,
-                                        color: Color(0xFF64748B),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-
-                              // Tanggal Kunjungan
-                              const Text(
-                                'Tanggal Kunjungan *',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
-                                  color: Color(0xFF0F172A),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              InkWell(
-                                onTap: () async {
-                                  final picked = await showDatePicker(
-                                    context: context,
-                                    initialDate: _selectedDate,
-                                    firstDate: DateTime(2020),
-                                    lastDate: DateTime(2030),
-                                  );
-                                  if (picked != null) {
-                                    setState(() => _selectedDate = picked);
-                                  }
-                                },
-                                borderRadius: BorderRadius.circular(12),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF1F5F9),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: const Color.fromRGBO(15, 23, 42, 0.06),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        dmyFormat.format(_selectedDate),
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 13,
-                                          color: Color(0xFF0F172A),
-                                        ),
-                                      ),
-                                      const Icon(
-                                        Icons.calendar_today_rounded,
-                                        size: 16,
-                                        color: Color(0xFF4F46E5),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-
-                              // Lokasi GPS Check-in Card
+                              // GPS Lokasi Card
                               Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
@@ -485,7 +412,7 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
                                             CrossAxisAlignment.start,
                                         children: [
                                           const Text(
-                                            'Koordinat GPS',
+                                            'Koordinat GPS Penyerahan',
                                             style: TextStyle(
                                               fontWeight: FontWeight.w800,
                                               fontSize: 12,
@@ -495,7 +422,7 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
                                           const SizedBox(height: 2),
                                           Text(
                                             _isGettingGps
-                                                ? 'Mendeteksi lokasi...'
+                                                ? 'Mendeteksi titik GPS...'
                                                 : (_latitude != null &&
                                                         _longitude != null
                                                     ? 'Lat: ${_latitude!.toStringAsFixed(5)}, Long: ${_longitude!.toStringAsFixed(5)}'
@@ -512,19 +439,22 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
                                       ),
                                     ),
                                     IconButton(
-                                      icon: const Icon(Icons.my_location_rounded,
-                                          size: 20, color: Color(0xFF4F46E5)),
+                                      icon: const Icon(
+                                        Icons.my_location_rounded,
+                                        size: 20,
+                                        color: Color(0xFF4F46E5),
+                                      ),
                                       onPressed: _fetchGpsLocation,
-                                      tooltip: 'Ambil Lokasi',
+                                      tooltip: 'Ambil Titik Lokasi',
                                     ),
                                   ],
                                 ),
                               ),
                               const SizedBox(height: 14),
 
-                              // Foto Dokumentasi
+                              // Foto Serah Terima
                               const Text(
-                                'Foto Dokumentasi Kunjungan',
+                                'Foto Bukti Serah Terima *',
                                 style: TextStyle(
                                   fontWeight: FontWeight.w700,
                                   fontSize: 13,
@@ -536,7 +466,7 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
                                 behavior: HitTestBehavior.opaque,
                                 onTap: _showImageSourceDialog,
                                 child: Container(
-                                  height: 140,
+                                  height: 150,
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFF1F5F9),
                                     borderRadius: BorderRadius.circular(14),
@@ -545,13 +475,14 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
                                     ),
                                   ),
                                   alignment: Alignment.center,
-                                  child: _imageFile != null
+                                  child: _photoFile != null
                                       ? ClipRRect(
-                                          borderRadius: BorderRadius.circular(14),
+                                          borderRadius:
+                                              BorderRadius.circular(14),
                                           child: Image.file(
-                                            _imageFile!,
+                                            _photoFile!,
                                             width: double.infinity,
-                                            height: 140,
+                                            height: 150,
                                             fit: BoxFit.cover,
                                           ),
                                         )
@@ -566,7 +497,7 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
                                             ),
                                             SizedBox(height: 6),
                                             Text(
-                                              'Ambil / Unggah Foto Bukti Kunjungan',
+                                              'Ambil Foto Bukti Penerimaan Barang',
                                               style: TextStyle(
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.w600,
@@ -579,9 +510,9 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
                               ),
                               const SizedBox(height: 14),
 
-                              // Hasil Kunjungan / Catatan
+                              // Catatan Penerimaan
                               const Text(
-                                'Hasil Kunjungan / Catatan *',
+                                'Nama Penerima / Catatan Serah Terima *',
                                 style: TextStyle(
                                   fontWeight: FontWeight.w700,
                                   fontSize: 13,
@@ -590,23 +521,23 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
                               ),
                               const SizedBox(height: 6),
                               TextFormField(
-                                controller: _noteController,
-                                maxLines: 3,
+                                controller: _catatanController,
+                                maxLines: 2,
                                 decoration: const InputDecoration(
                                   hintText:
-                                      'Contoh: Bertemu dengan PIC, membahas SPK...',
-                                  prefixIcon: Icon(Icons.notes_rounded, size: 20),
+                                      'Contoh: Diterima oleh Bpk. Budi (Security)...',
+                                  prefixIcon: Icon(Icons.badge_outlined, size: 20),
                                 ),
                                 validator: (v) =>
                                     (v == null || v.trim().isEmpty)
-                                        ? 'Hasil kunjungan wajib diisi'
+                                        ? 'Catatan / nama penerima wajib diisi'
                                         : null,
                               ),
                               const SizedBox(height: 20),
 
-                              // Tombol Simpan
+                              // Tombol Konfirmasi Selesai
                               AppButton(
-                                text: 'Kirim Laporan Visit',
+                                text: 'Selesaikan Pengiriman (Delivered)',
                                 isLoading: _isLoading,
                                 onPressed: _submit,
                               ),

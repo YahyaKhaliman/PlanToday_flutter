@@ -210,4 +210,51 @@ class VisitRepository {
       return false;
     }
   }
+
+  Future<String?> getRekapVisitPlanWA({
+    required String user,
+    required String cabang,
+    required String startDate,
+    required String endDate,
+  }) async {
+    try {
+      final response = await _api.dio.get(
+        '/rekap-visit-plan/wa',
+        queryParameters: {
+          'user': user,
+          'cabang': cabang,
+          'tanggal_awal': startDate,
+          'tanggal_akhir': endDate,
+        },
+      );
+      return response.data?['wa_text']?.toString() ??
+          response.data?['data']?.toString();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<String>> getSalesByCabang(String cabang) async {
+    try {
+      final response = await _api.dio.get(
+        '/karyawan',
+        queryParameters: {'cabang': cabang},
+      );
+      final raw = response.data?['data'] ?? response.data;
+      if (raw is List) {
+        final names = raw
+            .where((x) =>
+                x['kar_jabatan']?.toString().toUpperCase() == 'SALES')
+            .map((x) => x['kar_nama']?.toString().trim() ?? '')
+            .where((n) => n.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+        return names;
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
 }

@@ -102,4 +102,60 @@ class TrackingRepository {
       return [];
     }
   }
+
+  Future<Map<String, int>> getTrackingPenawaranStatusCounts({
+    String? startDate,
+    String? endDate,
+  }) async {
+    try {
+      final queryParams = <String, dynamic>{};
+      if (startDate != null) queryParams['startDate'] = startDate;
+      if (endDate != null) queryParams['endDate'] = endDate;
+
+      final response = await _api.dio.get(
+        '/tracking-penawaran/status-counts',
+        queryParameters: queryParams,
+      );
+
+      final data = response.data;
+      if (data != null && data['data'] is Map) {
+        final map = <String, int>{};
+        (data['data'] as Map).forEach((k, v) {
+          map[k.toString().toUpperCase()] = (v as num?)?.toInt() ?? 0;
+        });
+        return map;
+      }
+      return {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<Map<String, int>> getTrackingSpkStatusCounts({
+    String? startDate,
+    String? endDate,
+  }) async {
+    try {
+      final queryParams = <String, dynamic>{};
+      if (startDate != null) queryParams['startDate'] = startDate;
+      if (endDate != null) queryParams['endDate'] = endDate;
+
+      final response = await _api.dio.get(
+        '/tracking-spk/status-counts',
+        queryParameters: queryParams,
+      );
+
+      final data = response.data;
+      if (data != null && data['data'] is Map) {
+        final map = <String, int>{};
+        (data['data'] as Map).forEach((k, v) {
+          map[k.toString().toUpperCase()] = (v as num?)?.toInt() ?? 0;
+        });
+        return map;
+      }
+      return {};
+    } catch (_) {
+      return {};
+    }
+  }
 }

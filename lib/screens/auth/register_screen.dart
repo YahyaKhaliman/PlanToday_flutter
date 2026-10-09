@@ -354,13 +354,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         color: const Color.fromRGBO(15, 23, 42, 0.08),
                         width: 1,
                       ),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color.fromRGBO(15, 23, 42, 0.06),
-                          blurRadius: 24,
-                          offset: Offset(0, 12),
-                        ),
-                      ],
+                      boxShadow: AppShadows.card,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,

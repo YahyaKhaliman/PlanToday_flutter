@@ -95,22 +95,41 @@ class _PenawaranStatusScreenState extends ConsumerState<PenawaranStatusScreen> {
   }) {
     showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFCBD5E1),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
                   IconButton(
-                    icon: const Icon(Icons.close, color: AppColors.muted),
+                    icon: const Icon(Icons.close, color: Color(0xFF64748B)),
                     onPressed: () => Navigator.pop(ctx),
                   ),
                 ],
@@ -118,7 +137,14 @@ class _PenawaranStatusScreenState extends ConsumerState<PenawaranStatusScreen> {
               const Divider(height: 16),
               ...options.map((opt) {
                 return ListTile(
-                  title: Text(opt, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  title: Text(
+                    opt,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
                   onTap: () {
                     Navigator.pop(ctx);
                     onSelected(opt);
@@ -136,7 +162,9 @@ class _PenawaranStatusScreenState extends ConsumerState<PenawaranStatusScreen> {
     if (_approvalState == 'WAIT') {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Penawaran sedang dalam proses approval (WAIT). Perubahan status dikunci.'),
+          content: Text(
+            'Penawaran sedang dalam proses approval (WAIT). Perubahan status dikunci.',
+          ),
           backgroundColor: AppColors.warning,
         ),
       );
@@ -148,7 +176,9 @@ class _PenawaranStatusScreenState extends ConsumerState<PenawaranStatusScreen> {
       if (it.status == 'BATAL' && it.ketBatal.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Item dengan status BATAL wajib mengisi alasan pembatalan'),
+            content: Text(
+              'Item dengan status BATAL wajib mengisi alasan pembatalan',
+            ),
             backgroundColor: AppColors.danger,
           ),
         );
@@ -160,7 +190,8 @@ class _PenawaranStatusScreenState extends ConsumerState<PenawaranStatusScreen> {
 
     final repo = ref.read(penawaranRepositoryProvider);
     final payloadList = _updates.values.map((u) => u.toJson()).toList();
-    final success = await repo.updatePenawaranStatusDetail(widget.nomor, payloadList);
+    final success =
+        await repo.updatePenawaranStatusDetail(widget.nomor, payloadList);
 
     if (mounted) {
       setState(() => _isSubmitting = false);
@@ -189,196 +220,421 @@ class _PenawaranStatusScreenState extends ConsumerState<PenawaranStatusScreen> {
     final isLocked = _approvalState == 'WAIT';
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Status Item: ${widget.nomor}'),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ResponsiveContainer(
-              maxWidth: 800,
-              child: Column(
-                children: [
-                  if (isLocked)
-                    Container(
-                      margin: const EdgeInsets.all(16),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.warningBg,
-                        borderRadius: BorderRadius.circular(AppRadius.medium),
-                        border: Border.all(color: AppColors.warningBorder),
+      backgroundColor: const Color(0xFFF7F9FF),
+      body: SafeArea(
+        child: ResponsiveContainer(
+          maxWidth: 800,
+          child: Column(
+            children: [
+              // 1. TOP HEADER ALA UI-STYLING
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => context.pop(),
+                      child: Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: const Color.fromRGBO(15, 23, 42, 0.08),
+                          ),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color.fromRGBO(15, 23, 42, 0.03),
+                              blurRadius: 6,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.chevron_left_rounded,
+                          size: 26,
+                          color: Color(0xFF4F46E5),
+                        ),
                       ),
-                      child: const Row(
+                    ),
+                    Expanded(
+                      child: Column(
                         children: [
-                          Icon(Icons.lock_outline, color: AppColors.warningText, size: 20),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Penawaran sedang menunggu approval (WAIT). Perubahan status item dikunci.',
-                              style: TextStyle(color: AppColors.warningText, fontSize: 12, fontWeight: FontWeight.w700),
+                          Text(
+                            'Status Item: ${widget.nomor}',
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF0F172A),
+                              letterSpacing: -0.3,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'Pembaruan status realisasi item penawaran',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF64748B),
                             ),
                           ),
                         ],
                       ),
                     ),
-
-                  Expanded(
-                    child: _details.isEmpty
-                        ? const Center(child: Text('Tidak ada item barang', style: TextStyle(color: AppColors.muted)))
-                        : ListView.separated(
-                            padding: const EdgeInsets.all(16),
-                            itemCount: _details.length,
-                            separatorBuilder: (ctx, i) => const SizedBox(height: 12),
-                            itemBuilder: (context, index) {
-                              final item = _details[index];
-                              final update = _updates[item.id];
-                              final currentStatus = update?.status ?? 'OPEN';
-
-                              Color badgeColor = AppColors.primary;
-                              if (currentStatus == 'BATAL') badgeColor = AppColors.danger;
-                              if (currentStatus == 'CONFIRM') badgeColor = AppColors.success;
-                              if (currentStatus == 'CLOSE') badgeColor = AppColors.muted;
-
-                              return AppCard(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            item.namaBarang,
-                                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.ink),
-                                          ),
-                                        ),
-                                        Text('${item.qty.toInt()} ${item.satuan}', style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.muted)),
-                                      ],
-                                    ),
-                                    const Divider(height: 18, color: AppColors.border),
-
-                                    // Status Selector
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        const Text('Status Item:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.ink)),
-                                        InkWell(
-                                          onTap: isLocked
-                                              ? null
-                                              : () => _showOptionPicker(
-                                                    title: 'Ubah Status Item',
-                                                    options: _statusOptions,
-                                                    onSelected: (val) {
-                                                      setState(() {
-                                                        update?.status = val;
-                                                        if (val != 'BATAL') update?.ketBatal = '';
-                                                      });
-                                                    },
-                                                  ),
-                                          child: AppBadge(
-                                            label: currentStatus,
-                                            customColor: badgeColor,
-                                            icon: isLocked ? null : Icons.arrow_drop_down,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-
-                                    // Alasan Batal jika status BATAL
-                                    if (currentStatus == 'BATAL') ...[
-                                      const SizedBox(height: 10),
-                                      InkWell(
-                                        onTap: isLocked
-                                            ? null
-                                            : () => _showOptionPicker(
-                                                  title: 'Pilih Alasan Batal',
-                                                  options: _masterBatal.map((m) => m['nama'] ?? '').where((s) => s.isNotEmpty).toList(),
-                                                  onSelected: (val) {
-                                                    setState(() => update?.ketBatal = val);
-                                                  },
-                                                ),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                          decoration: BoxDecoration(
-                                            color: AppColors.danger.withValues(alpha: 0.06),
-                                            borderRadius: BorderRadius.circular(8),
-                                            border: Border.all(color: AppColors.danger.withValues(alpha: 0.3)),
-                                          ),
-                                          child: Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Text(
-                                                update?.ketBatal.isNotEmpty == true ? 'Alasan: ${update!.ketBatal}' : 'Pilih Alasan Batal *',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: update?.ketBatal.isNotEmpty == true ? AppColors.ink : AppColors.danger,
-                                                ),
-                                              ),
-                                              const Icon(Icons.arrow_drop_down, size: 18, color: AppColors.danger),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-
-                                    // Alasan Confirm jika status CONFIRM
-                                    if (currentStatus == 'CONFIRM') ...[
-                                      const SizedBox(height: 10),
-                                      InkWell(
-                                        onTap: isLocked
-                                            ? null
-                                            : () => _showOptionPicker(
-                                                  title: 'Pilih Jenis Konfirmasi',
-                                                  options: _masterConfirm.map((m) => m['nama'] ?? '').where((s) => s.isNotEmpty).toList(),
-                                                  onSelected: (val) {
-                                                    setState(() => update?.ketConfirm = val);
-                                                  },
-                                                ),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                          decoration: BoxDecoration(
-                                            color: AppColors.success.withValues(alpha: 0.06),
-                                            borderRadius: BorderRadius.circular(8),
-                                            border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
-                                          ),
-                                          child: Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Text(
-                                                update?.ketConfirm.isNotEmpty == true ? 'Konfirmasi: ${update!.ketConfirm}' : 'Pilih Konfirmasi',
-                                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.ink),
-                                              ),
-                                              const Icon(Icons.arrow_drop_down, size: 18, color: AppColors.success),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                  ),
-
-                  // Footer Simpan Button
-                  if (!isLocked)
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.card,
-                        border: const Border(top: BorderSide(color: AppColors.border)),
-                        boxShadow: AppShadows.card,
-                      ),
-                      child: AppButton(
-                        text: 'Simpan Perubahan Status',
-                        isLoading: _isSubmitting,
-                        onPressed: _submitUpdates,
-                      ),
-                    ),
-                ],
+                    const SizedBox(width: 42),
+                  ],
+                ),
               ),
-            ),
+              const SizedBox(height: 14),
+
+              // 2. KONTEN STATUS ITEM
+              Expanded(
+                child: _isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF4F46E5),
+                        ),
+                      )
+                    : Column(
+                        children: [
+                          if (isLocked)
+                            Container(
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 6,
+                              ),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFEF3C7),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: const Color(0xFFFCD34D),
+                                ),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(
+                                    Icons.lock_outline_rounded,
+                                    color: Color(0xFF92400E),
+                                    size: 20,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Penawaran sedang menunggu approval (WAIT). Perubahan status item dikunci.',
+                                      style: TextStyle(
+                                        color: Color(0xFF92400E),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          Expanded(
+                            child: _details.isEmpty
+                                ? const Center(
+                                    child: Text(
+                                      'Tidak ada item barang.',
+                                      style: TextStyle(
+                                          color: Color(0xFF64748B)),
+                                    ),
+                                  )
+                                : ListView.separated(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 6,
+                                    ),
+                                    itemCount: _details.length,
+                                    separatorBuilder: (ctx, i) =>
+                                        const SizedBox(height: 12),
+                                    itemBuilder: (context, index) {
+                                      final item = _details[index];
+                                      final update = _updates[item.id];
+                                      final currentStatus =
+                                          update?.status ?? 'OPEN';
+
+                                      Color badgeColor = const Color(0xFF4F46E5);
+                                      if (currentStatus == 'BATAL') {
+                                        badgeColor = const Color(0xFFEF4444);
+                                      }
+                                      if (currentStatus == 'CONFIRM') {
+                                        badgeColor = const Color(0xFF10B981);
+                                      }
+                                      if (currentStatus == 'CLOSE') {
+                                        badgeColor = const Color(0xFF64748B);
+                                      }
+
+                                      return AppCard(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.stretch,
+                                          children: [
+                                            Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    item.namaBarang,
+                                                    style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w900,
+                                                      fontSize: 15,
+                                                      color: Color(0xFF0F172A),
+                                                    ),
+                                                  ),
+                                                ),
+                                                Text(
+                                                  '${item.qty.toInt()} ${item.satuan}',
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.w600,
+                                                    color: Color(0xFF64748B),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const Divider(
+                                                height: 18,
+                                                color: Color(0xFFF1F5F9)),
+
+                                            // Status Selector
+                                            Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
+                                              children: [
+                                                const Text(
+                                                  'Status Item:',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w700,
+                                                    fontSize: 13,
+                                                    color: Color(0xFF0F172A),
+                                                  ),
+                                                ),
+                                                InkWell(
+                                                  onTap: isLocked
+                                                      ? null
+                                                      : () => _showOptionPicker(
+                                                            title:
+                                                                'Ubah Status Item',
+                                                            options:
+                                                                _statusOptions,
+                                                            onSelected: (val) {
+                                                              setState(() {
+                                                                update?.status =
+                                                                    val;
+                                                                if (val !=
+                                                                    'BATAL') {
+                                                                  update?.ketBatal =
+                                                                      '';
+                                                                }
+                                                              });
+                                                            },
+                                                          ),
+                                                  child: AppBadge(
+                                                    label: currentStatus,
+                                                    customColor: badgeColor,
+                                                    icon: isLocked
+                                                        ? null
+                                                        : Icons
+                                                            .arrow_drop_down_rounded,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+
+                                            // Alasan Batal jika status BATAL
+                                            if (currentStatus == 'BATAL') ...[
+                                              const SizedBox(height: 10),
+                                              InkWell(
+                                                onTap: isLocked
+                                                    ? null
+                                                    : () => _showOptionPicker(
+                                                          title:
+                                                              'Pilih Alasan Batal',
+                                                          options: _masterBatal
+                                                              .map((m) =>
+                                                                  m['nama'] ??
+                                                                  '')
+                                                              .where((s) =>
+                                                                  s.isNotEmpty)
+                                                              .toList(),
+                                                          onSelected: (val) {
+                                                            setState(() =>
+                                                                update?.ketBatal =
+                                                                    val);
+                                                          },
+                                                        ),
+                                                child: Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 8,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color:
+                                                        const Color(0xFFEF4444)
+                                                            .withValues(
+                                                                alpha: 0.06),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            10),
+                                                    border: Border.all(
+                                                      color:
+                                                          const Color(0xFFEF4444)
+                                                              .withValues(
+                                                                  alpha: 0.25),
+                                                    ),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .spaceBetween,
+                                                    children: [
+                                                      Text(
+                                                        update?.ketBatal
+                                                                    .isNotEmpty ==
+                                                                true
+                                                            ? 'Alasan: ${update!.ketBatal}'
+                                                            : 'Pilih Alasan Batal *',
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                          color: update?.ketBatal
+                                                                      .isNotEmpty ==
+                                                                  true
+                                                              ? const Color(
+                                                                  0xFF0F172A)
+                                                              : const Color(
+                                                                  0xFFEF4444),
+                                                        ),
+                                                      ),
+                                                      const Icon(
+                                                        Icons
+                                                            .arrow_drop_down_rounded,
+                                                        size: 18,
+                                                        color:
+                                                            Color(0xFFEF4444),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+
+                                            // Alasan Confirm jika status CONFIRM
+                                            if (currentStatus == 'CONFIRM') ...[
+                                              const SizedBox(height: 10),
+                                              InkWell(
+                                                onTap: isLocked
+                                                    ? null
+                                                    : () => _showOptionPicker(
+                                                          title:
+                                                              'Pilih Jenis Konfirmasi',
+                                                          options:
+                                                              _masterConfirm
+                                                                  .map((m) =>
+                                                                      m['nama'] ??
+                                                                      '')
+                                                                  .where((s) =>
+                                                                      s.isNotEmpty)
+                                                                  .toList(),
+                                                          onSelected: (val) {
+                                                            setState(() =>
+                                                                update?.ketConfirm =
+                                                                    val);
+                                                          },
+                                                        ),
+                                                child: Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 8,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color:
+                                                        const Color(0xFF10B981)
+                                                            .withValues(
+                                                                alpha: 0.06),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            10),
+                                                    border: Border.all(
+                                                      color:
+                                                          const Color(0xFF10B981)
+                                                              .withValues(
+                                                                  alpha: 0.25),
+                                                    ),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .spaceBetween,
+                                                    children: [
+                                                      Text(
+                                                        update?.ketConfirm
+                                                                    .isNotEmpty ==
+                                                                true
+                                                            ? 'Konfirmasi: ${update!.ketConfirm}'
+                                                            : 'Pilih Konfirmasi',
+                                                        style: const TextStyle(
+                                                          fontSize: 12,
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                          color: Color(
+                                                              0xFF0F172A),
+                                                        ),
+                                                      ),
+                                                      const Icon(
+                                                        Icons
+                                                            .arrow_drop_down_rounded,
+                                                        size: 18,
+                                                        color:
+                                                            Color(0xFF10B981),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  ),
+                          ),
+                          if (!isLocked)
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                border: Border(
+                                  top: BorderSide(
+                                    color: Color.fromRGBO(15, 23, 42, 0.08),
+                                  ),
+                                ),
+                              ),
+                              child: AppButton(
+                                text: 'Simpan Perubahan Status',
+                                isLoading: _isSubmitting,
+                                onPressed: _submitUpdates,
+                              ),
+                            ),
+                        ],
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

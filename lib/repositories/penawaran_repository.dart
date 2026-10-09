@@ -19,6 +19,8 @@ class PenawaranRepository {
     String? status,
     String? search,
     String? salesKode,
+    String? approvalStatus,
+    int? limit,
   }) async {
     try {
       final queryParams = <String, dynamic>{};
@@ -27,6 +29,8 @@ class PenawaranRepository {
       if (status != null && status != 'ALL') queryParams['status'] = status;
       if (search != null && search.isNotEmpty) queryParams['search'] = search;
       if (salesKode != null && salesKode.isNotEmpty) queryParams['sales_kode'] = salesKode;
+      if (approvalStatus != null && approvalStatus.isNotEmpty) queryParams['approval_status'] = approvalStatus;
+      if (limit != null) queryParams['limit'] = limit;
 
       final response = await _api.dio.get(
         '/penawaran',

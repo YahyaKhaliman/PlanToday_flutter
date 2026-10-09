@@ -1,8 +1,12 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class ApiConfig {
-  static const String baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://103.94.238.252:3005/api',
-  );
+  static String get baseUrl =>
+      dotenv.env['API_BASE_URL'] ??
+      const String.fromEnvironment(
+        'API_BASE_URL',
+        defaultValue: 'http://103.94.238.252:3005/api',
+      );
 
   // Local Dev Base URL fallback: 'http://10.0.2.2:3001/api' (Emulator) or 'http://localhost:3001/api'
 
@@ -36,15 +40,22 @@ class ApiConfig {
   static const String achievement = '/achievement';
 
   // Media / Gambar
-  static const String imageReadUrl = String.fromEnvironment(
-    'IMAGE_READ_URL',
-    defaultValue: 'http://103.94.238.252:8182',
-  );
-  static const String imageUploadUrl = String.fromEnvironment(
-    'IMAGE_UPLOAD_URL',
-    defaultValue: 'http://103.94.238.252:8080',
-  );
-  static const String imageBasePath = '/images/mintaharga';
+  static String get imageReadUrl =>
+      dotenv.env['IMAGE_READ_URL'] ??
+      const String.fromEnvironment(
+        'IMAGE_READ_URL',
+        defaultValue: 'http://103.94.238.252:8182',
+      );
+
+  static String get imageUploadUrl =>
+      dotenv.env['IMAGE_UPLOAD_URL'] ??
+      const String.fromEnvironment(
+        'IMAGE_UPLOAD_URL',
+        defaultValue: 'http://103.94.238.252:8080',
+      );
+
+  static String get imageBasePath =>
+      dotenv.env['IMAGE_BASE_PATH'] ?? '/images/mintaharga';
 
   // Timeout settings
   static const Duration connectTimeout = Duration(seconds: 30);

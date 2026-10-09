@@ -9,6 +9,11 @@ import '../../repositories/achievement_repository.dart';
 import '../../widgets/ui/app_badge.dart';
 import '../../widgets/ui/app_card.dart';
 
+const _kMonthNames = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+];
+
 class AchievementScreen extends ConsumerStatefulWidget {
   const AchievementScreen({super.key});
 
@@ -22,11 +27,6 @@ class _AchievementScreenState extends ConsumerState<AchievementScreen> {
 
   List<AchievementUserRow> _rows = [];
   bool _isLoading = false;
-
-  final List<String> _monthNames = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
-  ];
 
   @override
   void initState() {
@@ -56,212 +56,477 @@ class _AchievementScreenState extends ConsumerState<AchievementScreen> {
     }
   }
 
+  void _showMonthYearPicker() {
+    int tempMonth = _selectedMonth;
+    int tempYear = _selectedYear;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFCBD5E1),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Pilih Periode Bulan',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Color(0xFF64748B)),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const Divider(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<int>(
+                        initialValue: tempMonth,
+                        decoration: const InputDecoration(labelText: 'Bulan'),
+                        items: List.generate(12, (i) {
+                          return DropdownMenuItem(
+                            value: i + 1,
+                            child: Text(
+                              _kMonthNames[i],
+                              style: const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          );
+                        }),
+                        onChanged: (val) {
+                          if (val != null) setModalState(() => tempMonth = val);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: DropdownButtonFormField<int>(
+                        initialValue: tempYear,
+                        decoration: const InputDecoration(labelText: 'Tahun'),
+                        items: [2024, 2025, 2026, 2027].map((y) {
+                          return DropdownMenuItem(
+                            value: y,
+                            child: Text(
+                              y.toString(),
+                              style: const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) setModalState(() => tempYear = val);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 46,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF4F46E5),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      setState(() {
+                        _selectedMonth = tempMonth;
+                        _selectedYear = tempYear;
+                      });
+                      _fetchAchievement();
+                    },
+                    child: const Text(
+                      'Terapkan',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final currencyFormat =
         NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
-    // Hitung akumulasi tim
+    // Akumulasi Tim
     final totalTarget = _rows.fold<double>(0.0, (acc, r) => acc + r.target);
     final totalRealisasi =
         _rows.fold<double>(0.0, (acc, r) => acc + r.realisasi);
-    final totalAchPct = totalTarget > 0 ? (totalRealisasi / totalTarget) * 100 : 0.0;
+    final totalAchPct =
+        totalTarget > 0 ? (totalRealisasi / totalTarget) * 100 : 0.0;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Achievement Omset'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _fetchAchievement,
-          ),
-        ],
-      ),
-      body: ResponsiveContainer(
-        maxWidth: 1000,
-        child: Column(
-          children: [
-          // Periode Selector Banner
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.06),
-              border: const Border(bottom: BorderSide(color: AppColors.border)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
+      backgroundColor: const Color(0xFFF7F9FF),
+      body: SafeArea(
+        child: ResponsiveContainer(
+          maxWidth: 1000,
+          child: Column(
+            children: [
+              // 1. TOP HEADER ALA UI-STYLING
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Row(
                   children: [
-                    const Icon(Icons.calendar_month,
-                        color: AppColors.primary, size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${_monthNames[_selectedMonth - 1]} $_selectedYear',
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.ink,
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => context.pop(),
+                      child: Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: const Color.fromRGBO(15, 23, 42, 0.08),
+                          ),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color.fromRGBO(15, 23, 42, 0.03),
+                              blurRadius: 6,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.chevron_left_rounded,
+                          size: 26,
+                          color: Color(0xFF4F46E5),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        children: const [
+                          Text(
+                            'Achievement Omset',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF0F172A),
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Target vs realisasi omset penjualan',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _fetchAchievement,
+                      child: Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: const Color.fromRGBO(15, 23, 42, 0.08),
+                          ),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color.fromRGBO(15, 23, 42, 0.03),
+                              blurRadius: 6,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.refresh_rounded,
+                          size: 20,
+                          color: Color(0xFF4F46E5),
+                        ),
                       ),
                     ),
                   ],
                 ),
-                PopupMenuButton<int>(
-                  icon: const Icon(Icons.tune, color: AppColors.primary),
-                  tooltip: 'Ganti Bulan',
-                  onSelected: (m) {
-                    setState(() => _selectedMonth = m);
-                    _fetchAchievement();
-                  },
-                  itemBuilder: (_) => List.generate(12, (i) {
-                    return PopupMenuItem(
-                      value: i + 1,
-                      child: Text(_monthNames[i]),
-                    );
-                  }),
-                ),
-              ],
-            ),
-          ),
-
-          // Ringkasan Total Tim Card dengan Gradien & Shadow Card
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.primary, AppColors.accent],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(AppRadius.card),
-                boxShadow: AppShadows.card,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'PENCAPAIAN OMSET KESELURUHAN',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.0,
+              const SizedBox(height: 14),
+
+              // 2. PERIODE SELECTOR BAR
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: const Color.fromRGBO(15, 23, 42, 0.08),
                     ),
+                    boxShadow: AppShadows.softCard,
                   ),
-                  const SizedBox(height: 14),
-                  Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      Row(
                         children: [
-                          const Text('Target',
-                              style: TextStyle(
-                                  color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500)),
-                          const SizedBox(height: 2),
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEEF2FF),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.calendar_month_rounded,
+                              size: 16,
+                              color: Color(0xFF4F46E5),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
                           Text(
-                            currencyFormat.format(totalTarget),
+                            '${_kMonthNames[_selectedMonth - 1]} $_selectedYear',
                             style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
+                              fontSize: 14,
                               fontWeight: FontWeight.w900,
+                              color: Color(0xFF0F172A),
                             ),
                           ),
                         ],
                       ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          const Text('Realisasi',
-                              style: TextStyle(
-                                  color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500)),
-                          const SizedBox(height: 2),
-                          Text(
-                            currencyFormat.format(totalRealisasi),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                            ),
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _showMonthYearPicker,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
                           ),
-                        ],
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: const [
+                              Text(
+                                'Ganti Bulan',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF4F46E5),
+                                ),
+                              ),
+                              SizedBox(width: 2),
+                              Icon(
+                                Icons.arrow_drop_down_rounded,
+                                size: 16,
+                                color: Color(0xFF4F46E5),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  // Progress Bar
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: (totalAchPct / 100).clamp(0.0, 1.0),
-                      backgroundColor: Colors.white24,
-                      valueColor:
-                          const AlwaysStoppedAnimation<Color>(Colors.white),
-                      minHeight: 8,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      'Ach: ${totalAchPct.toStringAsFixed(1)}%',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
+              const SizedBox(height: 12),
 
-          // List Achievement Tiap Sales
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _rows.isEmpty
-                    ? const Center(
+              // 3. RINGKASAN TOTAL TIM (GRADIENT BANNER)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF4F46E5), Color(0xFF00B4D8)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: AppShadows.card,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'PENCAPAIAN OMSET KESELURUHAN',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Target',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                currencyFormat.format(totalTarget),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              const Text(
+                                'Realisasi',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                currencyFormat.format(totalRealisasi),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Progress Bar
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(99),
+                        child: LinearProgressIndicator(
+                          value: (totalAchPct / 100).clamp(0.0, 1.0),
+                          backgroundColor: Colors.white24,
+                          valueColor:
+                              const AlwaysStoppedAnimation<Color>(Colors.white),
+                          minHeight: 7,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
                         child: Text(
-                          'Tidak ada data omset pada periode ini',
-                          style: TextStyle(color: AppColors.muted),
+                          'Ach: ${totalAchPct.toStringAsFixed(1)}%',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // 4. DAFTAR ACHIEVEMENT TIAP SALES
+              Expanded(
+                child: _isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF4F46E5),
                         ),
                       )
-                    : RefreshIndicator(
-                        onRefresh: _fetchAchievement,
-                        child: ListView.separated(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
-                          itemCount: _rows.length,
-                          separatorBuilder: (ctx, i) =>
-                              const SizedBox(height: 12),
-                          itemBuilder: (context, index) {
-                            final row = _rows[index];
-                            return _AchievementUserCard(
-                              row: row,
-                              currencyFormat: currencyFormat,
-                              onTap: () {
-                                context.push('/achievement/detail', extra: {
-                                  'userRow': row,
-                                  'fromYear': _selectedYear,
-                                  'fromMonth': _selectedMonth,
-                                  'toYear': _selectedYear,
-                                  'toMonth': _selectedMonth,
-                                });
+                    : _rows.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'Tidak ada data omset pada periode ini.',
+                              style: TextStyle(
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          )
+                        : RefreshIndicator(
+                            color: const Color(0xFF4F46E5),
+                            onRefresh: _fetchAchievement,
+                            child: ListView.separated(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 6,
+                              ),
+                              itemCount: _rows.length,
+                              separatorBuilder: (ctx, i) =>
+                                  const SizedBox(height: 10),
+                              itemBuilder: (context, index) {
+                                final row = _rows[index];
+                                return _AchievementUserCard(
+                                  row: row,
+                                  currencyFormat: currencyFormat,
+                                  onTap: () {
+                                    context.push('/achievement/detail', extra: {
+                                      'userRow': row,
+                                      'fromYear': _selectedYear,
+                                      'fromMonth': _selectedMonth,
+                                      'toYear': _selectedYear,
+                                      'toMonth': _selectedMonth,
+                                    });
+                                  },
+                                );
                               },
-                            );
-                          },
-                        ),
-                      ),
+                            ),
+                          ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 }
 
 class _AchievementUserCard extends StatelessWidget {
@@ -292,53 +557,77 @@ class _AchievementUserCard extends StatelessWidget {
                 child: Text(
                   row.nama,
                   style: const TextStyle(
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w900,
                     fontSize: 15,
-                    color: AppColors.ink,
+                    color: Color(0xFF0F172A),
                     letterSpacing: -0.2,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               AppBadge(
                 label: '${achPct.toStringAsFixed(1)}%',
-                variant: isTargetMet ? BadgeVariant.success : BadgeVariant.primary,
+                variant:
+                    isTargetMet ? BadgeVariant.success : BadgeVariant.primary,
               ),
             ],
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 3),
           Text(
             '${row.jabatan} • Kode: ${row.kode}',
-            style: const TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w500),
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w500,
+            ),
           ),
-          const Divider(height: 18, color: AppColors.border),
+          const Divider(height: 18, color: Color(0xFFF1F5F9)),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Target',
-                      style: TextStyle(fontSize: 11, color: AppColors.muted, fontWeight: FontWeight.w500)),
+                  const Text(
+                    'Target',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   const SizedBox(height: 2),
                   Text(
                     currencyFormat.format(row.target),
                     style: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.ink),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
+                    ),
                   ),
                 ],
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const Text('Realisasi',
-                      style: TextStyle(fontSize: 11, color: AppColors.muted, fontWeight: FontWeight.w500)),
+                  const Text(
+                    'Realisasi',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   const SizedBox(height: 2),
                   Text(
                     currencyFormat.format(row.realisasi),
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w900,
-                      color: isTargetMet ? AppColors.success : AppColors.ink,
+                      color: isTargetMet
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFF0F172A),
                     ),
                   ),
                 ],

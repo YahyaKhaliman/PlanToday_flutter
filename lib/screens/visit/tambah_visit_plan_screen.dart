@@ -6,8 +6,8 @@ import '../../core/theme/app_colors.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../models/customer_model.dart';
 import '../../providers/auth_provider.dart';
-import '../../repositories/customer_repository.dart';
 import '../../repositories/visit_repository.dart';
+import '../../widgets/customer_picker_modal.dart';
 import '../../widgets/ui/app_button.dart';
 import '../../widgets/ui/app_card.dart';
 
@@ -42,52 +42,7 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
   }
 
   Future<void> _selectCustomer() async {
-    final customerRepo = ref.read(customerRepositoryProvider);
-    final customers = await customerRepo.getRekapCalonCustomer();
-
-    if (!mounted) return;
-
-    final selected = await showModalBottomSheet<CustomerModel>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        maxChildSize: 0.9,
-        minChildSize: 0.4,
-        expand: false,
-        builder: (_, scrollController) => Column(
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text(
-                'Pilih Customer',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.ink),
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: ListView.separated(
-                controller: scrollController,
-                itemCount: customers.length,
-                separatorBuilder: (ctx, i) => const Divider(height: 1),
-                itemBuilder: (context, i) {
-                  final c = customers[i];
-                  return ListTile(
-                    title: Text(c.nama, style: const TextStyle(fontWeight: FontWeight.w700)),
-                    subtitle: Text(c.alamat, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    onTap: () => Navigator.pop(ctx, c),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-
+    final selected = await showCustomerPickerModal(context);
     if (selected != null && mounted) {
       setState(() => _selectedCustomer = selected);
     }
@@ -110,7 +65,6 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
     final todayYmd = ymdFormat.format(DateTime.now());
     final planYmd = ymdFormat.format(_selectedDate);
 
-    // Validasi tanggal tidak boleh lampau persis React Native
     if (planYmd.compareTo(todayYmd) < 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -160,117 +114,254 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
     final dmyFormat = DateFormat('dd MMMM yyyy');
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Buat Visit Plan'),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+      backgroundColor: const Color(0xFFF7F9FF),
+      body: SafeArea(
         child: ResponsiveContainer(
           maxWidth: 600,
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                AppCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Text(
-                        'Rencana Kunjungan Baru',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.ink,
+          child: Column(
+            children: [
+              // 1. TOP HEADER ALA UI-STYLING
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => context.pop(),
+                      child: Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: const Color.fromRGBO(15, 23, 42, 0.08),
+                          ),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color.fromRGBO(15, 23, 42, 0.03),
+                              blurRadius: 6,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.chevron_left_rounded,
+                          size: 26,
+                          color: Color(0xFF4F46E5),
                         ),
                       ),
-                      const SizedBox(height: 14),
-
-                      // Pilih Customer
-                      const Text('Customer *', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.ink)),
-                      const SizedBox(height: 6),
-                      InkWell(
-                        onTap: _selectCustomer,
-                        borderRadius: BorderRadius.circular(AppRadius.medium),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          decoration: BoxDecoration(
-                            color: AppColors.card,
-                            borderRadius: BorderRadius.circular(AppRadius.medium),
-                            border: Border.all(color: AppColors.border),
+                    ),
+                    Expanded(
+                      child: Column(
+                        children: const [
+                          Text(
+                            'Buat Visit Plan',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF0F172A),
+                              letterSpacing: -0.3,
+                            ),
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          SizedBox(height: 2),
+                          Text(
+                            'Jadwalkan rencana kunjungan sales baru',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 42),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // 2. FORM KONTEN
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        AppCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Expanded(
-                                child: Text(
-                                  _selectedCustomer?.nama ?? 'Ketuk untuk pilih customer...',
-                                  style: TextStyle(
-                                    color: _selectedCustomer != null ? AppColors.ink : AppColors.muted,
-                                    fontWeight: _selectedCustomer != null ? FontWeight.w700 : FontWeight.normal,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                              const Text(
+                                'Rencana Kunjungan Baru',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF0F172A),
                                 ),
                               ),
-                              const Icon(Icons.arrow_drop_down, color: AppColors.muted),
+                              const SizedBox(height: 14),
+
+                              // Pilih Customer
+                              const Text(
+                                'Customer *',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              InkWell(
+                                onTap: _selectCustomer,
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF1F5F9),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: const Color.fromRGBO(15, 23, 42, 0.06),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          _selectedCustomer?.nama ??
+                                              'Ketuk untuk pilih customer...',
+                                          style: TextStyle(
+                                            color: _selectedCustomer != null
+                                                ? const Color(0xFF0F172A)
+                                                : const Color(0xFF64748B),
+                                            fontWeight: _selectedCustomer != null
+                                                ? FontWeight.w700
+                                                : FontWeight.w500,
+                                            fontSize: 13,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const Icon(
+                                        Icons.arrow_drop_down_rounded,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+
+                              // Tanggal Plan
+                              const Text(
+                                'Tanggal Rencana Kunjungan *',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              InkWell(
+                                onTap: () async {
+                                  final picked = await showDatePicker(
+                                    context: context,
+                                    initialDate: _selectedDate,
+                                    firstDate: DateTime.now().subtract(
+                                      const Duration(days: 1),
+                                    ),
+                                    lastDate: DateTime(2030),
+                                  );
+                                  if (picked != null) {
+                                    setState(() => _selectedDate = picked);
+                                  }
+                                },
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF1F5F9),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: const Color.fromRGBO(15, 23, 42, 0.06),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        dmyFormat.format(_selectedDate),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13,
+                                          color: Color(0xFF0F172A),
+                                        ),
+                                      ),
+                                      const Icon(
+                                        Icons.calendar_today_rounded,
+                                        size: 16,
+                                        color: Color(0xFF4F46E5),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+
+                              // Note / Agenda
+                              const Text(
+                                'Agenda Kunjungan *',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              TextFormField(
+                                controller: _noteController,
+                                maxLines: 3,
+                                decoration: const InputDecoration(
+                                  hintText:
+                                      'Contoh: Follow up penawaran spanduk...',
+                                  prefixIcon: Icon(Icons.notes_rounded, size: 20),
+                                ),
+                                validator: (v) =>
+                                    (v == null || v.trim().isEmpty)
+                                        ? 'Agenda kunjungan wajib diisi'
+                                        : null,
+                              ),
+                              const SizedBox(height: 20),
+
+                              // Tombol Simpan
+                              AppButton(
+                                text: 'Jadwalkan Visit Plan',
+                                isLoading: _isLoading,
+                                onPressed: _submit,
+                              ),
                             ],
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Tanggal Plan
-                      const Text('Tanggal Rencana Kunjungan *', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.ink)),
-                      const SizedBox(height: 6),
-                      InkWell(
-                        onTap: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: _selectedDate,
-                            firstDate: DateTime.now().subtract(const Duration(days: 1)),
-                            lastDate: DateTime(2030),
-                          );
-                          if (picked != null) setState(() => _selectedDate = picked);
-                        },
-                        borderRadius: BorderRadius.circular(AppRadius.medium),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          decoration: BoxDecoration(
-                            color: AppColors.card,
-                            borderRadius: BorderRadius.circular(AppRadius.medium),
-                            border: Border.all(color: AppColors.border),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(dmyFormat.format(_selectedDate), style: const TextStyle(fontWeight: FontWeight.w600)),
-                              const Icon(Icons.calendar_today, size: 18, color: AppColors.primary),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Note / Agenda
-                      TextFormField(
-                        controller: _noteController,
-                        decoration: const InputDecoration(labelText: 'Tujuan / Agenda Kunjungan *'),
-                        maxLines: 3,
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Agenda kunjungan wajib diisi' : null,
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 20),
-
-                AppButton(
-                  text: 'Simpan Rencana Kunjungan',
-                  isLoading: _isLoading,
-                  onPressed: _submit,
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
