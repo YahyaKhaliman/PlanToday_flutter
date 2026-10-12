@@ -24,10 +24,22 @@ class _KurirMenuScreenState extends ConsumerState<KurirMenuScreen>
   List<KurirRencanaItem> _rencanaList = [];
   bool _isLoading = false;
 
+  List<KurirRencanaItem> get _selesaiList {
+    final combined = <int, KurirRencanaItem>{};
+    for (final it in [..._jadwalList, ..._rencanaList]) {
+      if (it.status.toUpperCase() == 'SELESAI' ||
+          it.realisasi?.toUpperCase() == 'Y' ||
+          it.status.toLowerCase() == 'delivered') {
+        combined[it.id] = it;
+      }
+    }
+    return combined.values.toList();
+  }
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _fetchData();
   }
 
@@ -62,39 +74,151 @@ class _KurirMenuScreenState extends ConsumerState<KurirMenuScreen>
   }
 
   void _confirmLogout() {
+    final user = ref.read(authProvider).user;
+    final userName = (user?.nama ?? '').toUpperCase();
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          'Konfirmasi Keluar',
-          style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+      barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 340),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: const Color.fromRGBO(15, 23, 42, 0.08)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color.fromRGBO(15, 23, 42, 0.12),
+                  blurRadius: 28,
+                  offset: Offset(0, 14),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // modalIndicator
+                Container(
+                  width: 44,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE5E7EB),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                // modalTitle
+                const Text(
+                  'Konfirmasi',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+
+                // modalSubtitle
+                const Padding(
+                  padding: EdgeInsets.only(top: 10),
+                  child: Text(
+                    'Yakin ingin keluar?',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                ),
+
+                // modalUserName
+                if (userName.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      userName,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF0F172A),
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                  ),
+
+                // modalActionRow
+                Padding(
+                  padding: const EdgeInsets.only(top: 18),
+                  child: Row(
+                    children: [
+                      // btnCancel
+                      Expanded(
+                        child: Material(
+                          color: const Color(0xFFEEF2F7),
+                          borderRadius: BorderRadius.circular(12),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () => Navigator.pop(ctx),
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 12),
+                              child: Center(
+                                child: Text(
+                                  'Batal',
+                                  style: TextStyle(
+                                    color: Color(0xFF64748B),
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // btnLogoutConfirm
+                      Expanded(
+                        child: Material(
+                          color: const Color(0xFFEF4444),
+                          borderRadius: BorderRadius.circular(12),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () {
+                              Navigator.pop(ctx);
+                              ref.read(authProvider.notifier).logout();
+                            },
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 12),
+                              child: Center(
+                                child: Text(
+                                  'Keluar',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-        content: const Text('Apakah Anda yakin ingin keluar dari akun kurir?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFEF4444),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            onPressed: () {
-              Navigator.pop(ctx);
-              ref.read(authProvider.notifier).logout();
-            },
-            child: const Text(
-              'Keluar',
-              style: TextStyle(fontWeight: FontWeight.w800),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -348,8 +472,9 @@ class _KurirMenuScreenState extends ConsumerState<KurirMenuScreen>
                       fontSize: 12,
                     ),
                     tabs: [
-                      Tab(text: 'Jadwal Kirim (${_jadwalList.length})'),
-                      Tab(text: 'Rencana Kirim (${_rencanaList.length})'),
+                      Tab(text: 'Jadwal (${_jadwalList.length})'),
+                      Tab(text: 'Rencana (${_rencanaList.length})'),
+                      Tab(text: 'Selesai (${_selesaiList.length})'),
                     ],
                   ),
                 ),
@@ -372,6 +497,10 @@ class _KurirMenuScreenState extends ConsumerState<KurirMenuScreen>
                           _buildList(
                             _rencanaList,
                             'Belum ada rencana pengiriman.',
+                          ),
+                          _buildList(
+                            _selesaiList,
+                            'Belum ada pengiriman yang diselesaikan.',
                           ),
                         ],
                       ),

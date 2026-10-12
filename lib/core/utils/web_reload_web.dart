@@ -1,8 +1,15 @@
 import 'dart:js_interop';
 
+@JS('forceHardReload')
+external void _forceHardReload();
+
 @JS('location.reload')
-external void _reload();
+external void _fallbackReload();
 
 void reloadWebPage() {
-  _reload();
+  try {
+    _forceHardReload();
+  } catch (_) {
+    _fallbackReload();
+  }
 }

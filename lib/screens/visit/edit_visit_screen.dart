@@ -10,6 +10,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../models/visit_model.dart';
 import '../../repositories/visit_repository.dart';
+import '../../widgets/form_confirm_dialog.dart';
 import '../../widgets/ui/app_badge.dart';
 import '../../widgets/ui/app_button.dart';
 import '../../widgets/ui/app_card.dart';
@@ -203,9 +204,41 @@ class _EditVisitScreenState extends ConsumerState<EditVisitScreen> {
       return;
     }
 
+    final ymdFormat = DateFormat('yyyy-MM-dd');
+    final todayYmd = ymdFormat.format(DateTime.now());
+    final ymd = ymdFormat.format(_selectedDate);
+
+    if (ymd.compareTo(todayYmd) < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tanggal visit tidak boleh kurang dari hari ini'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await showFormConfirmDialog(
+      context,
+      title: 'Konfirmasi Perubahan Visit',
+      subtitle: 'Apakah Anda yakin ingin menyimpan perubahan laporan kunjungan ini?',
+      icon: Icons.edit_note_rounded,
+      iconColor: AppColors.primary,
+      summaryItems: [
+        MapEntry('Customer', widget.visit.cusNama),
+        MapEntry('Tanggal', DateFormat('dd MMM yyyy').format(_selectedDate)),
+        if (_noteController.text.trim().isNotEmpty)
+          MapEntry('Tujuan', _noteController.text.trim()),
+        MapEntry('Lokasi GPS', _latitude != null ? 'Terdeteksi' : 'Tidak Ada'),
+        MapEntry('Foto Baru', _newPhotoFile != null ? 'Terlampir' : 'Tidak Diubah'),
+      ],
+      confirmText: 'Ya, Simpan Perubahan',
+    );
+
+    if (!confirmed) return;
+
     setState(() => _isLoading = true);
 
-    final ymd = DateFormat('yyyy-MM-dd').format(_selectedDate);
     final repo = ref.read(visitRepositoryProvider);
 
     final success = await repo.updateVisit(
@@ -392,10 +425,18 @@ class _EditVisitScreenState extends ConsumerState<EditVisitScreen> {
                               const SizedBox(height: 6),
                               InkWell(
                                 onTap: () async {
+                                  final now = DateTime.now();
+                                  final todayDate =
+                                      DateTime(now.year, now.month, now.day);
+                                  final firstAllowed =
+                                      _selectedDate.isBefore(todayDate)
+                                          ? _selectedDate
+                                          : todayDate;
+
                                   final picked = await showDatePicker(
                                     context: context,
                                     initialDate: _selectedDate,
-                                    firstDate: DateTime(2020),
+                                    firstDate: firstAllowed,
                                     lastDate: DateTime(2030),
                                   );
                                   if (picked != null) {

@@ -6,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../models/visit_model.dart';
 import '../../repositories/visit_repository.dart';
+import '../../widgets/form_confirm_dialog.dart';
 import '../../widgets/ui/app_button.dart';
 import '../../widgets/ui/app_card.dart';
 
@@ -60,9 +61,39 @@ class _EditVisitPlanScreenState extends ConsumerState<EditVisitPlanScreen> {
       return;
     }
 
+    final ymdFormat = DateFormat('yyyy-MM-dd');
+    final todayYmd = ymdFormat.format(DateTime.now());
+    final ymd = ymdFormat.format(_selectedDate);
+
+    if (ymd.compareTo(todayYmd) < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tanggal plan tidak boleh kurang dari hari ini'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await showFormConfirmDialog(
+      context,
+      title: 'Konfirmasi Perubahan Plan',
+      subtitle: 'Apakah Anda yakin ingin memperbarui rencana kunjungan ini?',
+      icon: Icons.edit_calendar_rounded,
+      iconColor: AppColors.primary,
+      summaryItems: [
+        MapEntry('Customer', widget.plan.cusNama),
+        MapEntry('Tanggal Rencana', DateFormat('dd MMM yyyy').format(_selectedDate)),
+        if (_noteController.text.trim().isNotEmpty)
+          MapEntry('Tujuan', _noteController.text.trim()),
+      ],
+      confirmText: 'Ya, Simpan Perubahan',
+    );
+
+    if (!confirmed) return;
+
     setState(() => _isLoading = true);
 
-    final ymd = DateFormat('yyyy-MM-dd').format(_selectedDate);
     final repo = ref.read(visitRepositoryProvider);
 
     final success = await repo.updateVisitPlan(
@@ -229,10 +260,18 @@ class _EditVisitPlanScreenState extends ConsumerState<EditVisitPlanScreen> {
                               const SizedBox(height: 6),
                               InkWell(
                                 onTap: () async {
+                                  final now = DateTime.now();
+                                  final todayDate =
+                                      DateTime(now.year, now.month, now.day);
+                                  final firstAllowed =
+                                      _selectedDate.isBefore(todayDate)
+                                          ? _selectedDate
+                                          : todayDate;
+
                                   final picked = await showDatePicker(
                                     context: context,
                                     initialDate: _selectedDate,
-                                    firstDate: DateTime(2020),
+                                    firstDate: firstAllowed,
                                     lastDate: DateTime(2030),
                                   );
                                   if (picked != null) {

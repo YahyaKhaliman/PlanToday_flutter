@@ -8,6 +8,7 @@ import '../../models/customer_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/visit_repository.dart';
 import '../../widgets/customer_picker_modal.dart';
+import '../../widgets/form_confirm_dialog.dart';
 import '../../widgets/ui/app_button.dart';
 import '../../widgets/ui/app_card.dart';
 
@@ -74,6 +75,26 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
       );
       return;
     }
+
+    final confirmed = await showFormConfirmDialog(
+      context,
+      title: 'Konfirmasi Visit Plan',
+      subtitle: 'Pastikan jadwal rencana kunjungan sudah benar',
+      icon: Icons.calendar_today_rounded,
+      iconColor: AppColors.primary,
+      summaryItems: [
+        MapEntry('Customer', _selectedCustomer!.nama),
+        MapEntry(
+          'Tanggal Rencana',
+          DateFormat('dd MMMM yyyy').format(_selectedDate),
+        ),
+        if (_noteController.text.trim().isNotEmpty)
+          MapEntry('Tujuan / Note', _noteController.text.trim()),
+      ],
+      confirmText: 'Ya, Simpan Jadwal',
+    );
+
+    if (!confirmed) return;
 
     setState(() => _isLoading = true);
 

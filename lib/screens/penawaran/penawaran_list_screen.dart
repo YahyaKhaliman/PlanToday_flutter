@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../models/penawaran_model.dart';
+import '../../providers/auth_provider.dart';
 import '../../repositories/penawaran_repository.dart';
 import '../../widgets/app_date_range_picker_modal.dart';
 import '../../widgets/ui/app_badge.dart';
@@ -33,6 +34,11 @@ class _PenawaranListScreenState extends ConsumerState<PenawaranListScreen> {
   String _selectedStatus = 'ALL';
   String _selectedApproval = 'ALL'; // ALL, APPROVED, UNAPPROVED
 
+  // State Sales (Khusus Manager)
+  String _selectedSalesKode = '';
+  String _selectedSalesName = 'Semua Sales';
+  List<Map<String, String>> _salesList = [];
+
   final List<String> _statusFilters = ['ALL', 'OPEN', 'BATAL', 'CLOSE'];
   final List<String> _approvalFilters = ['ALL', 'APPROVED', 'UNAPPROVED'];
 
@@ -40,12 +46,30 @@ class _PenawaranListScreenState extends ConsumerState<PenawaranListScreen> {
   void initState() {
     super.initState();
     _fetchPenawaran();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final user = ref.read(authProvider).user;
+      if (user?.isManager == true) {
+        _loadSalesList();
+      }
+    });
   }
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadSalesList() async {
+    try {
+      final repo = ref.read(penawaranRepositoryProvider);
+      final rows = await repo.getMasterSales('');
+      if (mounted) {
+        setState(() {
+          _salesList = rows;
+        });
+      }
+    } catch (_) {}
   }
 
   String _formatYmd(DateTime d) =>
@@ -57,12 +81,16 @@ class _PenawaranListScreenState extends ConsumerState<PenawaranListScreen> {
   Future<void> _fetchPenawaran([String? query]) async {
     setState(() => _isLoading = true);
 
+    final user = ref.read(authProvider).user;
+    final isManager = user?.isManager ?? false;
+
     final repo = ref.read(penawaranRepositoryProvider);
     final results = await repo.getPenawaranList(
       startDate: _formatYmd(_startDate),
       endDate: _formatYmd(_endDate),
       status: _selectedStatus,
       search: query ?? _searchController.text.trim(),
+      salesKode: isManager && _selectedSalesKode.isNotEmpty ? _selectedSalesKode : null,
     );
 
     if (mounted) {
@@ -71,6 +99,150 @@ class _PenawaranListScreenState extends ConsumerState<PenawaranListScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  void _showSalesPicker() {
+    String searchKeyword = '';
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final filtered = _salesList.where((s) {
+              final n = (s['nama'] ?? '').toLowerCase();
+              final k = (s['kode'] ?? '').toLowerCase();
+              return n.contains(searchKeyword.toLowerCase()) ||
+                  k.contains(searchKeyword.toLowerCase());
+            }).toList();
+
+            return SafeArea(
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.75,
+                ),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFCBD5E1),
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                      ),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Pilih Sales',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: Color(0xFF64748B)),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.search, size: 18, color: Color(0xFF64748B)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              decoration: const InputDecoration(
+                                hintText: 'Cari sales...',
+                                border: InputBorder.none,
+                                isDense: true,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              onChanged: (val) {
+                                setModalState(() => searchKeyword = val);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Expanded(
+                      child: ListView(
+                        children: [
+                          ListTile(
+                            leading: const Icon(Icons.people_outline, color: Color(0xFF4F46E5)),
+                            title: const Text(
+                              'Semua Sales',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            selected: _selectedSalesKode.isEmpty,
+                            trailing: _selectedSalesKode.isEmpty
+                                ? const Icon(Icons.check, color: Color(0xFF4F46E5))
+                                : null,
+                            onTap: () {
+                              Navigator.pop(ctx);
+                              setState(() {
+                                _selectedSalesKode = '';
+                                _selectedSalesName = 'Semua Sales';
+                              });
+                              _fetchPenawaran();
+                            },
+                          ),
+                          const Divider(height: 1),
+                          ...filtered.map((s) {
+                            final kode = s['kode'] ?? '';
+                            final nama = s['nama'] ?? '';
+                            final isSel = _selectedSalesKode == kode;
+                            return ListTile(
+                              leading: const Icon(Icons.person_outline, color: Color(0xFF64748B)),
+                              title: Text(nama, style: const TextStyle(fontWeight: FontWeight.w600)),
+                              subtitle: Text(kode, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                              selected: isSel,
+                              trailing: isSel
+                                  ? const Icon(Icons.check, color: Color(0xFF4F46E5))
+                                  : null,
+                              onTap: () {
+                                Navigator.pop(ctx);
+                                setState(() {
+                                  _selectedSalesKode = kode;
+                                  _selectedSalesName = nama;
+                                });
+                                _fetchPenawaran();
+                              },
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _selectDateRange() async {
@@ -326,6 +498,80 @@ class _PenawaranListScreenState extends ConsumerState<PenawaranListScreen> {
                           ),
                         ],
                       ),
+
+                      // Sales Filter (Khusus Manager)
+                      if (ref.watch(authProvider).user?.isManager == true) ...[
+                        const SizedBox(height: 10),
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: _showSalesPicker,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: _selectedSalesKode.isNotEmpty
+                                  ? const Color(0xFFEEF2FF)
+                                  : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: _selectedSalesKode.isNotEmpty
+                                    ? const Color(0xFF4F46E5)
+                                    : const Color.fromRGBO(15, 23, 42, 0.08),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.person_outline_rounded,
+                                  size: 16,
+                                  color: _selectedSalesKode.isNotEmpty
+                                      ? const Color(0xFF4F46E5)
+                                      : const Color(0xFF64748B),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _selectedSalesName,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: _selectedSalesKode.isNotEmpty
+                                          ? const Color(0xFF4F46E5)
+                                          : const Color(0xFF0F172A),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (_selectedSalesKode.isNotEmpty)
+                                  GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedSalesKode = '';
+                                        _selectedSalesName = 'Semua Sales';
+                                      });
+                                      _fetchPenawaran();
+                                    },
+                                    child: const Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: 4),
+                                      child: Icon(
+                                        Icons.close_rounded,
+                                        size: 16,
+                                        color: Color(0xFF4F46E5),
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  const Icon(
+                                    Icons.arrow_drop_down_rounded,
+                                    size: 18,
+                                    color: Color(0xFF64748B),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 10),
 
                       // Status Chips

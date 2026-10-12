@@ -42,6 +42,87 @@ class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
     }
   }
 
+  void _showRequestChangeDialog() {
+    final reasonController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Pengajuan Perubahan',
+          style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Ajukan perubahan data penawaran ${widget.nomor} ke manager?',
+              style: const TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reasonController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: 'Jelaskan alasan pengajuan perubahan *',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4F46E5),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () async {
+              final alasan = reasonController.text.trim();
+              if (alasan.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Alasan pengajuan wajib diisi'),
+                    backgroundColor: AppColors.danger,
+                  ),
+                );
+                return;
+              }
+              Navigator.pop(ctx);
+              final repo = ref.read(penawaranRepositoryProvider);
+              final success = await repo.requestApprovalPerubahan(
+                widget.nomor,
+                alasan: alasan,
+              );
+
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      success
+                          ? 'Pengajuan perubahan berhasil dikirim ke manager'
+                          : 'Gagal mengajukan perubahan',
+                    ),
+                    backgroundColor:
+                        success ? AppColors.success : AppColors.danger,
+                  ),
+                );
+                if (success) _fetchDetail();
+              }
+            },
+            child: const Text('Ajukan', style: TextStyle(fontWeight: FontWeight.w800)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showApproveDialog() {
     final noteController = TextEditingController();
 
@@ -184,6 +265,25 @@ class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
                     ),
                     Row(
                       children: [
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: _showRequestChangeDialog,
+                          child: Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF3C7),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            alignment: Alignment.center,
+                            child: const Icon(
+                              Icons.edit_calendar_rounded,
+                              size: 18,
+                              color: Color(0xFFD97706),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
                         GestureDetector(
                           behavior: HitTestBehavior.opaque,
                           onTap: () async {
@@ -399,7 +499,7 @@ class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
                                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
                                             Text(
-                                              '@ ${currencyFormat.format(item.harga)}',
+                                              currencyFormat.format(item.harga),
                                               style: const TextStyle(
                                                 fontSize: 12,
                                                 color: Color(0xFF64748B),

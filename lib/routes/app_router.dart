@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../models/achievement_model.dart';
 import '../models/customer_model.dart';
 import '../models/kurir_model.dart';
+import '../models/permintaan_harga_model.dart';
 import '../models/visit_model.dart';
 import '../providers/auth_provider.dart';
 import '../screens/achievement/achievement_detail_user_screen.dart';
@@ -18,6 +19,9 @@ import '../screens/home/home_screen.dart';
 import '../screens/kurir/kurir_menu_screen.dart';
 import '../screens/kurir/proses_pengiriman_screen.dart';
 import '../screens/kurir/tambah_pengiriman_screen.dart';
+import '../screens/penawaran/cari_nomor_penawaran_screen.dart';
+import '../screens/penawaran/cari_perusahaan_screen.dart';
+import '../screens/penawaran/cari_sales_screen.dart';
 import '../screens/penawaran/penawaran_create_screen.dart';
 import '../screens/penawaran/penawaran_detail_screen.dart';
 import '../screens/penawaran/penawaran_list_screen.dart';
@@ -33,6 +37,7 @@ import '../screens/potensi/laporan_potensi_screen.dart';
 import '../screens/potensi/potensi_screen.dart';
 import '../screens/visit/edit_visit_plan_screen.dart';
 import '../screens/visit/edit_visit_screen.dart';
+import '../screens/visit/rekap_visit_plan_detail_screen.dart';
 import '../screens/visit/tambah_visit_plan_screen.dart';
 import '../screens/visit/tambah_visit_screen.dart';
 import '../screens/visit/visit_plan_screen.dart';
@@ -120,7 +125,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'tambah',
             name: 'tambah-visit',
-            builder: (context, state) => const TambahVisitScreen(),
+            builder: (context, state) {
+              final initialCustomer = state.extra as CustomerModel?;
+              return TambahVisitScreen(initialCustomer: initialCustomer);
+            },
           ),
           GoRoute(
             path: 'edit',
@@ -153,6 +161,16 @@ final routerProvider = Provider<GoRouter>((ref) {
               return EditVisitPlanScreen(plan: plan);
             },
           ),
+          GoRoute(
+            path: 'detail/:id',
+            name: 'detail-visit-plan',
+            builder: (context, state) {
+              final idStr = state.pathParameters['id'] ?? '0';
+              final id = int.tryParse(idStr) ?? 0;
+              final canEdit = (state.extra as bool?) ?? true;
+              return RekapVisitPlanDetailScreen(id: id, canEdit: canEdit);
+            },
+          ),
         ],
       ),
 
@@ -166,6 +184,27 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'create',
             name: 'create-penawaran',
             builder: (context, state) => const PenawaranCreateScreen(),
+          ),
+          GoRoute(
+            path: 'cari-sales',
+            name: 'cari-sales',
+            builder: (context, state) {
+              final keyword = state.extra as String?;
+              return CariSalesScreen(initialKeyword: keyword);
+            },
+          ),
+          GoRoute(
+            path: 'cari-perusahaan',
+            name: 'cari-perusahaan',
+            builder: (context, state) => const CariPerusahaanScreen(),
+          ),
+          GoRoute(
+            path: 'cari-nomor',
+            name: 'cari-nomor-penawaran',
+            builder: (context, state) {
+              final keyword = state.extra as String?;
+              return CariNomorPenawaranScreen(initialKeyword: keyword);
+            },
           ),
           GoRoute(
             path: ':nomor',
@@ -215,6 +254,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'kalkulasi',
             name: 'permintaan-harga-kalkulasi',
             builder: (context, state) => const PermintaanHargaFormScreen(),
+          ),
+          GoRoute(
+            path: 'edit',
+            name: 'permintaan-harga-edit',
+            builder: (context, state) {
+              final detail = state.extra as PermintaanHargaDetail?;
+              return PermintaanHargaFormScreen(initialDetail: detail);
+            },
           ),
           GoRoute(
             path: 'tambah-customer',

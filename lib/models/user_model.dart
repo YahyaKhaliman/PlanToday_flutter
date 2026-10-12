@@ -72,4 +72,7 @@ class UserModel {
       kodeSales: kodeSales ?? this.kodeSales,
     );
   }
+
+  bool get isManager =>
+      jabatan.trim().toUpperCase().split(RegExp(r'[\s/_-]+')).contains('MANAGER');
 }

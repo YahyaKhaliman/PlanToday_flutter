@@ -4,14 +4,25 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/responsive_helper.dart';
+import '../../models/customer_model.dart';
 import '../../models/visit_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/visit_repository.dart';
 import '../../widgets/app_date_range_picker_modal.dart';
 
 const _kShortMonths = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
-  'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'Mei',
+  'Jun',
+  'Jul',
+  'Agu',
+  'Sep',
+  'Okt',
+  'Nov',
+  'Des',
 ];
 
 class VisitPlanScreen extends ConsumerStatefulWidget {
@@ -23,38 +34,60 @@ class VisitPlanScreen extends ConsumerStatefulWidget {
 
 class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
   DateTime _startDate = DateTime(DateTime.now().year, DateTime.now().month, 1);
-  DateTime _endDate = DateTime(DateTime.now().year, DateTime.now().month + 1, 0);
+  DateTime _endDate = DateTime(
+    DateTime.now().year,
+    DateTime.now().month + 1,
+    0,
+  );
 
-  String _selectedCabang = 'PUSAT';
+  String _selectedCabang = 'JAKARTA';
   String _selectedSales = '';
   List<String> _salesList = [];
 
   bool _onlyBelum = false;
   List<VisitModel> _plans = [];
   bool _isLoading = false;
+  VisitModel? _selectedPlan;
 
-  final List<String> _cabangOptions = ['PUSAT', 'JATIM', 'JATENG', 'JAKARTA'];
+  final ScrollController _scrollController = ScrollController();
+  bool _showScrollFab = false;
+
+  final List<String> _cabangOptions = ['JAKARTA', 'JATIM', 'JATENG', 'PUSAT'];
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(() {
+      final show =
+          _scrollController.hasClients && _scrollController.offset > 200;
+      if (show != _showScrollFab) {
+        setState(() => _showScrollFab = show);
+      }
+    });
+
     final user = ref.read(authProvider).user;
     final isManager = user?.jabatan.toUpperCase() == 'MANAGER';
 
-    if (user != null && user.cabang.isNotEmpty) {
-      final cab = user.cabang.toUpperCase();
-      if (_cabangOptions.contains(cab)) {
-        _selectedCabang = cab;
-      }
-    }
-
-    _selectedSales = user?.nama ?? '';
-
     if (isManager) {
-      _fetchSalesForCabang(_selectedCabang);
+      _selectedCabang = 'JAKARTA';
+      _selectedSales = '';
+      _fetchSalesForCabang('JAKARTA');
     } else {
+      if (user != null && user.cabang.isNotEmpty) {
+        final cab = user.cabang.toUpperCase();
+        if (_cabangOptions.contains(cab)) {
+          _selectedCabang = cab;
+        }
+      }
+      _selectedSales = user?.nama ?? '';
       _fetchPlans();
     }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   String _formatDisplayDate(DateTime d) {
@@ -73,31 +106,50 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
     if (mounted) {
       setState(() {
         _salesList = sales;
-        if (sales.isNotEmpty && (!_salesList.contains(_selectedSales))) {
-          _selectedSales = sales.first;
-        }
+        _selectedSales = sales.isNotEmpty ? sales.first : '';
       });
-      _fetchPlans();
+      if (_selectedSales.isNotEmpty) {
+        _fetchPlans();
+      } else {
+        setState(() {
+          _plans = [];
+          _isLoading = false;
+        });
+      }
     }
   }
 
   Future<void> _fetchPlans() async {
-    setState(() => _isLoading = true);
-
     final user = ref.read(authProvider).user;
     final isManager = user?.jabatan.toUpperCase() == 'MANAGER';
     final repo = ref.read(visitRepositoryProvider);
 
+    final targetSales = isManager ? _selectedSales : (user?.nama ?? '');
+
+    if (targetSales.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _plans = [];
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _selectedPlan = null;
+    });
+
     final startStr = _formatYmd(_startDate);
     final endStr = _formatYmd(_endDate);
-    final targetSales = isManager ? _selectedSales : (user?.nama ?? '');
 
     final results = await repo.getVisitPlanList(
       cabang: _selectedCabang,
       sales: targetSales,
       startDate: startStr,
       endDate: endStr,
-      isManager: isManager,
+      isManager: false,
     );
 
     if (mounted) {
@@ -230,7 +282,10 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
                       'https://wa.me/?text=${Uri.encodeComponent(text)}',
                     );
                     if (await canLaunchUrl(uri)) {
-                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      await launchUrl(
+                        uri,
+                        mode: LaunchMode.externalApplication,
+                      );
                     }
                   },
                 ),
@@ -261,7 +316,10 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
                       'https://wa.me/?text=${Uri.encodeComponent(text)}',
                     );
                     if (await canLaunchUrl(uri)) {
-                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      await launchUrl(
+                        uri,
+                        mode: LaunchMode.externalApplication,
+                      );
                     }
                   },
                 ),
@@ -274,7 +332,9 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
                 height: 44,
                 child: OutlinedButton(
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color.fromRGBO(15, 23, 42, 0.12)),
+                    side: const BorderSide(
+                      color: Color.fromRGBO(15, 23, 42, 0.12),
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -333,12 +393,19 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
                   title: Text(
                     cab,
                     style: TextStyle(
-                      fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
-                      color: isSelected ? const Color(0xFF4F46E5) : const Color(0xFF0F172A),
+                      fontWeight: isSelected
+                          ? FontWeight.w900
+                          : FontWeight.w700,
+                      color: isSelected
+                          ? const Color(0xFF4F46E5)
+                          : const Color(0xFF0F172A),
                     ),
                   ),
                   trailing: isSelected
-                      ? const Icon(Icons.check_circle_rounded, color: Color(0xFF4F46E5))
+                      ? const Icon(
+                          Icons.check_circle_rounded,
+                          color: Color(0xFF4F46E5),
+                        )
                       : null,
                   onTap: () {
                     Navigator.pop(ctx);
@@ -346,7 +413,7 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
                       setState(() => _selectedCabang = cab);
                       final isManager =
                           ref.read(authProvider).user?.jabatan.toUpperCase() ==
-                              'MANAGER';
+                          'MANAGER';
                       if (isManager) {
                         _fetchSalesForCabang(cab);
                       } else {
@@ -405,22 +472,25 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
                       const Divider(height: 1, color: Color(0xFFF1F5F9)),
                   itemBuilder: (ctx, i) {
                     final salesName = _salesList[i];
-                    final isSelected = _selectedSales.toLowerCase() ==
-                        salesName.toLowerCase();
+                    final isSelected =
+                        _selectedSales.toLowerCase() == salesName.toLowerCase();
                     return ListTile(
                       title: Text(
                         salesName,
                         style: TextStyle(
-                          fontWeight:
-                              isSelected ? FontWeight.w900 : FontWeight.w700,
+                          fontWeight: isSelected
+                              ? FontWeight.w900
+                              : FontWeight.w700,
                           color: isSelected
                               ? const Color(0xFF4F46E5)
                               : const Color(0xFF0F172A),
                         ),
                       ),
                       trailing: isSelected
-                          ? const Icon(Icons.check_circle_rounded,
-                              color: Color(0xFF4F46E5))
+                          ? const Icon(
+                              Icons.check_circle_rounded,
+                              color: Color(0xFF4F46E5),
+                            )
                           : null,
                       onTap: () {
                         Navigator.pop(ctx);
@@ -433,125 +503,6 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
                   },
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showPlanActionModal(VisitModel plan) {
-    final isDone = plan.realisasi == 'Y';
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFCBD5E1),
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                ),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          plan.cusNama,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF0F172A),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          'Tanggal: ${plan.tanggal}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF64748B),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Color(0xFF64748B)),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
-                ],
-              ),
-              const Divider(height: 16),
-              if (!isDone)
-                ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF10B981).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.directions_run_rounded,
-                      color: Color(0xFF10B981),
-                      size: 20,
-                    ),
-                  ),
-                  title: const Text(
-                    'Realisasi Kunjungan (Visit)',
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
-                  ),
-                  subtitle: const Text('Buat laporan kunjungan baru'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    context.push('/visit/tambah');
-                  },
-                ),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF4F46E5).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.edit_outlined,
-                    color: Color(0xFF4F46E5),
-                    size: 20,
-                  ),
-                ),
-                title: const Text(
-                  'Edit Rencana Kunjungan',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
-                ),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  final refresh = await context.push<bool>(
-                    '/visit-plan/edit',
-                    extra: plan,
-                  );
-                  if (refresh == true) _fetchPlans();
-                },
-              ),
-              const SizedBox(height: 8),
             ],
           ),
         ),
@@ -572,8 +523,8 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
     }).toList();
 
     final displayedSalesName = isManager
-        ? (_selectedSales.isNotEmpty ? '@$_selectedSales' : '@sales')
-        : '@${user?.nama ?? ""}';
+        ? (_selectedSales.isNotEmpty ? _selectedSales : 'Pilih Sales')
+        : (user?.nama ?? '');
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FF),
@@ -694,13 +645,21 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
                                       color: const Color(0xFFF1F5F9),
                                       borderRadius: BorderRadius.circular(14),
                                       border: Border.all(
-                                        color: const Color.fromRGBO(15, 23, 42, 0.06),
+                                        color: const Color.fromRGBO(
+                                          15,
+                                          23,
+                                          42,
+                                          0.06,
+                                        ),
                                       ),
                                     ),
-                                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                    ),
                                     alignment: Alignment.centerLeft,
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
                                           _selectedCabang,
@@ -749,13 +708,21 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
                                       color: const Color(0xFFF1F5F9),
                                       borderRadius: BorderRadius.circular(14),
                                       border: Border.all(
-                                        color: const Color.fromRGBO(15, 23, 42, 0.06),
+                                        color: const Color.fromRGBO(
+                                          15,
+                                          23,
+                                          42,
+                                          0.06,
+                                        ),
                                       ),
                                     ),
-                                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                    ),
                                     alignment: Alignment.centerLeft,
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         Expanded(
                                           child: Text(
@@ -939,130 +906,158 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
                         ),
                       )
                     : filteredPlans.isEmpty
-                        ? const Center(
-                            child: Text(
-                              'Data visit plan tidak ditemukan.',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF64748B),
-                              ),
+                    ? const Center(
+                        child: Text(
+                          'Data visit plan tidak ditemukan.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      )
+                    : RefreshIndicator(
+                        color: const Color(0xFF4F46E5),
+                        onRefresh: _fetchPlans,
+                        child: NotificationListener<UserScrollNotification>(
+                          onNotification: (notification) {
+                            if (_selectedPlan != null) {
+                              setState(() => _selectedPlan = null);
+                            }
+                            return false;
+                          },
+                          child: ListView.separated(
+                            controller: _scrollController,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
                             ),
-                          )
-                        : RefreshIndicator(
-                            color: const Color(0xFF4F46E5),
-                            onRefresh: _fetchPlans,
-                            child: ListView.separated(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                              itemCount: filteredPlans.length,
-                              separatorBuilder: (ctx, i) =>
-                                  const SizedBox(height: 10),
-                              itemBuilder: (context, index) {
-                                final plan = filteredPlans[index];
-                                final isDone = plan.realisasi == 'Y';
+                            itemCount: filteredPlans.length,
+                            separatorBuilder: (ctx, i) =>
+                                const SizedBox(height: 10),
+                            itemBuilder: (context, index) {
+                              final plan = filteredPlans[index];
+                              final isDone = plan.realisasi == 'Y';
+                              final isSelected = _selectedPlan?.id == plan.id;
 
-                                return GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: () => _showPlanActionModal(plan),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(14),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(
-                                        color: const Color.fromRGBO(
-                                            15, 23, 42, 0.08),
-                                      ),
-                                      boxShadow: AppShadows.softCard,
+                              return GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: () {
+                                  setState(() {
+                                    if (_selectedPlan?.id == plan.id) {
+                                      _selectedPlan = null;
+                                    } else {
+                                      _selectedPlan = plan;
+                                    }
+                                  });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? const Color(0xFFF4F4FD)
+                                        : Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? const Color(0xFF4F46E5)
+                                          : const Color.fromRGBO(
+                                              15,
+                                              23,
+                                              42,
+                                              0.08,
+                                            ),
+                                      width: isSelected ? 1.5 : 1.0,
                                     ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
+                                    boxShadow: AppShadows.softCard,
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              plan.cusNama,
+                                              style: const TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w800,
+                                                color: Color(0xFF0F172A),
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              children: [
+                                                const Icon(
+                                                  Icons.calendar_today_rounded,
+                                                  size: 13,
+                                                  color: Color(0xFF00B4D8),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  plan.tanggal,
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: Color(0xFF64748B),
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            if (plan.cusAlamat.isNotEmpty) ...[
+                                              const SizedBox(height: 2),
                                               Text(
-                                                plan.cusNama,
+                                                plan.cusAlamat,
                                                 style: const TextStyle(
-                                                  fontSize: 15,
-                                                  fontWeight: FontWeight.w800,
-                                                  color: Color(0xFF0F172A),
+                                                  fontSize: 11.5,
+                                                  color: Color(0xFF94A3B8),
                                                 ),
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                               ),
-                                              const SizedBox(height: 4),
-                                              Row(
-                                                children: [
-                                                  const Icon(
-                                                    Icons.calendar_today_rounded,
-                                                    size: 13,
-                                                    color: Color(0xFF00B4D8),
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    plan.tanggal,
-                                                    style: const TextStyle(
-                                                      fontSize: 12,
-                                                      color: Color(0xFF64748B),
-                                                      fontWeight: FontWeight.w500,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              if (plan.cusAlamat.isNotEmpty) ...[
-                                                const SizedBox(height: 2),
-                                                Text(
-                                                  plan.cusAlamat,
-                                                  style: const TextStyle(
-                                                    fontSize: 11.5,
-                                                    color: Color(0xFF94A3B8),
-                                                  ),
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                              ],
                                             ],
+                                          ],
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: isDone
+                                              ? const Color(
+                                                  0xFF10B981,
+                                                ).withValues(alpha: 0.1)
+                                              : const Color(0xFFF1F5F9),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
                                           ),
                                         ),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 4,
-                                          ),
-                                          decoration: BoxDecoration(
+                                        child: Text(
+                                          isDone ? 'DONE' : 'BELUM',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w900,
                                             color: isDone
                                                 ? const Color(0xFF10B981)
-                                                    .withValues(alpha: 0.1)
-                                                : const Color(0xFFF1F5F9),
-                                            borderRadius:
-                                                BorderRadius.circular(8),
-                                          ),
-                                          child: Text(
-                                            isDone ? 'DONE' : 'BELUM',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w900,
-                                              color: isDone
-                                                 ? const Color(0xFF10B981)
-                                                  : const Color(0xFF64748B),
-                                            ),
+                                                : const Color(0xFF64748B),
                                           ),
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ),
-                                );
-                              },
-                            ),
+                                ),
+                              );
+                            },
                           ),
+                        ),
+                      ),
               ),
 
               // 5. BOTTOM FIXED ACTION BAR PERSIS SCREENSHOT IMAGE 1
@@ -1071,14 +1066,45 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
                 decoration: const BoxDecoration(
                   color: Colors.white,
                   border: Border(
-                    top: BorderSide(
-                      color: Color.fromRGBO(15, 23, 42, 0.08),
-                    ),
+                    top: BorderSide(color: Color.fromRGBO(15, 23, 42, 0.08)),
                   ),
                 ),
                 child: Row(
                   children: [
-                    // Tombol 1: Refresh (Soft Lavender / Indigo)
+                    // Tombol Tambah (Jika Bukan Manager)
+                    if (!isManager) ...[
+                      Expanded(
+                        child: SizedBox(
+                          height: 50,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF4F46E5),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                            ),
+                            onPressed: () async {
+                              final refresh = await context.push<bool>(
+                                '/visit-plan/tambah',
+                              );
+                              if (refresh == true) _fetchPlans();
+                            },
+                            child: const Text(
+                              '+ Tambah',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+
+                    // Tombol Refresh (Soft Lavender / Indigo)
                     Expanded(
                       child: SizedBox(
                         height: 50,
@@ -1106,16 +1132,16 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
                               : const Text(
                                   'Refresh',
                                   style: TextStyle(
-                                    fontSize: 15,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
 
-                    // Tombol 2: Kirim WA (Green WhatsApp)
+                    // Tombol Kirim WA (Green WhatsApp)
                     Expanded(
                       child: SizedBox(
                         height: 50,
@@ -1132,7 +1158,7 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
                           child: const Text(
                             'Kirim WA',
                             style: TextStyle(
-                              fontSize: 15,
+                              fontSize: 14,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -1146,14 +1172,78 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
           ),
         ),
       ),
-      floatingActionButton: (!isManager)
-          ? FloatingActionButton(
-              backgroundColor: const Color(0xFF4F46E5),
-              onPressed: () async {
-                final refresh = await context.push<bool>('/visit-plan/tambah');
-                if (refresh == true) _fetchPlans();
-              },
-              child: const Icon(Icons.add, color: Colors.white),
+      // Floating Action Buttons ala React Native saat item dipilih
+      floatingActionButton: (_selectedPlan != null)
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                // FAB Visit muncul jika item belum terealisasi
+                if (_selectedPlan!.realisasi != 'Y') ...[
+                  FloatingActionButton.extended(
+                    heroTag: 'fab_vp_visit',
+                    backgroundColor: const Color(0xFF10B981),
+                    elevation: 4,
+                    onPressed: () async {
+                      final plan = _selectedPlan!;
+                      setState(() => _selectedPlan = null);
+                      final cust = CustomerModel(
+                        kode: plan.cusKode ?? '',
+                        nama: plan.cusNama,
+                        alamat: plan.cusAlamat,
+                      );
+                      final refresh = await context.push<bool>(
+                        '/visit/tambah',
+                        extra: cust,
+                      );
+                      if (refresh == true) _fetchPlans();
+                    },
+                    icon: const Icon(
+                      Icons.directions_run_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                    label: const Text(
+                      'Visit',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                // FAB Edit
+                FloatingActionButton.extended(
+                  heroTag: 'fab_vp_edit',
+                  backgroundColor: const Color(0xFF4F46E5),
+                  elevation: 4,
+                  onPressed: () async {
+                    final plan = _selectedPlan!;
+                    setState(() => _selectedPlan = null);
+                    final isDone = plan.realisasi == 'Y';
+                    final refresh = await context.push<bool>(
+                      isDone ? '/visit/edit' : '/visit-plan/edit',
+                      extra: plan,
+                    );
+                    if (refresh == true) _fetchPlans();
+                  },
+                  icon: const Icon(
+                    Icons.edit_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                  label: const Text(
+                    'Edit',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
             )
           : null,
     );

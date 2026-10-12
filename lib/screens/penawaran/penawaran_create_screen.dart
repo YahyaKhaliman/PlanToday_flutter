@@ -65,6 +65,9 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
   String _selectedPerusahaanKode = 'KP';
 
   CustomerModel? _selectedCustomer;
+  String _selectedSalesKode = '';
+  String _selectedSalesNama = '';
+
   final _keteranganController = TextEditingController();
   final _noteController = TextEditingController();
 
@@ -88,6 +91,9 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
   @override
   void initState() {
     super.initState();
+    final user = ref.read(authProvider).user;
+    _selectedSalesKode = user?.salesKode ?? user?.kode ?? '';
+    _selectedSalesNama = user?.nama ?? '';
     _addItemRow();
   }
 
@@ -188,8 +194,12 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
       'perusahaan_kode': _selectedPerusahaanKode,
       'customer_kode': _selectedCustomer!.kode,
       'customer': _selectedCustomer!.nama,
-      'sales_kode': user?.salesKode ?? user?.kode ?? '',
-      'sales': user?.nama ?? '',
+      'sales_kode': _selectedSalesKode.isNotEmpty
+          ? _selectedSalesKode
+          : (user?.salesKode ?? user?.kode ?? ''),
+      'sales': _selectedSalesNama.isNotEmpty
+          ? _selectedSalesNama
+          : (user?.nama ?? ''),
       'keterangan': _keteranganController.text.trim(),
       'note': _noteController.text.trim(),
       'details': detailsPayload,
@@ -433,6 +443,70 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
                                         Icons.arrow_drop_down_rounded,
                                         color: Color(0xFF64748B),
                                       ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+
+                              // Sales Selector
+                              const Text(
+                                'Sales *',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              InkWell(
+                                onTap: (ref.watch(authProvider).user?.jabatan.toUpperCase() == 'MANAGER')
+                                    ? () async {
+                                        final picked = await context.push<Map<String, String>>(
+                                          '/penawaran/cari-sales',
+                                          extra: _selectedSalesNama,
+                                        );
+                                        if (picked != null && mounted) {
+                                          setState(() {
+                                            _selectedSalesKode = picked['kode'] ?? '';
+                                            _selectedSalesNama = picked['nama'] ?? '';
+                                          });
+                                        }
+                                      }
+                                    : null,
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF1F5F9),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: const Color.fromRGBO(15, 23, 42, 0.06),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        _selectedSalesNama.isNotEmpty
+                                            ? _selectedSalesNama
+                                            : 'Pilih Sales Penawaran...',
+                                        style: TextStyle(
+                                          color: _selectedSalesNama.isNotEmpty
+                                              ? const Color(0xFF0F172A)
+                                              : const Color(0xFF64748B),
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                      if (ref.watch(authProvider).user?.jabatan.toUpperCase() == 'MANAGER')
+                                        const Icon(
+                                          Icons.arrow_drop_down_rounded,
+                                          color: Color(0xFF64748B),
+                                        ),
                                     ],
                                   ),
                                 ),

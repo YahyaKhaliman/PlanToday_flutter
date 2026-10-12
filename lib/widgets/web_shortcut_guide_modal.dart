@@ -1,24 +1,65 @@
+import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _prefKey = 'shortcut_guide_dismissed';
 
-/// Membuka modal panduan pintasan web.
-Future<void> showShortcutGuide(BuildContext context, {bool auto = false}) async {
+/// Membuka modal panduan pintasan web dengan transisi halus dan delay lembut.
+Future<void> showShortcutGuide(
+  BuildContext context, {
+  bool auto = false,
+}) async {
   if (!kIsWeb) return;
 
   if (auto) {
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getBool(_prefKey) == true) return;
+
+    // Beri jeda waktu lembut (1.5 detik) agar tampilan halaman utama/login
+    // tampil stabil terlebih dahulu dan tidak mengejutkan pengguna.
+    await Future.delayed(const Duration(milliseconds: 1500));
   }
 
   if (!context.mounted) return;
 
-  showDialog(
+  showGeneralDialog(
     context: context,
     barrierDismissible: true,
-    builder: (ctx) => const _ShortcutGuideDialog(),
+    barrierLabel: 'Tutup Panduan Pintasan',
+    barrierColor: Colors.black.withValues(alpha: 0.35),
+    transitionDuration: const Duration(milliseconds: 400),
+    pageBuilder: (ctx, anim1, anim2) => const _ShortcutGuideDialog(),
+    transitionBuilder: (ctx, anim1, anim2, child) {
+      final curved = CurvedAnimation(
+        parent: anim1,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+
+      return BackdropFilter(
+        filter: ImageFilter.blur(
+          sigmaX: 3.0 * curved.value,
+          sigmaY: 3.0 * curved.value,
+        ),
+        child: FadeTransition(
+          opacity: curved,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 0.06),
+              end: Offset.zero,
+            ).animate(curved),
+            child: ScaleTransition(
+              scale: Tween<double>(
+                begin: 0.96,
+                end: 1.0,
+              ).animate(curved),
+              child: child,
+            ),
+          ),
+        ),
+      );
+    },
   );
 }
 
@@ -37,8 +78,12 @@ class _ShortcutGuideDialogState extends State<_ShortcutGuideDialog> {
   void initState() {
     super.initState();
     // Default tab menyesuaikan layar
-    final isDesktop = kIsWeb &&
-        MediaQueryData.fromView(WidgetsBinding.instance.platformDispatcher.views.first).size.width > 720;
+    final isDesktop =
+        kIsWeb &&
+        MediaQueryData.fromView(
+              WidgetsBinding.instance.platformDispatcher.views.first,
+            ).size.width >
+            720;
     _activeTab = isDesktop ? 2 : 0;
   }
 
@@ -90,7 +135,11 @@ class _ShortcutGuideDialogState extends State<_ShortcutGuideDialog> {
                       ),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.touch_app_rounded, color: Colors.white, size: 20),
+                    child: const Icon(
+                      Icons.touch_app_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   const Expanded(
@@ -127,7 +176,11 @@ class _ShortcutGuideDialogState extends State<_ShortcutGuideDialog> {
                         color: const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.close, size: 16, color: Color(0xFF64748B)),
+                      child: const Icon(
+                        Icons.close,
+                        size: 16,
+                        color: Color(0xFF64748B),
+                      ),
                     ),
                   ),
                 ],
@@ -145,7 +198,7 @@ class _ShortcutGuideDialogState extends State<_ShortcutGuideDialog> {
                 child: Row(
                   children: [
                     _buildTabItem(0, Icons.android_rounded, 'Android'),
-                    _buildTabItem(1, Icons.phone_iphone_rounded, 'iPhone'),
+                    _buildTabItem(1, Icons.apple_rounded, 'iOS'),
                     _buildTabItem(2, Icons.laptop_mac_rounded, 'PC / Laptop'),
                   ],
                 ),
@@ -160,54 +213,62 @@ class _ShortcutGuideDialogState extends State<_ShortcutGuideDialog> {
                         const _StepData(
                           icon: Icons.more_vert_rounded,
                           title: 'Menu Browser (⋮)',
-                          desc: 'Ketuk titik tiga di kanan atas layar browser Chrome.',
+                          desc:
+                              'Ketuk titik tiga di kanan atas layar browser Chrome.',
                         ),
                         const _StepData(
                           icon: Icons.add_to_home_screen_rounded,
                           title: 'Tambahkan ke Layar Utama',
-                          desc: 'Pilih menu "Tambahkan ke Layar Utama" (Add to Home screen).',
+                          desc:
+                              'Pilih menu "Tambahkan ke Layar Utama" (Add to Home screen).',
                         ),
                         const _StepData(
                           icon: Icons.check_circle_rounded,
                           title: 'Selesai',
-                          desc: 'Ketuk "Tambah", ikon PlanToday langsung siap di HP Anda.',
+                          desc: 'Ketuk "Tambah", pintasan otomatis terpasang.',
                         ),
                       ])
                     : _activeTab == 1
-                        ? _buildStepList([
-                            const _StepData(
-                              icon: Icons.ios_share_rounded,
-                              title: 'Tombol Bagikan (Share)',
-                              desc: 'Di Safari, ketuk tombol kotak berpanah atas di bar bawah.',
-                            ),
-                            const _StepData(
-                              icon: Icons.add_box_outlined,
-                              title: 'Tambah ke Layar Utama',
-                              desc: 'Gulir ke bawah dan ketuk opsi "Tambah ke Layar Utama".',
-                            ),
-                            const _StepData(
-                              icon: Icons.check_circle_rounded,
-                              title: 'Selesai',
-                              desc: 'Ketuk "Tambah" di kanan atas — pintasan otomatis terpasang.',
-                            ),
-                          ])
-                        : _buildStepList([
-                            const _StepData(
-                              icon: Icons.more_vert_rounded,
-                              title: 'Menu Browser (⋮)',
-                              desc: 'Klik titik tiga di kanan atas Chrome atau Edge laptop.',
-                            ),
-                            const _StepData(
-                              icon: Icons.shortcut_rounded,
-                              title: 'Buat Pintasan...',
-                              desc: 'Pilih "Simpan & Bagikan" / "Alat" lalu klik "Buat Pintasan".',
-                            ),
-                            const _StepData(
-                              icon: Icons.check_circle_rounded,
-                              title: 'Selesai',
-                              desc: 'Klik "Buat", ikon PlanToday akan muncul di desktop komputer.',
-                            ),
-                          ]),
+                    ? _buildStepList([
+                        const _StepData(
+                          icon: Icons.ios_share_rounded,
+                          title: 'Tombol Bagikan (Share)',
+                          desc:
+                              'Di Safari, ketuk tombol kotak berpanah atas di bar bawah.',
+                        ),
+                        const _StepData(
+                          icon: Icons.add_box_outlined,
+                          title: 'Tambah ke Layar Utama',
+                          desc:
+                              'Gulir ke bawah dan ketuk opsi "Tambah ke Layar Utama".',
+                        ),
+                        const _StepData(
+                          icon: Icons.check_circle_rounded,
+                          title: 'Selesai',
+                          desc:
+                              'Ketuk "Tambah" di kanan atas — pintasan otomatis terpasang.',
+                        ),
+                      ])
+                    : _buildStepList([
+                        const _StepData(
+                          icon: Icons.more_vert_rounded,
+                          title: 'Menu Browser (⋮)',
+                          desc:
+                              'Klik titik tiga di kanan atas Chrome atau Edge laptop.',
+                        ),
+                        const _StepData(
+                          icon: Icons.shortcut_rounded,
+                          title: 'Buat Pintasan...',
+                          desc:
+                              'Pilih "Simpan & Bagikan" / "Alat" lalu klik "Buat Pintasan".',
+                        ),
+                        const _StepData(
+                          icon: Icons.check_circle_rounded,
+                          title: 'Selesai',
+                          desc:
+                              'Klik "Buat", ikon PlanToday akan muncul di desktop komputer.',
+                        ),
+                      ]),
               ),
               const SizedBox(height: 16),
 
@@ -221,21 +282,29 @@ class _ShortcutGuideDialogState extends State<_ShortcutGuideDialog> {
                       width: 17,
                       height: 17,
                       decoration: BoxDecoration(
-                        color: _dontShowAgain ? const Color(0xFF6366F1) : Colors.transparent,
+                        color: _dontShowAgain
+                            ? const Color(0xFF6366F1)
+                            : Colors.transparent,
                         borderRadius: BorderRadius.circular(5),
                         border: Border.all(
-                          color: _dontShowAgain ? const Color(0xFF6366F1) : const Color(0xFF94A3B8),
+                          color: _dontShowAgain
+                              ? const Color(0xFF6366F1)
+                              : const Color(0xFF94A3B8),
                           width: 1.5,
                         ),
                       ),
                       alignment: Alignment.center,
                       child: _dontShowAgain
-                          ? const Icon(Icons.check, size: 12, color: Colors.white)
+                          ? const Icon(
+                              Icons.check,
+                              size: 12,
+                              color: Colors.white,
+                            )
                           : null,
                     ),
                     const SizedBox(width: 8),
                     const Text(
-                      'Jangan tampilkan lagi secara otomatis',
+                      'Jangan tampilkan',
                       style: TextStyle(
                         fontSize: 12,
                         color: Color(0xFF64748B),
@@ -265,7 +334,7 @@ class _ShortcutGuideDialogState extends State<_ShortcutGuideDialog> {
                     borderRadius: BorderRadius.circular(12),
                     child: const Center(
                       child: Text(
-                        'Mengerti & Tutup',
+                        'Mengerti',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
@@ -312,7 +381,9 @@ class _ShortcutGuideDialogState extends State<_ShortcutGuideDialog> {
               Icon(
                 icon,
                 size: 14,
-                color: isSelected ? const Color(0xFF4F46E5) : const Color(0xFF64748B),
+                color: isSelected
+                    ? const Color(0xFF4F46E5)
+                    : const Color(0xFF64748B),
               ),
               const SizedBox(width: 6),
               Text(
@@ -320,7 +391,9 @@ class _ShortcutGuideDialogState extends State<_ShortcutGuideDialog> {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                  color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF64748B),
+                  color: isSelected
+                      ? const Color(0xFF0F172A)
+                      : const Color(0xFF64748B),
                 ),
               ),
             ],
@@ -352,7 +425,11 @@ class _ShortcutGuideDialogState extends State<_ShortcutGuideDialog> {
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: const Color(0xFFE0E7FF)),
                 ),
-                child: Icon(step.icon, size: 16, color: const Color(0xFF4F46E5)),
+                child: Icon(
+                  step.icon,
+                  size: 16,
+                  color: const Color(0xFF4F46E5),
+                ),
               ),
               const SizedBox(width: 12),
               // Deskripsi langkah

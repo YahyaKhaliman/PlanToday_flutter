@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/potensi_kandidat_model.dart';
+import '../../providers/auth_provider.dart';
 import '../../repositories/potensi_repository.dart';
 import '../../widgets/ui/app_badge.dart';
 import '../../widgets/ui/app_button.dart';
@@ -40,8 +41,13 @@ class _TambahPotensiSheetState extends ConsumerState<TambahPotensiSheet> {
   Future<void> _fetchKandidat() async {
     setState(() => _isLoading = true);
 
+    final user = ref.read(authProvider).user;
+    final isManager = user?.isManager ?? false;
+
     final repo = ref.read(potensiRepositoryProvider);
-    final results = await repo.getPotensiKandidatList();
+    final results = await repo.getPotensiKandidatList(
+      sales: !isManager ? user?.nama : null,
+    );
 
     if (mounted) {
       setState(() {

@@ -54,7 +54,7 @@ design-system:
         bg-bottom: "#FFFFFF" # Gradien latar belakang bawah layar
     typography:
       families:
-        primary: "System"  # Menggunakan font sistem (Roboto di Android, SF Pro di iOS)
+        primary: "DM Sans"  # Font utama aplikasi PlanToday (Modern, bersih, legibility tinggi untuk data & nominal rupiah)
       sizes:
         xs: 10
         sm: 12
@@ -162,6 +162,40 @@ Semua tata letak, termasuk *margin*, *padding*, dan jarak antar komponen (*gap*)
 * Jarak mikro (antar teks dan subteks): `6` atau `8` unit.
 * Jarak sedang (padding di dalam kartu): `14` atau `16` unit.
 * Jarak besar (padding luar layar): `20` atau `24` unit.
+
+### F. Dialog Konfirmasi Formulir (`FormConfirmDialog`)
+Setiap pengiriman formulir baru atau penyimpanan perubahan data wajib menampilkan modal konfirmasi terlebih dahulu:
+* **Fungsi**: `showFormConfirmDialog(context, title, subtitle, icon, summaryItems, confirmText)`
+* **Layout Kartu**: `maxWidth: 400`, `borderRadius: 24`, border tipis `neutral.border`.
+* **Indikator Atas**: Kapsul abu-abu selebar `36px` dan tinggi `4px` (`#CBD5E1`) di bagian atas dialog.
+* **Kotak Ringkasan**: Latar belakang `#F8FAFC`, border `#E2E8F0`, menampilkan pasangan kunci-nilai data penting (*summary items*).
+* **Aksi Bawah**: Dua tombol seimbang — Batal (abu-abu netral) dan Konfirmasi Utama (Primary Indigo / Warning).
+
+### G. Dialog Konfirmasi Keluar Akun (Logout Dialog)
+* **Visual**: Kartu terpusat dengan indikator atas kapsul (`#CBD5E1`), judul "Keluar Akun", deskripsi konfirmasi, dan kotak info akun pengguna (`#F1F5F9`) dengan avatar inisial berwarna oranye/amber.
+* **Tombol Aksi**: Tombol Batal (`#F1F5F9`) dan Tombol Keluar berwarna merah (`#EF4444`) dengan radius `12.0`.
+
+### H. Banner Notifikasi Pembaruan Web & PWA (`WebUpdateBanner`)
+* **Tata Letak**: Melayang di bagian atas layar pada platform Web saat terdeteksi versi baru.
+* **Responsif**:
+  - Desktop: Satu baris memanjang dengan teks rincian versi di kiri dan tombol aksi di kanan.
+  - Mobile: Layout bertumpuk vertikal dengan teks ringkas dan tombol "Perbarui Sekarang" yang memenuhi lebar.
+* **Hard Reload**: Tombol memicu unregister Service Worker, pembersihan cache storage, dan pemuatan ulang paksa (*cache-busting query parameter*).
+
+### I. Modal Panduan Shortcut Keyboard (`WebShortcutGuideModal`)
+* **Trigger**: Tombol shortcut di header web atau menekan tombol keyboard `?` / `F1`.
+* **Visual**: Grid kartu shortcut per kategori (Navigasi, Aksi Cepat, Form) dengan badge tombol keyboard bergaya fisik (*kbd style*).
+
+### J. Standar Tipografi Global (DM Sans)
+Seluruh teks antarmuka aplikasi **PlanToday** menggunakan keluarga font **DM Sans**:
+* **Karakteristik**: Geometric sans-serif modern dengan legibility tinggi pada layar berukuran kecil (mobile), pembedaan karakter yang tegas (angka `0` vs huruf `O`, `1` vs `l`/`I`), serta proporsi angka finansial yang stabil dan rapi untuk data transaksi & nominal rupiah.
+* **Integrasi Teknis**: Diterapkan secara terpusat melalui `GoogleFonts.dmSans` pada `AppTheme.lightTheme` (`ThemeData.fontFamily` dan `ThemeData.textTheme`).
+* **Hirarki Bobot (Weights)**:
+  - `FontWeight.w400` (`Regular`): Deskripsi panjang, body text, placeholder.
+  - `FontWeight.w500` (`Medium`): Label input, teks pendukung.
+  - `FontWeight.w600` / `w700` (`SemiBold`): Label tombol sekunder, tanggal, subtitle kartu.
+  - `FontWeight.w800` (`Bold`): Judul kartu modul, judul AppBar, badge status.
+  - `FontWeight.w900` (`Black/Heavy`): **Seluruh penulisan angka kuantitatif, nominal rupiah (`Rp ...`), nilai target, realisasi, persentase ketercapaian (`%`), quick stats, nama pengguna, dan logo.**
 
 ---
 

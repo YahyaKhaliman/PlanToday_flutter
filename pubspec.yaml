@@ -2,7 +2,7 @@ name: plantoday_flutter
 description: "PlanToday - Sales Management"
 publish_to: "none"
 
-version: 1.0.7+7 # Naikkan setiap kali ada update
+version: 1.0.8+8 # Naikkan setiap kali ada update
 
 environment:
     sdk: ^3.12.1
@@ -23,6 +23,7 @@ dependencies:
     url_launcher: ^6.3.3
     device_info_plus: ^13.3.0
     flutter_dotenv: ^5.2.1
+    google_fonts: ^8.2.1
 
 dev_dependencies:
     flutter_test:

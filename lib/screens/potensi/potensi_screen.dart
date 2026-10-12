@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/potensi_model.dart';
+import '../../providers/auth_provider.dart';
+import '../../repositories/penawaran_repository.dart';
 import '../../repositories/potensi_repository.dart';
 import '../../widgets/ui/app_badge.dart';
 import '../../widgets/ui/app_card.dart';
@@ -22,12 +24,22 @@ class _PotensiScreenState extends ConsumerState<PotensiScreen> {
   bool _isLoading = false;
   String _selectedStatus = 'ALL';
 
+  // State Sales (Khusus Manager bisa pilih, non-manager terkunci)
+  String _selectedSales = '';
+  List<String> _salesList = [];
+
   final List<String> _statusFilters = ['ALL', 'OPEN', 'CLOSE', 'BATAL'];
 
   @override
   void initState() {
     super.initState();
     _fetchPotensi();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final user = ref.read(authProvider).user;
+      if (user?.isManager == true) {
+        _loadSalesList();
+      }
+    });
   }
 
   @override
@@ -36,22 +48,185 @@ class _PotensiScreenState extends ConsumerState<PotensiScreen> {
     super.dispose();
   }
 
+  Future<void> _loadSalesList() async {
+    try {
+      final repo = ref.read(penawaranRepositoryProvider);
+      final rows = await repo.getMasterSales('');
+      if (mounted) {
+        setState(() {
+          _salesList = rows.map((e) => e['nama'] ?? '').where((n) => n.isNotEmpty).toList();
+        });
+      }
+    } catch (_) {}
+  }
+
   Future<void> _fetchPotensi([String? query]) async {
     setState(() => _isLoading = true);
+
+    final user = ref.read(authProvider).user;
+    final isManager = user?.isManager ?? false;
 
     final repo = ref.read(potensiRepositoryProvider);
     final res = await repo.getPotensiList(
       status: _selectedStatus,
       search: query ?? _searchController.text.trim(),
+      sales: isManager && _selectedSales.isNotEmpty
+          ? _selectedSales
+          : (!isManager ? user?.nama : null),
     );
 
     if (mounted) {
       setState(() {
         _list = res.list;
         _kpi = res.kpi;
+        if (_salesList.isEmpty && isManager) {
+          final fromData = res.list
+              .map((e) => e.salesNama.trim())
+              .where((n) => n.isNotEmpty)
+              .toSet()
+              .toList()
+            ..sort();
+          if (fromData.isNotEmpty) _salesList = fromData;
+        }
         _isLoading = false;
       });
     }
+  }
+
+  void _showSalesPicker() {
+    String searchKeyword = '';
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final filtered = _salesList.where((s) {
+              return s.toLowerCase().contains(searchKeyword.toLowerCase());
+            }).toList();
+
+            return SafeArea(
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.75,
+                ),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFCBD5E1),
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                      ),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Pilih Sales',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: Color(0xFF64748B)),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.search, size: 18, color: Color(0xFF64748B)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              decoration: const InputDecoration(
+                                hintText: 'Cari sales...',
+                                border: InputBorder.none,
+                                isDense: true,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              onChanged: (val) {
+                                setModalState(() => searchKeyword = val);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Expanded(
+                      child: ListView(
+                        children: [
+                          ListTile(
+                            leading: const Icon(Icons.people_outline, color: Color(0xFF4F46E5)),
+                            title: const Text(
+                              'Semua Sales',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            selected: _selectedSales.isEmpty,
+                            trailing: _selectedSales.isEmpty
+                                ? const Icon(Icons.check, color: Color(0xFF4F46E5))
+                                : null,
+                            onTap: () {
+                              Navigator.pop(ctx);
+                              setState(() {
+                                _selectedSales = '';
+                              });
+                              _fetchPotensi();
+                            },
+                          ),
+                          const Divider(height: 1),
+                          ...filtered.map((s) {
+                            final isSel = _selectedSales == s;
+                            return ListTile(
+                              leading: const Icon(Icons.person_outline, color: Color(0xFF64748B)),
+                              title: Text(s, style: const TextStyle(fontWeight: FontWeight.w600)),
+                              selected: isSel,
+                              trailing: isSel
+                                  ? const Icon(Icons.check, color: Color(0xFF4F46E5))
+                                  : null,
+                              onTap: () {
+                                Navigator.pop(ctx);
+                                setState(() {
+                                  _selectedSales = s;
+                                });
+                                _fetchPotensi();
+                              },
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   void _showBatalDialog(PotensiListItem item) {
@@ -199,6 +374,93 @@ class _PotensiScreenState extends ConsumerState<PotensiScreen> {
                     ),
                     onSubmitted: (q) => _fetchPotensi(q),
                   ),
+                ),
+                const SizedBox(height: 10),
+
+                // Filter Sales (Manager bisa pilih, Non-Manager terkunci)
+                Builder(
+                  builder: (context) {
+                    final user = ref.watch(authProvider).user;
+                    final isManager = user?.isManager ?? false;
+                    final displayName = isManager
+                        ? (_selectedSales.isEmpty ? 'Semua Sales' : _selectedSales)
+                        : (user?.nama.isNotEmpty == true ? user!.nama : 'Sales');
+
+                    return GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: isManager ? _showSalesPicker : null,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isManager && _selectedSales.isNotEmpty
+                              ? const Color(0xFFEEF2FF)
+                              : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isManager && _selectedSales.isNotEmpty
+                                ? const Color(0xFF4F46E5)
+                                : const Color.fromRGBO(15, 23, 42, 0.08),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.person_outline_rounded,
+                              size: 16,
+                              color: isManager && _selectedSales.isNotEmpty
+                                  ? const Color(0xFF4F46E5)
+                                  : const Color(0xFF64748B),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                displayName,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: isManager && _selectedSales.isNotEmpty
+                                      ? const Color(0xFF4F46E5)
+                                      : (isManager
+                                          ? const Color(0xFF0F172A)
+                                          : const Color(0xFF64748B)),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (isManager && _selectedSales.isNotEmpty)
+                              GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: () {
+                                  setState(() => _selectedSales = '');
+                                  _fetchPotensi();
+                                },
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 4),
+                                  child: Icon(
+                                    Icons.close_rounded,
+                                    size: 16,
+                                    color: Color(0xFF4F46E5),
+                                  ),
+                                ),
+                              )
+                            else if (isManager)
+                              const Icon(
+                                Icons.arrow_drop_down_rounded,
+                                size: 18,
+                                color: Color(0xFF64748B),
+                              )
+                            else
+                              const Icon(
+                                Icons.lock_outline_rounded,
+                                size: 14,
+                                color: Color(0xFF94A3B8),
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 12),
                 SingleChildScrollView(

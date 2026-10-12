@@ -11,11 +11,19 @@ import '../../models/customer_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/visit_repository.dart';
 import '../../widgets/customer_picker_modal.dart';
+import '../../widgets/form_confirm_dialog.dart';
 import '../../widgets/ui/app_button.dart';
 import '../../widgets/ui/app_card.dart';
 
 class TambahVisitScreen extends ConsumerStatefulWidget {
-  const TambahVisitScreen({super.key});
+  final CustomerModel? initialCustomer;
+  final String? initialDate;
+
+  const TambahVisitScreen({
+    super.key,
+    this.initialCustomer,
+    this.initialDate,
+  });
 
   @override
   ConsumerState<TambahVisitScreen> createState() => _TambahVisitScreenState();
@@ -36,11 +44,73 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
   File? _imageFile;
   final ImagePicker _picker = ImagePicker();
   bool _isLoading = false;
+  int? _existingVisitId;
+  bool _isCheckingDraft = false;
 
   @override
   void initState() {
     super.initState();
+    if (widget.initialCustomer != null) {
+      _selectedCustomer = widget.initialCustomer;
+    }
+    if (widget.initialDate != null && widget.initialDate!.isNotEmpty) {
+      try {
+        _selectedDate = DateFormat('yyyy-MM-dd').parse(widget.initialDate!);
+      } catch (_) {}
+    }
     _fetchGpsLocation();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_selectedCustomer != null) {
+        _checkAndLoadExistingVisit();
+      }
+    });
+  }
+
+  Future<void> _checkAndLoadExistingVisit() async {
+    if (_selectedCustomer == null) return;
+    final user = ref.read(authProvider).user;
+    if (user == null) return;
+
+    final ymd = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    setState(() => _isCheckingDraft = true);
+
+    try {
+      final repo = ref.read(visitRepositoryProvider);
+      final found = await repo.findExistingVisitOrDraft(
+        user: user.nama,
+        cusKode: _selectedCustomer!.kode,
+        tanggal: ymd,
+      );
+
+      if (found != null && mounted) {
+        setState(() {
+          _existingVisitId = (found['id'] is int)
+              ? found['id']
+              : int.tryParse(found['id'].toString());
+          if (_noteController.text.trim().isEmpty &&
+              (found['note'] ?? '').toString().isNotEmpty) {
+            _noteController.text = found['note'].toString();
+          }
+          if (_catatanController.text.trim().isEmpty &&
+              (found['catatan'] ?? '').toString().isNotEmpty) {
+            _catatanController.text = found['catatan'].toString();
+          }
+        });
+
+        final tipe =
+            found['status'] == 'DONE' ? 'Laporan Kunjungan' : 'Visit Plan';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$tipe ditemukan, formulir terisi otomatis.'),
+            backgroundColor: const Color(0xFF4F46E5),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isCheckingDraft = false);
+    }
   }
 
   @override
@@ -183,7 +253,11 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
   Future<void> _selectCustomer() async {
     final selected = await showCustomerPickerModal(context);
     if (selected != null && mounted) {
-      setState(() => _selectedCustomer = selected);
+      setState(() {
+        _selectedCustomer = selected;
+        _existingVisitId = null;
+      });
+      _checkAndLoadExistingVisit();
     }
   }
 
@@ -200,33 +274,85 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
 
     if (!_formKey.currentState!.validate()) return;
 
+    final ymdFormat = DateFormat('yyyy-MM-dd');
+    final todayYmd = ymdFormat.format(DateTime.now());
+    final ymd = ymdFormat.format(_selectedDate);
+
+    if (ymd.compareTo(todayYmd) < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tanggal visit tidak boleh kurang dari hari ini'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
+    final isRealisasi = _existingVisitId != null;
+    final confirmed = await showFormConfirmDialog(
+      context,
+      title: isRealisasi ? 'Konfirmasi Realisasi Visit' : 'Konfirmasi Laporan Visit',
+      subtitle: isRealisasi
+          ? 'Rencana kunjungan akan direalisasikan menjadi laporan kunjungan'
+          : 'Pastikan data dan titik lokasi kunjungan sudah sesuai',
+      icon: Icons.place_rounded,
+      iconColor: AppColors.primary,
+      summaryItems: [
+        MapEntry('Customer', _selectedCustomer!.nama),
+        MapEntry('Tanggal', DateFormat('dd MMM yyyy').format(_selectedDate)),
+        MapEntry('Status Form', isRealisasi ? 'Realisasi Plan' : 'Visit Baru'),
+        MapEntry('Lokasi GPS', _latitude != null ? 'Terdeteksi' : 'Belum Terdeteksi'),
+        MapEntry('Foto Bukti', _imageFile != null ? 'Terlampir' : 'Tidak Ada'),
+        if (_noteController.text.trim().isNotEmpty)
+          MapEntry('Tujuan', _noteController.text.trim()),
+      ],
+      confirmText: isRealisasi ? 'Ya, Realisasikan Visit' : 'Ya, Kirim Laporan',
+    );
+
+    if (!confirmed) return;
+
     setState(() => _isLoading = true);
 
     final user = ref.read(authProvider).user;
     final repo = ref.read(visitRepositoryProvider);
 
-    final ymd = DateFormat('yyyy-MM-dd').format(_selectedDate);
-
-    final success = await repo.createVisit(
-      tanggal: ymd,
-      customerKode: _selectedCustomer!.kode,
-      customerNama: _selectedCustomer!.nama,
-      note: _noteController.text.trim(),
-      catatan: _catatanController.text.trim(),
-      cabang: user?.cabang ?? '',
-      sales: user?.nama ?? '',
-      latitude: _latitude,
-      longitude: _longitude,
-      photo: _imageFile,
-    );
+    final bool success;
+    if (_existingVisitId != null) {
+      success = await repo.updateVisit(
+        id: _existingVisitId!,
+        note: _noteController.text.trim(),
+        catatan: _catatanController.text.trim(),
+        tanggal: ymd,
+        latitude: _latitude,
+        longitude: _longitude,
+        photo: _imageFile,
+      );
+    } else {
+      success = await repo.createVisit(
+        tanggal: ymd,
+        customerKode: _selectedCustomer!.kode,
+        customerNama: _selectedCustomer!.nama,
+        note: _noteController.text.trim(),
+        catatan: _catatanController.text.trim(),
+        cabang: user?.cabang ?? '',
+        sales: user?.nama ?? '',
+        latitude: _latitude,
+        longitude: _longitude,
+        photo: _imageFile,
+      );
+    }
 
     if (mounted) {
       setState(() => _isLoading = false);
 
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Laporan visit berhasil dikirim'),
+          SnackBar(
+            content: Text(
+              isRealisasi
+                  ? 'Visit berhasil direalisasikan dan tersimpan'
+                  : 'Laporan visit berhasil dikirim',
+            ),
             backgroundColor: AppColors.success,
           ),
         );
@@ -396,25 +522,69 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
                               const SizedBox(height: 14),
 
                               // Tanggal Kunjungan
-                              const Text(
-                                'Tanggal Kunjungan *',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
-                                  color: Color(0xFF0F172A),
-                                ),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Tanggal Kunjungan *',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                  if (_isCheckingDraft)
+                                    const SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Color(0xFF4F46E5),
+                                      ),
+                                    )
+                                  else if (_existingVisitId != null)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF4F46E5)
+                                            .withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: const Text(
+                                        'Mode Realisasi Plan',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w800,
+                                          color: Color(0xFF4F46E5),
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
                               const SizedBox(height: 6),
                               InkWell(
                                 onTap: () async {
+                                  final now = DateTime.now();
+                                  final todayDate =
+                                      DateTime(now.year, now.month, now.day);
+                                  final firstAllowed =
+                                      _selectedDate.isBefore(todayDate)
+                                          ? _selectedDate
+                                          : todayDate;
+
                                   final picked = await showDatePicker(
                                     context: context,
                                     initialDate: _selectedDate,
-                                    firstDate: DateTime(2020),
+                                    firstDate: firstAllowed,
                                     lastDate: DateTime(2030),
                                   );
                                   if (picked != null) {
                                     setState(() => _selectedDate = picked);
+                                    _checkAndLoadExistingVisit();
                                   }
                                 },
                                 borderRadius: BorderRadius.circular(12),

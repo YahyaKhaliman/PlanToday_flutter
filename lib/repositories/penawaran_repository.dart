@@ -149,4 +149,76 @@ class PenawaranRepository {
       return [];
     }
   }
+
+  Future<bool> requestApprovalPerubahan(
+    String nomor, {
+    required String alasan,
+  }) async {
+    try {
+      final response = await _api.dio.post(
+        '/penawaran/$nomor/pengajuan-perubahan',
+        data: {'alasan': alasan},
+      );
+      return response.data != null && response.data['success'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<List<Map<String, String>>> getMasterSales(String search) async {
+    try {
+      final response = await _api.dio.get(
+        '/penawaran/master/sales',
+        queryParameters: {'search': search},
+      );
+      final data = response.data;
+      if (data != null && data['data'] is List) {
+        return (data['data'] as List)
+            .map((item) => {
+                  'kode': item['kode']?.toString() ?? item['sal_kode']?.toString() ?? '',
+                  'nama': item['nama']?.toString() ?? item['sal_nama']?.toString() ?? '',
+                })
+            .toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, String>>> getMasterPerusahaan() async {
+    try {
+      final response = await _api.dio.get('/penawaran/master/perusahaan');
+      final data = response.data;
+      if (data != null && data['data'] is List) {
+        return (data['data'] as List)
+            .map((item) => {
+                  'kode': item['kode']?.toString() ?? '',
+                  'nama': item['nama']?.toString() ?? '',
+                })
+            .toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getMasterPenawaranNomor(String search) async {
+    try {
+      final response = await _api.dio.get(
+        '/penawaran/master/nomor',
+        queryParameters: {'search': search},
+      );
+      final data = response.data;
+      if (data != null && data['data'] is List) {
+        return (data['data'] as List)
+            .map((item) => item as Map<String, dynamic>)
+            .toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
 }

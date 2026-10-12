@@ -43,6 +43,114 @@ class _PermintaanHargaDetailScreenState
     }
   }
 
+  Future<void> _handleDelete() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Hapus Permintaan Harga',
+          style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+        ),
+        content: Text(
+          'Yakin ingin menghapus permintaan harga ${widget.nomor}?',
+          style: const TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hapus', style: TextStyle(fontWeight: FontWeight.w800)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    setState(() => _isLoading = true);
+    final repo = ref.read(permintaanHargaRepositoryProvider);
+    final success = await repo.deletePermintaanHarga(widget.nomor);
+
+    if (mounted) {
+      setState(() => _isLoading = false);
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Permintaan harga berhasil dihapus'),
+            backgroundColor: Color(0xFF10B981),
+          ),
+        );
+        context.pop(true);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gagal menghapus permintaan harga'),
+            backgroundColor: Color(0xFFEF4444),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleCopy() async {
+    if (_detail == null) return;
+    setState(() => _isLoading = true);
+    final repo = ref.read(permintaanHargaRepositoryProvider);
+
+    final payload = {
+      'nomor': widget.nomor,
+      'customer': _detail!.cusNama,
+      'divisi': _detail!.divisi,
+      'nama': '${_detail!.nama} (Copy)',
+      'jml_order': _detail!.jmlOrder,
+    };
+
+    final result = await repo.copyPermintaanHarga(widget.nomor, payload);
+    if (mounted) {
+      setState(() => _isLoading = false);
+      if (result != null) {
+        final newNomor = result['nomor']?.toString() ?? 'Baru';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Berhasil copy ke nomor: $newNomor'),
+            backgroundColor: const Color(0xFF10B981),
+          ),
+        );
+        context.push('/permintaan-harga/$newNomor');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gagal copy permintaan harga'),
+            backgroundColor: Color(0xFFEF4444),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleEdit() async {
+    if (_detail == null) return;
+    final refresh = await context.push<bool>(
+      '/permintaan-harga/edit',
+      extra: _detail,
+    );
+    if (refresh == true) {
+      _fetchDetail();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final currencyFormat =
@@ -112,33 +220,99 @@ class _PermintaanHargaDetailScreenState
                         ],
                       ),
                     ),
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: _fetchDetail,
-                      child: Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: const Color.fromRGBO(15, 23, 42, 0.08),
+                    Row(
+                      children: [
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: _fetchDetail,
+                          child: Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color.fromRGBO(15, 23, 42, 0.08),
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: const Icon(
+                              Icons.refresh_rounded,
+                              size: 18,
+                              color: Color(0xFF4F46E5),
+                            ),
                           ),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color.fromRGBO(15, 23, 42, 0.03),
-                              blurRadius: 6,
-                              offset: Offset(0, 2),
+                        ),
+                        const SizedBox(width: 8),
+                        PopupMenuButton<String>(
+                          icon: Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color.fromRGBO(15, 23, 42, 0.08),
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: const Icon(
+                              Icons.more_vert_rounded,
+                              size: 18,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          onSelected: (val) {
+                            if (val == 'edit') _handleEdit();
+                            if (val == 'copy') _handleCopy();
+                            if (val == 'delete') _handleDelete();
+                          },
+                          itemBuilder: (ctx) => [
+                            const PopupMenuItem(
+                              value: 'edit',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.edit_outlined,
+                                      size: 18, color: Color(0xFF4F46E5)),
+                                  SizedBox(width: 10),
+                                  Text('Edit Data',
+                                      style: TextStyle(fontWeight: FontWeight.w700)),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem(
+                              value: 'copy',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.copy_outlined,
+                                      size: 18, color: Color(0xFF00B4D8)),
+                                  SizedBox(width: 10),
+                                  Text('Copy Permintaan',
+                                      style: TextStyle(fontWeight: FontWeight.w700)),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuDivider(),
+                            const PopupMenuItem(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.delete_outline,
+                                      size: 18, color: Color(0xFFEF4444)),
+                                  SizedBox(width: 10),
+                                  Text('Hapus Data',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFFEF4444))),
+                                ],
+                              ),
                             ),
                           ],
                         ),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.refresh_rounded,
-                          size: 20,
-                          color: Color(0xFF4F46E5),
-                        ),
-                      ),
+                      ],
                     ),
                   ],
                 ),

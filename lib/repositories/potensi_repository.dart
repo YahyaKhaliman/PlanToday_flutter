@@ -26,6 +26,7 @@ class PotensiRepository {
     String? endDate,
     String? status,
     String? search,
+    String? sales,
   }) async {
     try {
       final queryParams = <String, dynamic>{};
@@ -33,6 +34,7 @@ class PotensiRepository {
       if (endDate != null) queryParams['endDate'] = endDate;
       if (status != null && status != 'ALL') queryParams['status'] = status;
       if (search != null && search.isNotEmpty) queryParams['search'] = search;
+      if (sales != null && sales.isNotEmpty) queryParams['sales'] = sales;
 
       final response = await _api.dio.get(
         '/potensi',

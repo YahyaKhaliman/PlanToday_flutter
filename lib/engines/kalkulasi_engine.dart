@@ -141,4 +141,24 @@ class KalkulasiEngine {
       hargaSesuaiPpn: hargaSesuaiPpn,
     );
   }
+
+  static double calculateSpanduk({
+    required double panjangM,
+    required double lebarM,
+    required double kainRatePerM2,
+    required double finishingRatePerM,
+  }) {
+    final luasM2 = panjangM * lebarM;
+    final kelilingM = 2 * (panjangM + lebarM);
+    return (luasM2 * kainRatePerM2) + (kelilingM * finishingRatePerM);
+  }
+
+  static double calculateMmt({
+    required double panjangM,
+    required double lebarM,
+    required double bahanRatePerM2,
+  }) {
+    final luasM2 = panjangM * lebarM;
+    return luasM2 * bahanRatePerM2;
+  }
 }

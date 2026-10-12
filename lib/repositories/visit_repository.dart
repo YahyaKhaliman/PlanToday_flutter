@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/constants/app_constants.dart';
 import '../core/network/api_client.dart';
@@ -39,12 +40,22 @@ class VisitRepository {
 
       final data = response.data;
       if (data != null && data['data'] is List) {
-        return (data['data'] as List)
-            .map((item) => VisitModel.fromJson(item as Map<String, dynamic>))
+        final list = data['data'] as List;
+        return list
+            .map((item) {
+              if (item is Map<String, dynamic>) {
+                return VisitModel.fromJson(item);
+              } else if (item is Map) {
+                return VisitModel.fromJson(Map<String, dynamic>.from(item));
+              }
+              return null;
+            })
+            .whereType<VisitModel>()
             .toList();
       }
       return [];
-    } catch (_) {
+    } catch (e, stack) {
+      debugPrint('[VisitRepository] getVisitList error: $e\n$stack');
       return [];
     }
   }
@@ -76,12 +87,22 @@ class VisitRepository {
 
       final data = response.data;
       if (data != null && data['data'] is List) {
-        return (data['data'] as List)
-            .map((item) => VisitModel.fromJson(item as Map<String, dynamic>))
+        final list = data['data'] as List;
+        return list
+            .map((item) {
+              if (item is Map<String, dynamic>) {
+                return VisitModel.fromJson(item);
+              } else if (item is Map) {
+                return VisitModel.fromJson(Map<String, dynamic>.from(item));
+              }
+              return null;
+            })
+            .whereType<VisitModel>()
             .toList();
       }
       return [];
-    } catch (_) {
+    } catch (e, stack) {
+      debugPrint('[VisitRepository] getVisitPlanList error: $e\n$stack');
       return [];
     }
   }
@@ -170,6 +191,81 @@ class VisitRepository {
     }
   }
 
+  Future<Map<String, dynamic>?> getVisitDraft({
+    required String user,
+    required String cusKode,
+    required String tanggal,
+  }) async {
+    try {
+      final response = await _api.dio.get(
+        '/visit/draft',
+        queryParameters: {
+          'user': user,
+          'cus_kode': cusKode,
+          'tanggal': tanggal,
+        },
+      );
+      if (response.data != null && response.data['success'] == true) {
+        final data = response.data['data'];
+        if (data != null && data is Map<String, dynamic>) {
+          return data;
+        }
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> findExistingVisitOrDraft({
+    required String user,
+    required String cusKode,
+    required String tanggal,
+  }) async {
+    try {
+      final rekapResp = await _api.dio.get(
+        ApiConfig.rekapVisit,
+        queryParameters: {
+          'user': user,
+          'tanggal': tanggal,
+        },
+      );
+      if (rekapResp.data != null && rekapResp.data['data'] is List) {
+        final list = rekapResp.data['data'] as List;
+        final foundDone = list.firstWhere(
+          (x) => x is Map && x['cus_kode']?.toString().trim() == cusKode.trim(),
+          orElse: () => null,
+        );
+        if (foundDone != null && foundDone is Map<String, dynamic>) {
+          return {
+            'id': foundDone['id'],
+            'note': foundDone['note'] ?? '',
+            'catatan': foundDone['catatan'] ?? '',
+            'status': 'DONE',
+          };
+        }
+      }
+    } catch (_) {}
+
+    try {
+      final draft = await getVisitDraft(
+        user: user,
+        cusKode: cusKode,
+        tanggal: tanggal,
+      );
+      if (draft != null && draft['id'] != null) {
+        return {
+          'id': draft['id'],
+          'note': draft['note'] ?? '',
+          'catatan': draft['catatan'] ?? '',
+          'status': 'DRAFT',
+        };
+      }
+    } catch (_) {}
+
+    return null;
+  }
+
   Future<bool> createVisitPlan({
     required String cusKode,
     required String user,
@@ -234,6 +330,29 @@ class VisitRepository {
     }
   }
 
+  Future<String?> getRekapVisitWA({
+    required String user,
+    required String cabang,
+    required String startDate,
+    required String endDate,
+  }) async {
+    try {
+      final response = await _api.dio.get(
+        '/rekap-visit/wa',
+        queryParameters: {
+          'user': user,
+          'cabang': cabang,
+          'tanggal_awal': startDate,
+          'tanggal_akhir': endDate,
+        },
+      );
+      return response.data?['wa_text']?.toString() ??
+          response.data?['data']?.toString();
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<List<String>> getSalesByCabang(String cabang) async {
     try {
       final response = await _api.dio.get(
@@ -257,4 +376,29 @@ class VisitRepository {
       return [];
     }
   }
+
+  Future<Map<String, dynamic>?> getRekapVisitPlanDetail(int id) async {
+    try {
+      final response = await _api.dio.get('/rekap-visit-plan/$id');
+      if (response.data != null && response.data['data'] != null) {
+        return response.data['data'] as Map<String, dynamic>;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<bool> updateRekapVisitPlanNote(int id, String note) async {
+    try {
+      final response = await _api.dio.put(
+        '/rekap-visit-plan/$id/note',
+        data: {'note': note},
+      );
+      return response.data != null && response.data['success'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
 }
+
