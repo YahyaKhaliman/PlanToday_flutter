@@ -3,12 +3,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 class ApiConfig {
   static String get baseUrl =>
       dotenv.env['API_BASE_URL'] ??
-      const String.fromEnvironment(
-        'API_BASE_URL',
-        defaultValue: 'http://103.94.238.252:3005/api',
-      );
-
-  // Local Dev Base URL fallback: 'http://10.0.2.2:3001/api' (Emulator) or 'http://localhost:3001/api'
+      const String.fromEnvironment('API_BASE_URL');
 
   // Auth & User
   static const String login = '/login';
@@ -42,20 +37,18 @@ class ApiConfig {
   // Media / Gambar
   static String get imageReadUrl =>
       dotenv.env['IMAGE_READ_URL'] ??
-      const String.fromEnvironment(
-        'IMAGE_READ_URL',
-        defaultValue: 'http://103.94.238.252:8182',
-      );
+      const String.fromEnvironment('IMAGE_READ_URL');
 
   static String get imageUploadUrl =>
       dotenv.env['IMAGE_UPLOAD_URL'] ??
-      const String.fromEnvironment(
-        'IMAGE_UPLOAD_URL',
-        defaultValue: 'http://103.94.238.252:8080',
-      );
+      const String.fromEnvironment('IMAGE_UPLOAD_URL');
 
   static String get imageBasePath =>
-      dotenv.env['IMAGE_BASE_PATH'] ?? '/images/mintaharga';
+      dotenv.env['IMAGE_BASE_PATH'] ??
+      const String.fromEnvironment(
+        'IMAGE_BASE_PATH',
+        defaultValue: '/images/mintaharga',
+      );
 
   // Timeout settings
   static const Duration connectTimeout = Duration(seconds: 30);

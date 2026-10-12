@@ -21,14 +21,23 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Create .env from secret
+        env:
+          ENV_CONTENT: ${{ secrets.ENV_FILE }}
+        run: |
+          if [ -n "$ENV_CONTENT" ]; then
+            echo "$ENV_CONTENT" > .env
+          else
+            cp .env.example .env
+          fi
+
       - name: Install dependencies
         run: flutter pub get
 
       - name: Build Flutter web release
         run: |
           flutter build web --release \
-            --base-href "/" \
-            --dart-define=API_BASE_URL="${{ secrets.API_BASE_URL }}"
+            --base-href "/"
 
       - name: Prepare target folder on VPS
         uses: appleboy/ssh-action@v1.0.3
