@@ -532,7 +532,13 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
                     // Tombol Back Kiri
                     GestureDetector(
                       behavior: HitTestBehavior.opaque,
-                      onTap: () => context.pop(),
+                      onTap: () {
+                        if (context.canPop()) {
+                          context.pop();
+                        } else {
+                          context.go('/');
+                        }
+                      },
                       child: Container(
                         width: 42,
                         height: 42,
@@ -585,8 +591,78 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
                       ),
                     ),
 
-                    // Placeholder pengimbang kanan
-                    const SizedBox(width: 42),
+                    // Tombol Aksi Kanan: Kirim WA + Reload
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Tooltip(
+                          message: 'Kirim Rekap WA',
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: _handleKirimWA,
+                            child: Container(
+                              width: 42,
+                              height: 42,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF22C55E),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color.fromRGBO(34, 197, 94, 0.25),
+                                    blurRadius: 8,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              alignment: Alignment.center,
+                              child: const Icon(
+                                Icons.call_outlined,
+                                size: 20,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: _fetchPlans,
+                          child: Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: const Color.fromRGBO(15, 23, 42, 0.08),
+                              ),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color.fromRGBO(15, 23, 42, 0.03),
+                                  blurRadius: 6,
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            alignment: Alignment.center,
+                            child: _isLoading
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Color(0xFF4F46E5),
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.refresh_rounded,
+                                    size: 20,
+                                    color: Color(0xFF4F46E5),
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -1051,114 +1127,44 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
                       ),
               ),
 
-              // 5. BOTTOM FIXED ACTION BAR PERSIS SCREENSHOT IMAGE 1
-              Container(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  border: Border(
-                    top: BorderSide(color: Color.fromRGBO(15, 23, 42, 0.08)),
+              // 5. BOTTOM FIXED ACTION BAR (Jika Bukan Manager)
+              if (!isManager)
+                Container(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    border: Border(
+                      top: BorderSide(color: Color.fromRGBO(15, 23, 42, 0.08)),
+                    ),
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF4F46E5),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+                      onPressed: () async {
+                        final refresh = await context.push<bool>(
+                          '/visit-plan/tambah',
+                        );
+                        if (refresh == true) _fetchPlans();
+                      },
+                      child: const Text(
+                        '+ Tambah',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-                child: Row(
-                  children: [
-                    // Tombol Tambah (Jika Bukan Manager)
-                    if (!isManager) ...[
-                      Expanded(
-                        child: SizedBox(
-                          height: 50,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF4F46E5),
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18),
-                              ),
-                            ),
-                            onPressed: () async {
-                              final refresh = await context.push<bool>(
-                                '/visit-plan/tambah',
-                              );
-                              if (refresh == true) _fetchPlans();
-                            },
-                            child: const Text(
-                              '+ Tambah',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                    ],
-
-                    // Tombol Refresh (Soft Lavender / Indigo)
-                    Expanded(
-                      child: SizedBox(
-                        height: 50,
-                        child: OutlinedButton(
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: const Color(0xFFEEF2FF),
-                            foregroundColor: const Color(0xFF4F46E5),
-                            side: const BorderSide(
-                              color: Color.fromRGBO(79, 70, 229, 0.25),
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                          ),
-                          onPressed: _fetchPlans,
-                          child: _isLoading
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Color(0xFF4F46E5),
-                                  ),
-                                )
-                              : const Text(
-                                  'Refresh',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-
-                    // Tombol Kirim WA (Green WhatsApp)
-                    Expanded(
-                      child: SizedBox(
-                        height: 50,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF22C55E),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                          ),
-                          onPressed: _handleKirimWA,
-                          child: const Text(
-                            'Kirim WA',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ],
           ),
         ),

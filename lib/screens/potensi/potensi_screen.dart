@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/app_toast.dart';
+import '../../core/utils/responsive_helper.dart';
 import '../../models/potensi_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/penawaran_repository.dart';
@@ -297,17 +299,119 @@ class _PotensiScreenState extends ConsumerState<PotensiScreen> {
         NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Potensi Sales'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => _fetchPotensi(),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
+      backgroundColor: const Color(0xFFF7F9FF),
+      body: SafeArea(
+        child: ResponsiveContainer(
+          maxWidth: 1000,
+          child: Column(
+            children: [
+              // 1. TOP HEADER ALA UI-STYLING
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        if (context.canPop()) {
+                          context.pop();
+                        } else {
+                          context.go('/');
+                        }
+                      },
+                      child: Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: const Color.fromRGBO(15, 23, 42, 0.08),
+                          ),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color.fromRGBO(15, 23, 42, 0.03),
+                              blurRadius: 6,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.chevron_left_rounded,
+                          size: 26,
+                          color: Color(0xFF4F46E5),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        children: const [
+                          Text(
+                            'Potensi Sales',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF0F172A),
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Manajemen prospek dan potensi closing',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _fetchPotensi(),
+                      child: Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: const Color.fromRGBO(15, 23, 42, 0.08),
+                          ),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color.fromRGBO(15, 23, 42, 0.03),
+                              blurRadius: 6,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Color(0xFF4F46E5),
+                                ),
+                              )
+                            : const Icon(
+                                Icons.refresh_rounded,
+                                size: 20,
+                                color: Color(0xFF4F46E5),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: Column(
+                  children: [
           // KPI Summary Cards
           if (_kpi != null)
             Container(
@@ -523,10 +627,15 @@ class _PotensiScreenState extends ConsumerState<PotensiScreen> {
                           },
                         ),
                       ),
+              ),
+            ],
           ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
+        ),
+      ],
+    ),
+  ),
+),
+floatingActionButton: FloatingActionButton(
         backgroundColor: AppColors.primary,
         onPressed: () async {
           final refresh = await showModalBottomSheet<bool>(

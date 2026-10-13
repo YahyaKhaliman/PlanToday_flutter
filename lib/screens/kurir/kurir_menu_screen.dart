@@ -261,7 +261,13 @@ class _KurirMenuScreenState extends ConsumerState<KurirMenuScreen>
                         children: [
                           GestureDetector(
                             behavior: HitTestBehavior.opaque,
-                            onTap: () => context.pop(),
+                            onTap: () {
+                              if (context.canPop()) {
+                                context.pop();
+                              } else {
+                                context.go('/');
+                              }
+                            },
                             child: Container(
                               width: 38,
                               height: 38,
@@ -296,7 +302,37 @@ class _KurirMenuScreenState extends ConsumerState<KurirMenuScreen>
                               ),
                             ),
                           ),
-                          const SizedBox(width: 38),
+                          // Tombol Reload Kanan
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: _fetchData,
+                            child: Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: const Color.fromRGBO(15, 23, 42, 0.06),
+                                ),
+                              ),
+                              alignment: Alignment.center,
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Color(0xFF4F46E5),
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.refresh_rounded,
+                                      size: 18,
+                                      color: Color(0xFF4F46E5),
+                                    ),
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 16),

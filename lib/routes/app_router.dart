@@ -11,9 +11,7 @@ import '../screens/achievement/achievement_detail_user_screen.dart';
 import '../screens/achievement/achievement_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
-import '../screens/customer/edit_calon_customer_screen.dart';
 import '../screens/customer/rekap_calon_customer_screen.dart';
-import '../screens/customer/tambah_calon_customer_screen.dart';
 import '../screens/home/ganti_password_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/kurir/kurir_menu_screen.dart';
@@ -163,14 +161,17 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'tambah',
             name: 'tambah-customer',
-            builder: (context, state) => const TambahCalonCustomerScreen(),
+            builder: (context, state) =>
+                const TambahCustomerPermintaanHargaScreen(),
           ),
           GoRoute(
             path: 'edit',
             name: 'edit-customer',
             builder: (context, state) {
-              final customer = state.extra as CustomerModel;
-              return EditCalonCustomerScreen(customer: customer);
+              final customer = state.extra as CustomerModel?;
+              return TambahCustomerPermintaanHargaScreen(
+                initialCustomer: customer,
+              );
             },
           ),
         ],

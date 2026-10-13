@@ -37,7 +37,12 @@ jobs:
       - name: Build Flutter web release
         run: |
           flutter build web --release \
+            --pwa-strategy=none \
             --base-href "/"
+          # Tambahkan cache-buster commit hash pada main.dart.js di dalam flutter_bootstrap.js
+          # agar browser Laptop & pintasan iOS selalu mengunduh bundle JS terbaru
+          BUILD_HASH="${GITHUB_SHA::8}"
+          sed -i "s/main\.dart\.js/main.dart.js?v=${BUILD_HASH}/g" build/web/flutter_bootstrap.js || true
 
       - name: Prepare target folder on VPS
         uses: appleboy/ssh-action@v1.0.3

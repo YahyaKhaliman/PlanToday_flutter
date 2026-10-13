@@ -633,133 +633,387 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   void _showStatusDetailModal() {
-    showModalBottomSheet(
+    final user = ref.read(authProvider).user;
+    final isManager = user?.jabatan.toUpperCase() == 'MANAGER';
+
+    showDialog(
       context: context,
-      backgroundColor: Colors.white,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFCBD5E1),
-                    borderRadius: BorderRadius.circular(99),
+      barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      builder: (dialogCtx) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 24,
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 440,
+              maxHeight: MediaQuery.sizeOf(dialogCtx).height * 0.82,
+            ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color.fromRGBO(0, 0, 0, 0.12),
+                    blurRadius: 24,
+                    offset: Offset(0, 10),
                   ),
-                ),
+                ],
               ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Indicator Bar
+                  Container(
+                    width: 44,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE5E7EB),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Modal Title
                   const Text(
                     'Rincian Status Dokumen',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 18,
                       fontWeight: FontWeight.w900,
                       color: Color(0xFF0F172A),
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Color(0xFF64748B)),
-                    onPressed: () => Navigator.pop(ctx),
+                  const SizedBox(height: 12),
+
+                  // Scrollable Content
+                  Flexible(
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // 1. Permintaan Harga
+                          _buildModalSectionHeader(
+                            title: 'Permintaan Harga',
+                            totalBadge: _totalActivePH,
+                          ),
+                          const SizedBox(height: 6),
+                          _buildStatusItemRow(
+                            icon: Icons.schedule,
+                            color: const Color(0xFF6B7280),
+                            label: 'Belum',
+                            count: _phStatusCounts['BELUM'] ?? 0,
+                            onTap: () {
+                              Navigator.pop(dialogCtx);
+                              context.push('/permintaan-harga');
+                            },
+                          ),
+                          _buildStatusItemRow(
+                            icon: Icons.description,
+                            color: const Color(0xFFDC2626),
+                            label: 'Minta',
+                            count: _phStatusCounts['MINTA'] ?? 0,
+                            onTap: () {
+                              Navigator.pop(dialogCtx);
+                              context.push('/permintaan-harga');
+                            },
+                          ),
+                          _buildStatusItemRow(
+                            icon: Icons.hourglass_empty,
+                            color: const Color(0xFF16A34A),
+                            label: 'Wait',
+                            count: _phStatusCounts['WAIT'] ?? 0,
+                            onTap: () {
+                              Navigator.pop(dialogCtx);
+                              context.push('/permintaan-harga');
+                            },
+                          ),
+                          _buildStatusItemRow(
+                            icon: Icons.handshake,
+                            color: const Color(0xFF6B21A8),
+                            label: 'Nego',
+                            count: _phStatusCounts['NEGO'] ?? 0,
+                            onTap: () {
+                              Navigator.pop(dialogCtx);
+                              context.push('/permintaan-harga');
+                            },
+                          ),
+                          _buildStatusItemRow(
+                            icon: Icons.check_circle,
+                            color: const Color(0xFF18181B),
+                            label: 'Done',
+                            count: _phStatusCounts['DONE'] ?? 0,
+                            onTap: () {
+                              Navigator.pop(dialogCtx);
+                              context.push('/permintaan-harga');
+                            },
+                          ),
+                          _buildStatusItemRow(
+                            icon: Icons.cancel,
+                            color: const Color(0xFF2563EB),
+                            label: 'Cancel',
+                            count: _phStatusCounts['CANCEL'] ?? 0,
+                            onTap: () {
+                              Navigator.pop(dialogCtx);
+                              context.push('/permintaan-harga');
+                            },
+                          ),
+
+                          // 2. Tracking Penawaran
+                          const SizedBox(height: 16),
+                          _buildModalSectionHeader(
+                            title: 'Tracking Penawaran',
+                            totalBadge: _totalActivePenawaran,
+                          ),
+                          const SizedBox(height: 6),
+                          _buildStatusItemRow(
+                            dotColor: const Color(0xFFEF4444),
+                            label: 'OPEN',
+                            count: _penawaranStatusCounts['OPEN'] ?? 0,
+                            onTap: () {
+                              Navigator.pop(dialogCtx);
+                              context.push('/penawaran');
+                            },
+                          ),
+                          _buildStatusItemRow(
+                            dotColor: const Color(0xFF3B82F6),
+                            label: 'PARSIAL',
+                            count: _penawaranStatusCounts['PARSIAL'] ?? 0,
+                            onTap: () {
+                              Navigator.pop(dialogCtx);
+                              context.push('/penawaran');
+                            },
+                          ),
+                          _buildStatusItemRow(
+                            dotColor: const Color(0xFF10B981),
+                            label: 'CLOSE',
+                            count: _penawaranStatusCounts['CLOSE'] ?? 0,
+                            onTap: () {
+                              Navigator.pop(dialogCtx);
+                              context.push('/penawaran');
+                            },
+                          ),
+
+                          // 3. Penawaran (Approval) - Khusus Manager
+                          if (isManager) ...[
+                            const SizedBox(height: 16),
+                            _buildModalSectionHeader(
+                              title: 'Penawaran (Approval)',
+                              totalBadge: _unapprovedPenawaranCount,
+                            ),
+                            const SizedBox(height: 6),
+                            _buildStatusItemRow(
+                              icon: Icons.schedule,
+                              color: const Color(0xFFF59E0B),
+                              badgeColor: _unapprovedPenawaranCount > 0
+                                  ? const Color(0xFFEF4444)
+                                  : const Color(0xFF10B981),
+                              label: 'Belum Diapprove',
+                              count: _unapprovedPenawaranCount,
+                              onTap: () {
+                                Navigator.pop(dialogCtx);
+                                context.push('/penawaran');
+                              },
+                            ),
+                          ],
+
+                          // 4. Tracking SPK
+                          const SizedBox(height: 16),
+                          _buildModalSectionHeader(
+                            title: 'Tracking SPK',
+                            totalBadge: _totalActiveSpk,
+                          ),
+                          const SizedBox(height: 6),
+                          _buildStatusItemRow(
+                            dotColor: const Color(0xFFEF4444),
+                            label: 'OPEN',
+                            count: _spkStatusCounts['BELUM'] ?? 0,
+                            onTap: () {
+                              Navigator.pop(dialogCtx);
+                              context.push('/tracking-spk');
+                            },
+                          ),
+                          _buildStatusItemRow(
+                            dotColor: const Color(0xFFF59E0B),
+                            label: 'PROSES',
+                            count: _spkStatusCounts['PROSES'] ?? 0,
+                            onTap: () {
+                              Navigator.pop(dialogCtx);
+                              context.push('/tracking-spk');
+                            },
+                          ),
+                          _buildStatusItemRow(
+                            dotColor: const Color(0xFF10B981),
+                            label: 'CLOSE',
+                            count: _spkStatusCounts['SUDAH'] ?? 0,
+                            onTap: () {
+                              Navigator.pop(dialogCtx);
+                              context.push('/tracking-spk');
+                            },
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  // Action Row: Tutup Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 46,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF4F46E5),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () => Navigator.pop(dialogCtx),
+                      child: const Text(
+                        'Tutup',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
-              const Divider(height: 12),
-              _buildModalRow(
-                title: 'Permintaan Harga',
-                activeCount: _totalActivePH,
-                color: const Color(0xFFEF4444),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  context.push('/permintaan-harga');
-                },
-              ),
-              _buildModalRow(
-                title: 'Penawaran',
-                activeCount: _totalActivePenawaran,
-                color: const Color(0xFF3B82F6),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  context.push('/penawaran');
-                },
-              ),
-              _buildModalRow(
-                title: 'Tracking SPK',
-                activeCount: _totalActiveSpk,
-                color: const Color(0xFF10B981),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  context.push('/tracking-spk');
-                },
-              ),
-              if (_unapprovedPenawaranCount > 0)
-                _buildModalRow(
-                  title: 'Penawaran Belum Disetujui',
-                  activeCount: _unapprovedPenawaranCount,
-                  color: const Color(0xFFF59E0B),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    context.push('/penawaran/status');
-                  },
-                ),
-              const SizedBox(height: 12),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildModalRow({
+  Widget _buildModalSectionHeader({
     required String title,
-    required int activeCount,
-    required Color color,
-    required VoidCallback onTap,
+    required int totalBadge,
   }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF4F46E5),
+          ),
+        ),
+        if (totalBadge > 0)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEF4444),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            constraints: const BoxConstraints(minWidth: 18),
+            alignment: Alignment.center,
+            child: Text(
+              '$totalBadge',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 9.5,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildStatusItemRow({
+    IconData? icon,
+    Color? color,
+    Color? dotColor,
+    Color? badgeColor,
+    required String label,
+    required int count,
+    VoidCallback? onTap,
+  }) {
+    final effectiveBadgeColor =
+        badgeColor ?? dotColor ?? color ?? const Color(0xFF4F46E5);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color.fromRGBO(15, 23, 42, 0.06)),
+        border: Border.all(color: const Color.fromRGBO(15, 23, 42, 0.04)),
       ),
-      child: ListTile(
-        title: Text(
-          title,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF0F172A),
-          ),
-        ),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(99),
-            border: Border.all(color: color.withValues(alpha: 0.3)),
-          ),
-          child: Text(
-            '$activeCount Aktif',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-              color: color,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    if (icon != null)
+                      Icon(icon, size: 16, color: color)
+                    else if (dotColor != null)
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: dotColor,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    const SizedBox(width: 8),
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                  ],
+                ),
+                Container(
+                  constraints: const BoxConstraints(minWidth: 32),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: effectiveBadgeColor,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '$count',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
-        onTap: onTap,
       ),
     );
   }
@@ -1011,8 +1265,48 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ],
           ),
 
-          // Tombol Notifikasi Lonceng + Badge Merah
-          _buildNotificationButton(),
+          // Tombol Aksi Kanan: Reload + Notifikasi
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Tooltip(
+                message: 'Segarkan data dashboard',
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _fetchDashboardData,
+                  child: Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: const Color.fromRGBO(15, 23, 42, 0.08),
+                      ),
+                      boxShadow: AppShadows.softCard,
+                    ),
+                    alignment: Alignment.center,
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Color(0xFF4F46E5),
+                            ),
+                          )
+                        : const Icon(
+                            Icons.refresh_rounded,
+                            size: 20,
+                            color: Color(0xFF4F46E5),
+                          ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _buildNotificationButton(),
+            ],
+          ),
         ],
       );
     } else {
@@ -1081,49 +1375,59 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   // ── TOMBOL NOTIFIKASI LONCENG
   Widget _buildNotificationButton() {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: _showStatusDetailModal,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: const Color(0xFFEEF2FF),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color.fromRGBO(15, 23, 42, 0.08)),
-            ),
-            alignment: Alignment.center,
-            child: const Icon(
-              Icons.notifications,
-              size: 22,
-              color: Color(0xFF4F46E5),
-            ),
-          ),
-          if (_grandTotalNotifications > 0)
-            Positioned(
-              top: -4,
-              right: -4,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEF4444),
-                  borderRadius: BorderRadius.circular(99),
-                  border: Border.all(color: Colors.white, width: 1.5),
+    return Tooltip(
+      message: 'Rincian Status Dokumen',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _showStatusDetailModal,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: const Color(0x144F46E5), // rgba(79,70,229,0.08)
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: const Color(0x2E4F46E5), // rgba(79,70,229,0.18)
                 ),
-                child: Text(
-                  '$_grandTotalNotifications',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
+              ),
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.notifications_rounded,
+                size: 20,
+                color: Color(0xFF4F46E5),
+              ),
+            ),
+            if (_grandTotalNotifications > 0)
+              Positioned(
+                top: -4,
+                right: -4,
+                child: Container(
+                  constraints: const BoxConstraints(minWidth: 18),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 1,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEF4444),
+                    borderRadius: BorderRadius.circular(99),
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '$_grandTotalNotifications',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -2860,14 +3164,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   child: const Row(
                     children: [
                       Icon(
-                        Icons.keyboard_outlined,
+                        Icons.screenshot_monitor_outlined,
                         size: 16,
                         color: Color(0xFF4F46E5),
                       ),
                       SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Pintasan Keyboard',
+                          'Pintasan Layar',
                           style: TextStyle(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w700,

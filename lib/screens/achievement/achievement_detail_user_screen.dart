@@ -6,8 +6,6 @@ import '../../core/theme/app_colors.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../models/achievement_model.dart';
 import '../../repositories/achievement_repository.dart';
-import '../../widgets/ui/app_badge.dart';
-import '../../widgets/ui/app_card.dart';
 import 'circular_progress.dart';
 
 class AchievementDetailUserScreen extends ConsumerStatefulWidget {
@@ -32,19 +30,46 @@ class AchievementDetailUserScreen extends ConsumerStatefulWidget {
 }
 
 class _AchievementDetailUserScreenState
-    extends ConsumerState<AchievementDetailUserScreen> {
+    extends ConsumerState<AchievementDetailUserScreen>
+    with SingleTickerProviderStateMixin {
   List<AchievementMonthlyItem> _monthlyItems = [];
   bool _isLoading = false;
+  late AnimationController _skeletonController;
+  late Animation<double> _skeletonPulse;
 
   final List<String> _monthLabels = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
-    'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'Mei',
+    'Jun',
+    'Jul',
+    'Agu',
+    'Sep',
+    'Okt',
+    'Nov',
+    'Des',
   ];
 
   @override
   void initState() {
     super.initState();
+    _skeletonController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat(reverse: true);
+    _skeletonPulse = Tween<double>(begin: 0.35, end: 0.85).animate(
+      CurvedAnimation(parent: _skeletonController, curve: Curves.easeInOut),
+    );
+
     _fetchMonthlyDetail();
+  }
+
+  @override
+  void dispose() {
+    _skeletonController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchMonthlyDetail() async {
@@ -70,457 +95,1029 @@ class _AchievementDetailUserScreenState
     }
   }
 
-  String _formatRupiahFull(double n) {
-    final f = NumberFormat.currency(
-      locale: 'id_ID',
-      symbol: 'Rp.',
-      decimalDigits: 0,
-    );
-    return f.format(n);
+  String _formatRupiah(num n) {
+    return 'Rp.${NumberFormat('#,###', 'id_ID').format(n)}';
+  }
+
+  String _formatDate(String? ymd) {
+    if (ymd == null || ymd.isEmpty) return '-';
+    final clean = ymd.trim();
+    final dateOnly = clean.length >= 10 ? clean.substring(0, 10) : clean;
+    final parts = dateOnly.split('-');
+    if (parts.length != 3) return dateOnly;
+    final y = parts[0];
+    final m = parts[1];
+    final d = parts[2];
+    return '$d-$m-$y';
   }
 
   @override
   Widget build(BuildContext context) {
     final fromLabel =
-        '${_monthLabels[widget.fromMonth - 1]} ${widget.fromYear}';
-    final toLabel = '${_monthLabels[widget.toMonth - 1]} ${widget.toYear}';
+        '${_monthLabels[(widget.fromMonth - 1).clamp(0, 11)]} ${widget.fromYear}';
+    final toLabel =
+        '${_monthLabels[(widget.toMonth - 1).clamp(0, 11)]} ${widget.toYear}';
     final periodLabel = '$fromLabel — $toLabel';
 
     final u = widget.userRow;
-    final totalAch = u.ach;
-    final isTargetMet = totalAch >= 100;
-    final selisih = u.realisasi - u.target;
+    final target = u.target;
+    final realisasi = u.realisasi;
+    final isMissing = target <= 0 && realisasi <= 0;
+    final selisih = realisasi - target;
+    final isMet = realisasi >= target && target > 0;
+    final ach = u.ach;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FF),
-      body: SafeArea(
-        child: ResponsiveContainer(
-          maxWidth: 900,
-          child: Column(
-            children: [
-              // 1. TOP HEADER ALA REACT-NATIVE
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Row(
+    // Kumpulkan seluruh data SPK dari semua bulan dan urutkan tanggal descending
+    final allSpkList = _monthlyItems.expand((m) => m.detailSpk).toList();
+    allSpkList.sort((a, b) {
+      DateTime? dateA;
+      DateTime? dateB;
+      try {
+        dateA = DateTime.tryParse(a.spkTanggal);
+      } catch (_) {}
+      try {
+        dateB = DateTime.tryParse(b.spkTanggal);
+      } catch (_) {}
+      final timeA = dateA?.millisecondsSinceEpoch ?? 0;
+      final timeB = dateB?.millisecondsSinceEpoch ?? 0;
+      return timeB.compareTo(timeA);
+    });
+
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFFF7F9FF),
+            Color(0xFFFFFFFF),
+          ],
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: ResponsiveContainer(
+            maxWidth: 1100,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isDesktop = constraints.maxWidth >= 900;
+                final isTablet =
+                    constraints.maxWidth >= 580 && constraints.maxWidth < 900;
+                final horizontalPad = isDesktop
+                    ? 28.0
+                    : isTablet
+                        ? 22.0
+                        : 16.0;
+
+                return Column(
                   children: [
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => context.pop(),
-                      child: Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: const Color.fromRGBO(15, 23, 42, 0.08),
-                          ),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color.fromRGBO(15, 23, 42, 0.03),
-                              blurRadius: 6,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.chevron_left_rounded,
-                          size: 26,
-                          color: Color(0xFF4F46E5),
-                        ),
+                    // 1. TOP HEADER (Responsive)
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        horizontalPad,
+                        12,
+                        horizontalPad,
+                        10,
                       ),
-                    ),
-                    Expanded(
-                      child: Column(
+                      child: Row(
                         children: [
-                          Text(
-                            u.nama,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF0F172A),
-                              letterSpacing: -0.3,
+                          // Tombol Back
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              if (context.canPop()) {
+                                context.pop();
+                              } else {
+                                context.go('/achievement');
+                              }
+                            },
+                            child: Container(
+                              width: isDesktop ? 42 : 38,
+                              height: isDesktop ? 42 : 38,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: const Color.fromRGBO(
+                                    15,
+                                    23,
+                                    42,
+                                    0.08,
+                                  ),
+                                ),
+                              ),
+                              alignment: Alignment.center,
+                              child: Icon(
+                                Icons.arrow_back_ios_new_rounded,
+                                size: isDesktop ? 20 : 18,
+                                color: const Color(0xFF4F46E5),
+                              ),
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 2),
-                          const Text(
-                            'Detail Realisasi Omset',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF64748B),
+
+                          // Title & Subtitle di Tengah
+                          Expanded(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'Detail Achievement',
+                                  style: TextStyle(
+                                    fontSize: isDesktop ? 22 : 20,
+                                    fontWeight: FontWeight.w900,
+                                    color: const Color(0xFF0F172A),
+                                    letterSpacing: 0.2,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${u.nama} • ${u.jabatan}',
+                                  style: TextStyle(
+                                    fontSize: isDesktop ? 13 : 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF64748B),
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Tombol Refresh di Kanan
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: _fetchMonthlyDetail,
+                            child: Container(
+                              width: isDesktop ? 42 : 38,
+                              height: isDesktop ? 42 : 38,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: const Color.fromRGBO(
+                                    15,
+                                    23,
+                                    42,
+                                    0.08,
+                                  ),
+                                ),
+                              ),
+                              alignment: Alignment.center,
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Color(0xFF4F46E5),
+                                      ),
+                                    )
+                                  : Icon(
+                                      Icons.refresh_rounded,
+                                      size: isDesktop ? 20 : 18,
+                                      color: const Color(0xFF4F46E5),
+                                    ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: _fetchMonthlyDetail,
-                      child: Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: const Color.fromRGBO(15, 23, 42, 0.08),
-                          ),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color.fromRGBO(15, 23, 42, 0.03),
-                              blurRadius: 6,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
+
+                    if (isTablet || isDesktop) ...[
+                      // 2. STAY DI ATAS: Card Chart Circle (Tablet & Desktop)
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          horizontalPad,
+                          6,
+                          horizontalPad,
+                          12,
                         ),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.refresh_rounded,
-                          size: 20,
-                          color: Color(0xFF4F46E5),
+                        child: _buildTopPinnedSummaryCard(
+                          isDesktop: isDesktop,
+                          isTablet: isTablet,
+                          periodLabel: periodLabel,
+                          target: target,
+                          realisasi: realisasi,
+                          selisih: selisih,
+                          ach: ach,
+                          isMet: isMet,
+                          isMissing: isMissing,
+                          allSpkList: allSpkList,
+                        ),
+                      ),
+
+                      // 3. SCROLLABLE DAFTAR SPK DI BAWAHNYA
+                      Expanded(
+                        child: RefreshIndicator(
+                          onRefresh: _fetchMonthlyDetail,
+                          color: const Color(0xFF4F46E5),
+                          child: _buildTabletDesktopSpkList(
+                            isDesktop: isDesktop,
+                            isTablet: isTablet,
+                            horizontalPad: horizontalPad,
+                            allSpkList: allSpkList,
+                          ),
+                        ),
+                      ),
+                    ] else ...[
+                      // MOBILE: SCROLL TERPADU (SingleChildScrollView)
+                      Expanded(
+                        child: RefreshIndicator(
+                          onRefresh: _fetchMonthlyDetail,
+                          color: const Color(0xFF4F46E5),
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: EdgeInsets.fromLTRB(
+                              horizontalPad,
+                              6,
+                              horizontalPad,
+                              24,
+                            ),
+                            child: _buildMobileLayout(
+                              periodLabel: periodLabel,
+                              target: target,
+                              realisasi: realisasi,
+                              selisih: selisih,
+                              ach: ach,
+                              isMet: isMet,
+                              isMissing: isMissing,
+                              allSpkList: allSpkList,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── TOP PINNED SUMMARY CARD (Stay di Atas untuk Tablet & Desktop)
+  Widget _buildTopPinnedSummaryCard({
+    required bool isDesktop,
+    required bool isTablet,
+    required String periodLabel,
+    required double target,
+    required double realisasi,
+    required double selisih,
+    required double ach,
+    required bool isMet,
+    required bool isMissing,
+    required List<AchievementDetailSpk> allSpkList,
+  }) {
+    return Container(
+      padding: EdgeInsets.all(isDesktop ? 18 : 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color.fromRGBO(15, 23, 42, 0.08),
+        ),
+        boxShadow: AppShadows.softCard,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Sisi Kiri: Circular Progress Animated & Status Chip
+          SizedBox(
+            width: isDesktop ? 116 : 98,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!isMissing)
+                  CircularProgressAnimated(
+                    size: isDesktop ? 96 : 84,
+                    strokeWidth: isDesktop ? 9.5 : 8.5,
+                    progress: ach,
+                    color: isMet
+                        ? const Color(0xFF16A34A)
+                        : const Color(0xFF06B6D4),
+                    textColor: const Color(0xFF0F172A),
+                  )
+                else
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                      vertical: isDesktop ? 22 : 18,
+                    ),
+                    child: const Text(
+                      'No Data',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                _buildStatusChip(isMet: isMet),
+              ],
+            ),
+          ),
+
+          SizedBox(width: isDesktop ? 20 : 14),
+
+          // Sisi Kanan: Periode & Metrik Angka
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        periodLabel,
+                        style: TextStyle(
+                          color: const Color(0xFF0F172A),
+                          fontSize: isDesktop ? 14 : 13,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.1,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 3.5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        _isLoading
+                            ? 'Memuat...'
+                            : '${allSpkList.length} Transaksi',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF64748B),
                         ),
                       ),
                     ),
                   ],
                 ),
+                Container(
+                  height: 1,
+                  color: const Color.fromRGBO(15, 23, 42, 0.08),
+                  margin: const EdgeInsets.symmetric(vertical: 10),
+                ),
+                // 4 Metrik disusun dalam 2 kolom baris
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSummaryRow('Target', _formatRupiah(target)),
+                          const SizedBox(height: 4),
+                          _buildSummaryRow(
+                            'Realisasi',
+                            _formatRupiah(realisasi),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: isDesktop ? 24 : 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSummaryRow(
+                            'Selisih',
+                            _formatRupiah(selisih),
+                            valueColor: selisih < 0
+                                ? const Color(0xFFDC2626)
+                                : const Color(0xFF16A34A),
+                          ),
+                          const SizedBox(height: 4),
+                          _buildSummaryRow(
+                            'Total SPK',
+                            _isLoading ? '...' : '${allSpkList.length} SPK',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── DAFTAR SPK TABLET & DESKTOP (Scrollable Independen di Bawah Card Stay di Atas)
+  Widget _buildTabletDesktopSpkList({
+    required bool isDesktop,
+    required bool isTablet,
+    required double horizontalPad,
+    required List<AchievementDetailSpk> allSpkList,
+  }) {
+    if (_isLoading) {
+      return Padding(
+        padding: EdgeInsets.fromLTRB(horizontalPad, 0, horizontalPad, 24),
+        child: _buildSkeletonList(isTablet: true),
+      );
+    }
+
+    if (allSpkList.isEmpty) {
+      return SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(horizontalPad, 0, horizontalPad, 24),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: const Color.fromRGBO(15, 23, 42, 0.08),
+            ),
+            boxShadow: AppShadows.softCard,
+          ),
+          child: _buildEmptyState(),
+        ),
+      );
+    }
+
+    final crossAxisCount = 2;
+
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(horizontalPad, 0, horizontalPad, 24),
+          sliver: SliverToBoxAdapter(
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: const Color.fromRGBO(15, 23, 42, 0.08),
+                ),
+                boxShadow: AppShadows.softCard,
               ),
-              const SizedBox(height: 14),
-
-              // 2. KONTEN DETAIL
-              Expanded(
-                child: SingleChildScrollView(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // USER SUMMARY CARD 2-KOLOM DENGAN CIRCULAR PROGRESS
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: const Color.fromRGBO(15, 23, 42, 0.08),
-                          ),
-                          boxShadow: AppShadows.softCard,
-                        ),
-                        child: Column(
-                          children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                // Sisi Kiri: Circular Progress + Chip Status
-                                Column(
-                                  children: [
-                                    CircularProgressAnimated(
-                                      size: 84,
-                                      strokeWidth: 8,
-                                      progress: totalAch,
-                                      color: isTargetMet
-                                          ? const Color(0xFF16A34A)
-                                          : const Color(0xFF06B6D4),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 3,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: isTargetMet
-                                            ? const Color(0xFFDCFCE7)
-                                            : const Color(0xFFFEF3C7),
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(
-                                          color: isTargetMet
-                                              ? const Color(0xFF86EFAC)
-                                              : const Color(0xFFFDE68A),
-                                        ),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            isTargetMet
-                                                ? Icons.check_circle_rounded
-                                                : Icons.schedule_rounded,
-                                            size: 11,
-                                            color: isTargetMet
-                                                ? const Color(0xFF16A34A)
-                                                : const Color(0xFFD97706),
-                                          ),
-                                          const SizedBox(width: 3),
-                                          Text(
-                                            isTargetMet
-                                                ? 'TERCAPAI'
-                                                : 'BELUM',
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w900,
-                                              color: isTargetMet
-                                                  ? const Color(0xFF16A34A)
-                                                  : const Color(0xFFD97706),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(width: 16),
-
-                                // Sisi Kanan: Ringkasan Angka
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        periodLabel,
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w800,
-                                          color: Color(0xFF4F46E5),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        '${u.jabatan} • ${u.kode}',
-                                        style: const TextStyle(
-                                          fontSize: 11.5,
-                                          fontWeight: FontWeight.w600,
-                                          color: Color(0xFF64748B),
-                                        ),
-                                      ),
-                                      const Divider(
-                                        height: 16,
-                                        color: Color(0xFFF1F5F9),
-                                      ),
-
-                                      // Target
-                                      _MetricRow(
-                                        label: 'Target',
-                                        value: _formatRupiahFull(u.target),
-                                      ),
-                                      const SizedBox(height: 3),
-
-                                      // Realisasi
-                                      _MetricRow(
-                                        label: 'Realisasi',
-                                        value: _formatRupiahFull(u.realisasi),
-                                        valueColor: isTargetMet
-                                            ? const Color(0xFF16A34A)
-                                            : const Color(0xFF0F172A),
-                                      ),
-                                      const SizedBox(height: 3),
-
-                                      // Selisih
-                                      _MetricRow(
-                                        label: 'Selisih',
-                                        value: _formatRupiahFull(selisih),
-                                        valueColor: selisih < 0
-                                            ? const Color(0xFFDC2626)
-                                            : const Color(0xFF16A34A),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                      const Text(
+                        'Daftar SPK Terbit',
+                        style: TextStyle(
+                          color: Color(0xFF0F172A),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.1,
                         ),
                       ),
-                      const SizedBox(height: 16),
-
-                      // SECTION TITLE BREAKDOWN BULANAN
-                      const Padding(
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                        child: Text(
-                          'Rincian Realisasi Bulanan',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF0F172A),
-                          ),
+                      Text(
+                        '${allSpkList.length} SPK',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF64748B),
                         ),
                       ),
-                      const SizedBox(height: 8),
-
-                      // MONTHLY BREAKDOWN LIST
-                      if (_isLoading)
-                        const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(32),
-                            child: CircularProgressIndicator(
-                              color: Color(0xFF4F46E5),
-                            ),
-                          ),
-                        )
-                      else if (_monthlyItems.isEmpty)
-                        const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(32),
-                            child: Text(
-                              'Tidak ada rincian bulanan pada periode ini.',
-                              style: TextStyle(
-                                color: Color(0xFF64748B),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        )
-                      else
-                        ..._monthlyItems.map((m) {
-                          final achPct = m.ach;
-                          final isMet = achPct >= 100;
-                          Color barColor = const Color(0xFFEF4444);
-                          if (achPct >= 80) {
-                            barColor = const Color(0xFF10B981);
-                          } else if (achPct >= 50) {
-                            barColor = const Color(0xFFF59E0B);
-                          }
-
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 10),
-                            child: AppCard(
-                              padding: const EdgeInsets.all(14),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        m.bulan.isNotEmpty
-                                            ? m.bulan
-                                            : 'Bulan ${m.bulanNum} ${m.tahun}',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w900,
-                                          fontSize: 14,
-                                          color: Color(0xFF0F172A),
-                                        ),
-                                      ),
-                                      AppBadge(
-                                        label:
-                                            '${achPct.toStringAsFixed(1)}%',
-                                        customColor: isMet
-                                            ? const Color(0xFF10B981)
-                                            : barColor,
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'Target: ${_formatRupiahFull(m.target)}',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Color(0xFF64748B),
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      Text(
-                                        'Realisasi: ${_formatRupiahFull(m.realisasi)}',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w900,
-                                          color: isMet
-                                              ? const Color(0xFF10B981)
-                                              : const Color(0xFF0F172A),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-
-                                  // Progress Indicator Bar
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(99),
-                                    child: LinearProgressIndicator(
-                                      value: (achPct / 100).clamp(0.0, 1.0),
-                                      backgroundColor:
-                                          const Color(0xFFE2E8F0),
-                                      valueColor:
-                                          AlwaysStoppedAnimation<Color>(
-                                        barColor,
-                                      ),
-                                      minHeight: 6,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }),
                     ],
                   ),
+                  const SizedBox(height: 14),
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: allSpkList.length,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      mainAxisExtent: 118,
+                    ),
+                    itemBuilder: (context, idx) {
+                      return _buildSpkCard(
+                        allSpkList[idx],
+                        marginZero: true,
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── MOBILE LAYOUT (Summary Kompak di Atas, SPK di Bawah, Scroll Terpadu)
+  Widget _buildMobileLayout({
+    required String periodLabel,
+    required double target,
+    required double realisasi,
+    required double selisih,
+    required double ach,
+    required bool isMet,
+    required bool isMissing,
+    required List<AchievementDetailSpk> allSpkList,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: const Color.fromRGBO(15, 23, 42, 0.08),
+        ),
+        boxShadow: AppShadows.softCard,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // PROGRESS + RINGKASAN 2-KOLOM
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Sisi Kiri: Chart & Status Chip
+              SizedBox(
+                width: 88,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!isMissing)
+                      CircularProgressAnimated(
+                        size: 84,
+                        strokeWidth: 8.5,
+                        progress: ach,
+                        color: isMet
+                            ? const Color(0xFF16A34A)
+                            : const Color(0xFF06B6D4),
+                        textColor: const Color(0xFF0F172A),
+                      )
+                    else
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Text(
+                          'No Data',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                    _buildStatusChip(isMet: isMet),
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: 12),
+
+              // Sisi Kanan: Ringkasan Angka
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      periodLabel,
+                      style: const TextStyle(
+                        color: Color(0xFF0F172A),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.1,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Container(
+                      height: 1,
+                      color: const Color.fromRGBO(15, 23, 42, 0.08),
+                      margin: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                    _buildSummaryRow('Target', _formatRupiah(target)),
+                    _buildSummaryRow('Realisasi', _formatRupiah(realisasi)),
+                    _buildSummaryRow(
+                      'Selisih',
+                      _formatRupiah(selisih),
+                      valueColor: selisih < 0
+                          ? const Color(0xFFDC2626)
+                          : const Color(0xFF16A34A),
+                    ),
+                    _buildSummaryRow(
+                      'Total SPK',
+                      _isLoading ? '...' : '${allSpkList.length} SPK',
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
+
+          // DIVIDER LINE
+          Container(
+            height: 1,
+            color: const Color.fromRGBO(15, 23, 42, 0.08),
+            margin: const EdgeInsets.symmetric(vertical: 14),
+          ),
+
+          // DAFTAR SPK SECTION
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Daftar SPK',
+                style: TextStyle(
+                  color: Color(0xFF0F172A),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.1,
+                ),
+              ),
+              if (allSpkList.isNotEmpty && !_isLoading)
+                Text(
+                  '${allSpkList.length} SPK',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          if (_isLoading)
+            _buildSkeletonList()
+          else if (allSpkList.isEmpty)
+            _buildEmptyState()
+          else
+            Column(
+              children: allSpkList.map((spk) {
+                return _buildSpkCard(spk);
+              }).toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ── CHIP STATUS TERCAPAI / BELUM
+  Widget _buildStatusChip({required bool isMet}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: const Color.fromRGBO(15, 23, 42, 0.08),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isMet ? Icons.check_circle_rounded : Icons.schedule_rounded,
+            size: 12,
+            color: isMet ? const Color(0xFF16A34A) : const Color(0xFFF59E0B),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            isMet ? 'TERCAPAI' : 'BELUM',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              color: isMet ? const Color(0xFF16A34A) : const Color(0xFFF59E0B),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── BARIS SUMMARY METRIK
+  Widget _buildSummaryRow(String label, String value, {Color? valueColor}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF64748B),
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                color: valueColor ?? const Color(0xFF0F172A),
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── KARTU SPK
+  Widget _buildSpkCard(AchievementDetailSpk spk, {bool marginZero = false}) {
+    return Container(
+      margin: EdgeInsets.only(bottom: marginZero ? 0 : 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color.fromRGBO(15, 23, 42, 0.08),
+        ),
+        boxShadow: AppShadows.softCard,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Header: No SPK + Badge Status di kiri, Tanggal di kanan
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        spk.spkNomor,
+                        style: const TextStyle(
+                          color: Color(0xFF4F46E5),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    if (spk.spkClose)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0x1A10B981),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: const Color(0xFF10B981),
+                          ),
+                        ),
+                        child: const Text(
+                          'CLOSE',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.3,
+                            color: Color(0xFF047857),
+                          ),
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0x1AEF4444),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: const Color(0xFFEF4444),
+                          ),
+                        ),
+                        child: const Text(
+                          'OPEN',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.3,
+                            color: Color(0xFFB91C1C),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                _formatDate(spk.spkTanggal),
+                style: const TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+
+          // Nama SPK
+          Text(
+            spk.spkNama.isNotEmpty ? spk.spkNama : '-',
+            style: const TextStyle(
+              color: Color(0xFF0F172A),
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+
+          // Nama Customer
+          Text(
+            spk.customerNama.isNotEmpty ? spk.customerNama : '-',
+            style: const TextStyle(
+              color: Color(0xFF64748B),
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 6),
+
+          // Footer: Meta (Harga • Order Pcs) di kiri, Total Nilai di kanan
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Flexible(
+                child: Text(
+                  '${_formatRupiah(spk.spkHarga)} • Order: ${spk.spkJumlah} Pcs',
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                _formatRupiah(spk.nilai),
+                style: const TextStyle(
+                  color: Color(0xFF0F172A),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── SKELETON LIST
+  Widget _buildSkeletonList({bool isTablet = false}) {
+    if (isTablet) {
+      return GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: 4,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+          mainAxisExtent: 118,
+        ),
+        itemBuilder: (context, idx) =>
+            _SpkSkeletonCard(pulse: _skeletonPulse, marginZero: true),
+      );
+    }
+    return Column(
+      children: [
+        _SpkSkeletonCard(pulse: _skeletonPulse),
+        _SpkSkeletonCard(pulse: _skeletonPulse),
+        _SpkSkeletonCard(pulse: _skeletonPulse),
+      ],
+    );
+  }
+
+  // ── EMPTY STATE
+  Widget _buildEmptyState() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      decoration: BoxDecoration(
+        color: const Color.fromRGBO(241, 245, 249, 0.55),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color.fromRGBO(15, 23, 42, 0.08),
+        ),
+      ),
+      child: const Text(
+        'Tidak ada SPK terbit di periode ini',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: Color(0xFF64748B),
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
         ),
       ),
     );
   }
 }
 
-class _MetricRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color? valueColor;
+class _SpkSkeletonCard extends StatelessWidget {
+  final Animation<double> pulse;
+  final bool marginZero;
 
-  const _MetricRow({
-    required this.label,
-    required this.value,
-    this.valueColor,
+  const _SpkSkeletonCard({
+    required this.pulse,
+    this.marginZero = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 55,
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF64748B),
+    return AnimatedBuilder(
+      animation: pulse,
+      builder: (context, child) {
+        return Opacity(
+          opacity: pulse.value,
+          child: Container(
+            margin: EdgeInsets.only(bottom: marginZero ? 0 : 10),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: const Color.fromRGBO(15, 23, 42, 0.08),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _skeletonBar(width: 90, height: 14),
+                    _skeletonBar(width: 70, height: 12),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                _skeletonBar(width: 170, height: 13),
+                const SizedBox(height: 6),
+                _skeletonBar(width: 120, height: 12),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _skeletonBar(width: 110, height: 12),
+                    _skeletonBar(width: 60, height: 12),
+                  ],
+                ),
+              ],
             ),
           ),
-        ),
-        const Text(
-          ': ',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF64748B),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-              color: valueColor ?? const Color(0xFF0F172A),
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
+        );
+      },
+    );
+  }
+
+  Widget _skeletonBar({required double width, required double height}) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: const Color.fromRGBO(148, 163, 184, 0.25),
+        borderRadius: BorderRadius.circular(6),
+      ),
     );
   }
 }

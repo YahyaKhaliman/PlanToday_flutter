@@ -1,27 +1,20 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="PlanToday Mobile - Sales & Marketing CRM System">
 
+  <!-- Prevent HTML caching at browser/webview level -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="PlanToday">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
@@ -29,12 +22,9 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
-
   <title>PlanToday</title>
   <link rel="manifest" href="manifest.json">
   <style>
-    /* Cegah autofill browser memberikan latar belakang putih/kuning yang merusak tampilan input */
     input:-webkit-autofill,
     input:-webkit-autofill:hover, 
     input:-webkit-autofill:focus, 
@@ -43,46 +33,81 @@
       -webkit-text-fill-color: inherit !important;
       transition: background-color 5000s ease-in-out 0s;
     }
-    /* Pastikan input web tidak memicu zoom */
     input, textarea, select {
       font-size: 16px !important;
     }
   </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
-
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
   <script>
-    // Force hard reload: unregister service workers & clear caches agar kode/tampilan release baru langsung termuat
-    window.forceHardReload = async function() {
+    // Bersihkan Service Worker otomatis jika halaman baru saja di-hard-reload (ada ?_v=...)
+    (async function cleanStaleWorkersOnBoot() {
       try {
-        if ('serviceWorker' in navigator) {
-          const registrations = await navigator.serviceWorker.getRegistrations();
-          for (const reg of registrations) {
-            await reg.unregister();
+        if (window.location.search.indexOf('_v=') !== -1) {
+          if ('serviceWorker' in navigator) {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            for (const r of regs) await r.unregister();
+          }
+          if ('caches' in window) {
+            const keys = await caches.keys();
+            for (const k of keys) await caches.delete(k);
           }
         }
-        if ('caches' in window) {
-          const keys = await caches.keys();
-          for (const key of keys) {
-            await caches.delete(key);
+      } catch (_) {}
+    })();
+
+    // Force hard reload: bekerja di Desktop Browser & iOS Home Screen Shortcut (Standalone PWA)
+    window.forceHardReload = async function() {
+      const cleanupPromise = (async function() {
+        try {
+          if ('serviceWorker' in navigator) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            for (const reg of registrations) {
+              await reg.unregister();
+            }
           }
+          if ('caches' in window) {
+            const keys = await caches.keys();
+            for (const key of keys) {
+              await caches.delete(key);
+            }
+          }
+          const ts = Date.now();
+          await Promise.allSettled([
+            fetch('index.html?t=' + ts, { cache: 'reload' }),
+            fetch('version.json?t=' + ts, { cache: 'reload' }),
+            fetch('flutter_bootstrap.js?t=' + ts, { cache: 'reload' }),
+            fetch('main.dart.js?t=' + ts, { cache: 'reload' }),
+          ]);
+        } catch (e) {
+          console.warn('Gagal menghapus cache:', e);
         }
-      } catch (e) {
-        console.warn('Gagal menghapus cache service worker:', e);
-      }
-      // Navigasi ulang dengan cache-buster timestamp query
-      const url = new URL(window.location.href);
-      url.searchParams.set('_v', Date.now().toString());
-      window.location.replace(url.toString());
+      })();
+
+      // Batasi tunggu maksimal 1200ms agar di iOS Standalone PWA tidak pernah macet/hang
+      await Promise.race([
+        cleanupPromise,
+        new Promise(resolve => setTimeout(resolve, 1200)),
+      ]);
+
+      const ts = Date.now().toString();
+      const basePath = window.location.origin + window.location.pathname;
+      const hash = window.location.hash || '';
+      const targetUrl = basePath + '?_v=' + ts + hash;
+
+      window.location.replace(targetUrl);
+      setTimeout(function() {
+        window.location.href = targetUrl;
+      }, 250);
     };
+
+    // Muat flutter_bootstrap.js dengan cache-buster dinamis agar iOS WebKit tidak menahan script lama
+    (function loadFlutterBootstrap() {
+      var script = document.createElement('script');
+      script.src = 'flutter_bootstrap.js?v=' + Date.now();
+      script.async = true;
+      document.body.appendChild(script);
+    })();
   </script>
-  <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

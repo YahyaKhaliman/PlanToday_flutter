@@ -4,13 +4,20 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/app_toast.dart';
 import '../../core/utils/responsive_helper.dart';
+import '../../models/customer_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../repositories/customer_repository.dart';
 import '../../repositories/permintaan_harga_repository.dart';
 import '../../widgets/ui/app_button.dart';
 import '../../widgets/ui/app_card.dart';
 
 class TambahCustomerPermintaanHargaScreen extends ConsumerStatefulWidget {
-  const TambahCustomerPermintaanHargaScreen({super.key});
+  final CustomerModel? initialCustomer;
+
+  const TambahCustomerPermintaanHargaScreen({
+    super.key,
+    this.initialCustomer,
+  });
 
   @override
   ConsumerState<TambahCustomerPermintaanHargaScreen> createState() =>
@@ -21,23 +28,46 @@ class _TambahCustomerPermintaanHargaScreenState
     extends ConsumerState<TambahCustomerPermintaanHargaScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  final _namaController = TextEditingController();
-  final _alamatController = TextEditingController();
-  final _kotaController = TextEditingController();
-  final _telpController = TextEditingController();
-  final _cpController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _jenisUsahaController = TextEditingController();
-  final _npwpController = TextEditingController();
-  final _namaNpwpController = TextEditingController();
-  final _alamatNpwpController = TextEditingController();
-  final _kotaNpwpController = TextEditingController();
+  late final TextEditingController _kodeController;
+  late final TextEditingController _namaController;
+  late final TextEditingController _alamatController;
+  late final TextEditingController _kotaController;
+  late final TextEditingController _telpController;
+  late final TextEditingController _cpController;
+  late final TextEditingController _emailController;
+  late final TextEditingController _jenisUsahaController;
+  late final TextEditingController _npwpController;
+  late final TextEditingController _namaNpwpController;
+  late final TextEditingController _alamatNpwpController;
+  late final TextEditingController _kotaNpwpController;
 
   String _korporasi = 'N';
   bool _isLoading = false;
 
+  bool get _isEdit => widget.initialCustomer != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final c = widget.initialCustomer;
+    _kodeController = TextEditingController(text: c?.kode ?? '');
+    _namaController = TextEditingController(text: c?.nama ?? '');
+    _alamatController = TextEditingController(text: c?.alamat ?? '');
+    _kotaController = TextEditingController(text: c?.kota ?? '');
+    _telpController = TextEditingController(text: c?.telp ?? '');
+    _cpController = TextEditingController(text: c?.cp ?? '');
+    _emailController = TextEditingController(text: c?.email ?? '');
+    _jenisUsahaController = TextEditingController(text: c?.jenisUsaha ?? '');
+    _npwpController = TextEditingController(text: c?.npwp ?? '');
+    _namaNpwpController = TextEditingController(text: c?.namaNpwp ?? '');
+    _alamatNpwpController = TextEditingController(text: c?.alamatNpwp ?? '');
+    _kotaNpwpController = TextEditingController(text: c?.kotaNpwp ?? '');
+    _korporasi = (c?.korporasi == 'Y') ? 'Y' : 'N';
+  }
+
   @override
   void dispose() {
+    _kodeController.dispose();
     _namaController.dispose();
     _alamatController.dispose();
     _kotaController.dispose();
@@ -78,6 +108,44 @@ class _TambahCustomerPermintaanHargaScreenState
 
     setState(() => _isLoading = true);
 
+    if (_isEdit) {
+      final c = widget.initialCustomer!;
+      final customerRepo = ref.read(customerRepositoryProvider);
+      final updatedCustomer = CustomerModel(
+        id: c.id,
+        kode: c.kode,
+        nama: _namaController.text.trim(),
+        alamat: _alamatController.text.trim(),
+        kota: _kotaController.text.trim(),
+        telp: _telpController.text.trim(),
+        cp: _cpController.text.trim(),
+        email: _emailController.text.trim(),
+        korporasi: _korporasi,
+        jenisUsaha: _jenisUsahaController.text.trim(),
+        npwp: _npwpController.text.trim(),
+        namaNpwp: _namaNpwpController.text.trim(),
+        alamatNpwp: _alamatNpwpController.text.trim(),
+        kotaNpwp: _kotaNpwpController.text.trim(),
+      );
+
+      final success = await customerRepo.updateCalonCustomer(
+        c.kode,
+        updatedCustomer,
+      );
+
+      if (mounted) {
+        setState(() => _isLoading = false);
+        if (success) {
+          AppToast.success(context, 'Data customer berhasil diperbarui');
+          context.pop(true);
+        } else {
+          AppToast.error(context, 'Gagal memperbarui data customer');
+        }
+      }
+      return;
+    }
+
+    // Mode Tambah Customer Baru (POST /permintaan-harga/customer)
     final user = ref.read(authProvider).user;
     final repo = ref.read(permintaanHargaRepositoryProvider);
 
@@ -120,7 +188,17 @@ class _TambahCustomerPermintaanHargaScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tambah Customer (PH)'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/permintaan-harga');
+            }
+          },
+        ),
+        title: Text(_isEdit ? 'Edit Customer' : 'Tambah Customer'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -145,14 +223,36 @@ class _TambahCustomerPermintaanHargaScreenState
                       ),
                       const SizedBox(height: 14),
 
+                      if (_isEdit) ...[
+                        TextFormField(
+                          controller: _kodeController,
+                          readOnly: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Kode Customer',
+                            prefixIcon: Icon(
+                              Icons.qr_code,
+                              size: 20,
+                              color: AppColors.muted,
+                            ),
+                            filled: true,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                      ],
+
                       TextFormField(
                         controller: _namaController,
                         decoration: const InputDecoration(
                           labelText: 'Nama Customer *',
-                          prefixIcon: Icon(Icons.person_outline, size: 20, color: AppColors.muted),
+                          prefixIcon: Icon(
+                            Icons.person_outline,
+                            size: 20,
+                            color: AppColors.muted,
+                          ),
                         ),
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty) ? 'Nama wajib diisi' : null,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Nama wajib diisi'
+                            : null,
                       ),
                       const SizedBox(height: 14),
 
@@ -160,11 +260,16 @@ class _TambahCustomerPermintaanHargaScreenState
                         controller: _alamatController,
                         decoration: const InputDecoration(
                           labelText: 'Alamat Lengkap *',
-                          prefixIcon: Icon(Icons.place_outlined, size: 20, color: AppColors.muted),
+                          prefixIcon: Icon(
+                            Icons.place_outlined,
+                            size: 20,
+                            color: AppColors.muted,
+                          ),
                         ),
                         maxLines: 2,
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty) ? 'Alamat wajib diisi' : null,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Alamat wajib diisi'
+                            : null,
                       ),
                       const SizedBox(height: 14),
 
@@ -172,10 +277,15 @@ class _TambahCustomerPermintaanHargaScreenState
                         controller: _kotaController,
                         decoration: const InputDecoration(
                           labelText: 'Kota *',
-                          prefixIcon: Icon(Icons.location_city_outlined, size: 20, color: AppColors.muted),
+                          prefixIcon: Icon(
+                            Icons.location_city_outlined,
+                            size: 20,
+                            color: AppColors.muted,
+                          ),
                         ),
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty) ? 'Kota wajib diisi' : null,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Kota wajib diisi'
+                            : null,
                       ),
                       const SizedBox(height: 14),
 
@@ -187,10 +297,15 @@ class _TambahCustomerPermintaanHargaScreenState
                               keyboardType: TextInputType.phone,
                               decoration: const InputDecoration(
                                 labelText: 'No. Telp / WA *',
-                                prefixIcon: Icon(Icons.phone_outlined, size: 20, color: AppColors.muted),
+                                prefixIcon: Icon(
+                                  Icons.phone_outlined,
+                                  size: 20,
+                                  color: AppColors.muted,
+                                ),
                               ),
-                              validator: (v) =>
-                                  (v == null || v.trim().isEmpty) ? 'No telp wajib diisi' : null,
+                              validator: (v) => (v == null || v.trim().isEmpty)
+                                  ? 'No telp wajib diisi'
+                                  : null,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -199,10 +314,15 @@ class _TambahCustomerPermintaanHargaScreenState
                               controller: _cpController,
                               decoration: const InputDecoration(
                                 labelText: 'Contact Person *',
-                                prefixIcon: Icon(Icons.badge_outlined, size: 20, color: AppColors.muted),
+                                prefixIcon: Icon(
+                                  Icons.badge_outlined,
+                                  size: 20,
+                                  color: AppColors.muted,
+                                ),
                               ),
-                              validator: (v) =>
-                                  (v == null || v.trim().isEmpty) ? 'CP wajib diisi' : null,
+                              validator: (v) => (v == null || v.trim().isEmpty)
+                                  ? 'CP wajib diisi'
+                                  : null,
                             ),
                           ),
                         ],
@@ -214,16 +334,24 @@ class _TambahCustomerPermintaanHargaScreenState
                         keyboardType: TextInputType.emailAddress,
                         decoration: const InputDecoration(
                           labelText: 'Email *',
-                          prefixIcon: Icon(Icons.email_outlined, size: 20, color: AppColors.muted),
+                          prefixIcon: Icon(
+                            Icons.email_outlined,
+                            size: 20,
+                            color: AppColors.muted,
+                          ),
                         ),
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty) ? 'Email wajib diisi' : null,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Email wajib diisi'
+                            : null,
                       ),
                       const SizedBox(height: 18),
 
                       // Switch Korporasi
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.soft,
                           borderRadius: BorderRadius.circular(AppRadius.medium),
@@ -233,7 +361,11 @@ class _TambahCustomerPermintaanHargaScreenState
                           children: [
                             const Text(
                               'Entitas Korporasi / Perusahaan?',
-                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.ink),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                                color: AppColors.ink,
+                              ),
                             ),
                             Switch(
                               value: isKorporasi,
@@ -269,7 +401,11 @@ class _TambahCustomerPermintaanHargaScreenState
                           controller: _jenisUsahaController,
                           decoration: const InputDecoration(
                             labelText: 'Jenis Usaha *',
-                            prefixIcon: Icon(Icons.storefront_outlined, size: 20, color: AppColors.muted),
+                            prefixIcon: Icon(
+                              Icons.storefront_outlined,
+                              size: 20,
+                              color: AppColors.muted,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 14),
@@ -278,7 +414,11 @@ class _TambahCustomerPermintaanHargaScreenState
                           controller: _npwpController,
                           decoration: const InputDecoration(
                             labelText: 'Nomor NPWP *',
-                            prefixIcon: Icon(Icons.credit_card_outlined, size: 20, color: AppColors.muted),
+                            prefixIcon: Icon(
+                              Icons.credit_card_outlined,
+                              size: 20,
+                              color: AppColors.muted,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 14),
@@ -287,7 +427,11 @@ class _TambahCustomerPermintaanHargaScreenState
                           controller: _namaNpwpController,
                           decoration: const InputDecoration(
                             labelText: 'Nama Tertera di NPWP',
-                            prefixIcon: Icon(Icons.account_box_outlined, size: 20, color: AppColors.muted),
+                            prefixIcon: Icon(
+                              Icons.account_box_outlined,
+                              size: 20,
+                              color: AppColors.muted,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 14),
@@ -296,7 +440,11 @@ class _TambahCustomerPermintaanHargaScreenState
                           controller: _alamatNpwpController,
                           decoration: const InputDecoration(
                             labelText: 'Alamat NPWP',
-                            prefixIcon: Icon(Icons.home_work_outlined, size: 20, color: AppColors.muted),
+                            prefixIcon: Icon(
+                              Icons.home_work_outlined,
+                              size: 20,
+                              color: AppColors.muted,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 14),
@@ -305,7 +453,11 @@ class _TambahCustomerPermintaanHargaScreenState
                           controller: _kotaNpwpController,
                           decoration: const InputDecoration(
                             labelText: 'Kota NPWP',
-                            prefixIcon: Icon(Icons.map_outlined, size: 20, color: AppColors.muted),
+                            prefixIcon: Icon(
+                              Icons.map_outlined,
+                              size: 20,
+                              color: AppColors.muted,
+                            ),
                           ),
                         ),
                       ],
@@ -315,7 +467,7 @@ class _TambahCustomerPermintaanHargaScreenState
 
                 const SizedBox(height: 20),
                 AppButton(
-                  text: 'Simpan Customer',
+                  text: _isEdit ? 'Simpan Perubahan' : 'Simpan Customer',
                   isLoading: _isLoading,
                   onPressed: _submit,
                 ),
