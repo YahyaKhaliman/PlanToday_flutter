@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../core/utils/web_reload.dart';
@@ -26,7 +27,7 @@ class VersionState {
   String get fullLatestVersion =>
       (latestVersion != null && latestBuildNumber != null)
           ? '$latestVersion+$latestBuildNumber'
-          : '';
+          : (latestVersion ?? '');
 
   VersionState copyWith({
     String? currentVersion,
@@ -49,6 +50,9 @@ class VersionState {
 
 class VersionNotifier extends Notifier<VersionState> {
   Timer? _pollingTimer;
+  AppLifecycleListener? _lifecycleListener;
+  DateTime? _lastCheckTime;
+
   final Dio _dio = Dio(
     BaseOptions(
       connectTimeout: const Duration(seconds: 8),
@@ -61,6 +65,7 @@ class VersionNotifier extends Notifier<VersionState> {
     _initVersionInfo();
     ref.onDispose(() {
       _pollingTimer?.cancel();
+      _lifecycleListener?.dispose();
     });
     return const VersionState();
   }
@@ -76,25 +81,34 @@ class VersionNotifier extends Notifier<VersionState> {
       // Fallback ke default 1.0.0+1
     }
 
-    // Cek update segera setelah startup
     await checkForUpdate();
 
-    // Di web, pasang polling berkala setiap 10 menit
     if (kIsWeb) {
       _pollingTimer?.cancel();
-      _pollingTimer = Timer.periodic(const Duration(minutes: 10), (_) {
+      _pollingTimer = Timer.periodic(const Duration(minutes: 3), (_) {
         checkForUpdate();
       });
+
+      _lifecycleListener?.dispose();
+      _lifecycleListener = AppLifecycleListener(
+        onResume: () => checkForUpdate(),
+      );
     }
   }
 
   Future<void> checkForUpdate() async {
-    if (!kIsWeb) return; // Khusus web membaca version.json
+    if (!kIsWeb || state.isChecking) return;
+
+    final now = DateTime.now();
+    if (_lastCheckTime != null &&
+        now.difference(_lastCheckTime!) < const Duration(seconds: 15)) {
+      return;
+    }
+    _lastCheckTime = now;
 
     state = state.copyWith(isChecking: true);
     try {
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      // Membaca version.json bawaan build Flutter Web dengan cache-buster
+      final timestamp = now.millisecondsSinceEpoch;
       final response = await _dio.get(
         '/version.json?t=$timestamp',
         options: Options(
@@ -108,15 +122,15 @@ class VersionNotifier extends Notifier<VersionState> {
 
       if (response.statusCode == 200 && response.data is Map) {
         final data = response.data as Map;
-        final remoteVersion = data['version']?.toString() ?? '';
-        final remoteBuild = data['build_number']?.toString() ?? '';
+        final remoteVersion = data['version']?.toString().trim() ?? '';
+        final remoteBuild = data['build_number']?.toString().trim() ?? '';
 
         final currentBuild = int.tryParse(state.currentBuildNumber) ?? 0;
         final targetBuild = int.tryParse(remoteBuild) ?? 0;
 
         final isNewer = (targetBuild > currentBuild) ||
-            (remoteBuild != state.currentBuildNumber && remoteBuild.isNotEmpty) ||
-            (remoteVersion != state.currentVersion && remoteVersion.isNotEmpty);
+            (remoteBuild.isNotEmpty && remoteBuild != state.currentBuildNumber) ||
+            (remoteVersion.isNotEmpty && remoteVersion != state.currentVersion);
 
         if (isNewer) {
           state = state.copyWith(
