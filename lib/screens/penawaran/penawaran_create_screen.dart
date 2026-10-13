@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import '../../core/theme/app_colors.dart';
+import '../../core/utils/app_toast.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../models/customer_model.dart';
 import '../../providers/auth_provider.dart';
@@ -115,12 +115,7 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
 
   void _removeItemRow(int index) {
     if (_items.length <= 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Minimal harus ada 1 item barang'),
-          backgroundColor: AppColors.warning,
-        ),
-      );
+      AppToast.warning(context, 'Minimal harus ada 1 item barang');
       return;
     }
     setState(() {
@@ -138,12 +133,7 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
 
   Future<void> _submit() async {
     if (_selectedCustomer == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Customer wajib dipilih terlebih dahulu'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      AppToast.error(context, 'Customer wajib dipilih terlebih dahulu');
       return;
     }
 
@@ -151,11 +141,9 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
 
     for (int i = 0; i < _items.length; i++) {
       if (_items[i].namaBarangController.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Nama barang pada baris ke-${i + 1} wajib diisi'),
-            backgroundColor: AppColors.danger,
-          ),
+        AppToast.error(
+          context,
+          'Nama barang pada baris ke-${i + 1} wajib diisi',
         );
         return;
       }
@@ -211,20 +199,12 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
       setState(() => _isLoading = false);
 
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Surat penawaran harga berhasil dibuat'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        AppToast.success(context, 'Surat penawaran harga berhasil dibuat');
         context.pop(true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content:
-                Text('Gagal membuat penawaran. Periksa koneksi ke server.'),
-            backgroundColor: AppColors.danger,
-          ),
+        AppToast.error(
+          context,
+          'Gagal membuat penawaran. Periksa koneksi ke server.',
         );
       }
     }

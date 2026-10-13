@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/app_toast.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../models/customer_model.dart';
 import '../../providers/auth_provider.dart';
@@ -100,13 +101,7 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
 
         final tipe =
             found['status'] == 'DONE' ? 'Laporan Kunjungan' : 'Visit Plan';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$tipe ditemukan, formulir terisi otomatis.'),
-            backgroundColor: const Color(0xFF4F46E5),
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        AppToast.info(context, '$tipe ditemukan, formulir terisi otomatis.');
       }
     } finally {
       if (mounted) setState(() => _isCheckingDraft = false);
@@ -263,12 +258,7 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
 
   Future<void> _submit() async {
     if (_selectedCustomer == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Harap pilih customer terlebih dahulu'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      AppToast.error(context, 'Harap pilih customer terlebih dahulu');
       return;
     }
 
@@ -279,11 +269,9 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
     final ymd = ymdFormat.format(_selectedDate);
 
     if (ymd.compareTo(todayYmd) < 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tanggal visit tidak boleh kurang dari hari ini'),
-          backgroundColor: AppColors.danger,
-        ),
+      AppToast.error(
+        context,
+        'Tanggal visit tidak boleh kurang dari hari ini',
       );
       return;
     }
@@ -346,24 +334,15 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
       setState(() => _isLoading = false);
 
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isRealisasi
-                  ? 'Visit berhasil direalisasikan dan tersimpan'
-                  : 'Laporan visit berhasil dikirim',
-            ),
-            backgroundColor: AppColors.success,
-          ),
+        AppToast.success(
+          context,
+          isRealisasi
+              ? 'Visit berhasil direalisasikan dan tersimpan'
+              : 'Laporan visit berhasil dikirim',
         );
         context.pop(true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gagal menyimpan visit'),
-            backgroundColor: AppColors.danger,
-          ),
-        );
+        AppToast.error(context, 'Gagal menyimpan visit');
       }
     }
   }

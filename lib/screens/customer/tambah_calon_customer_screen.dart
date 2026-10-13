@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/app_toast.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../models/customer_model.dart';
 import '../../providers/auth_provider.dart';
@@ -62,23 +63,16 @@ class _TambahCalonCustomerScreenState
     if (!_formKey.currentState!.validate()) return;
 
     if (!_isBasicEmail(_emailController.text)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Format email tidak valid'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      AppToast.error(context, 'Format email tidak valid');
       return;
     }
 
     if (_korporasi == 'Y' &&
         (_jenisUsahaController.text.trim().isEmpty ||
             _npwpController.text.trim().isEmpty)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Jenis Usaha dan NPWP wajib diisi untuk Korporasi'),
-          backgroundColor: AppColors.danger,
-        ),
+      AppToast.error(
+        context,
+        'Jenis Usaha dan NPWP wajib diisi untuk Korporasi',
       );
       return;
     }
@@ -113,20 +107,10 @@ class _TambahCalonCustomerScreenState
       setState(() => _isLoading = false);
 
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Customer berhasil ditambahkan'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        AppToast.success(context, 'Customer berhasil ditambahkan');
         context.pop(true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gagal menambahkan customer'),
-            backgroundColor: AppColors.danger,
-          ),
-        );
+        AppToast.error(context, 'Gagal menambahkan customer');
       }
     }
   }

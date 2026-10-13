@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../core/theme/app_colors.dart';
+import '../../core/utils/app_toast.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../models/kurir_model.dart';
 import '../../repositories/kurir_repository.dart';
@@ -179,11 +179,9 @@ class _ProsesPengirimanScreenState extends ConsumerState<ProsesPengirimanScreen>
     if (!_formKey.currentState!.validate()) return;
 
     if (_photoFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Foto bukti penerimaan barang wajib dilampirkan'),
-          backgroundColor: AppColors.danger,
-        ),
+      AppToast.error(
+        context,
+        'Foto bukti penerimaan barang wajib dilampirkan',
       );
       return;
     }
@@ -203,19 +201,12 @@ class _ProsesPengirimanScreenState extends ConsumerState<ProsesPengirimanScreen>
       setState(() => _isLoading = false);
 
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Pengiriman berhasil diselesaikan'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        AppToast.success(context, 'Pengiriman berhasil diselesaikan');
         context.pop(true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gagal memproses pengiriman. Periksa koneksi.'),
-            backgroundColor: AppColors.danger,
-          ),
+        AppToast.error(
+          context,
+          'Gagal memproses pengiriman. Periksa koneksi.',
         );
       }
     }

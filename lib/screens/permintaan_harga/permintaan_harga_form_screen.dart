@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/app_toast.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../engines/kalkulasi_engine.dart';
 import '../../engines/ongkir_engine.dart';
@@ -308,12 +309,7 @@ class _PermintaanHargaFormScreenState
 
   Future<void> _submit() async {
     if (_customerNamaController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Customer wajib dipilih terlebih dahulu'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      AppToast.error(context, 'Customer wajib dipilih terlebih dahulu');
       return;
     }
 
@@ -373,22 +369,15 @@ class _PermintaanHargaFormScreenState
       setState(() => _isLoading = false);
 
       if (isSuccess) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(widget.initialDetail != null
-                ? 'Permintaan harga berhasil diperbarui'
-                : 'Permintaan harga berhasil disimpan'),
-            backgroundColor: AppColors.success,
-          ),
+        AppToast.success(
+          context,
+          widget.initialDetail != null
+              ? 'Permintaan harga berhasil diperbarui'
+              : 'Permintaan harga berhasil disimpan',
         );
         context.pop(true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gagal menyimpan permintaan harga'),
-            backgroundColor: AppColors.danger,
-          ),
-        );
+        AppToast.error(context, 'Gagal menyimpan permintaan harga');
       }
     }
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/app_toast.dart';
 import '../../models/potensi_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/penawaran_repository.dart';
@@ -275,15 +276,12 @@ class _PotensiScreenState extends ConsumerState<PotensiScreen> {
               );
 
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      success ? 'Potensi dibatalkan' : 'Gagal membatalkan potensi',
-                    ),
-                    backgroundColor: success ? AppColors.success : AppColors.danger,
-                  ),
-                );
-                if (success) _fetchPotensi();
+                if (success) {
+                  AppToast.success(context, 'Potensi dibatalkan');
+                  _fetchPotensi();
+                } else {
+                  AppToast.error(context, 'Gagal membatalkan potensi');
+                }
               }
             },
             child: const Text('Batalkan'),

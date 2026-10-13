@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/app_toast.dart';
 import '../../models/potensi_kandidat_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/potensi_repository.dart';
@@ -59,11 +60,9 @@ class _TambahPotensiSheetState extends ConsumerState<TambahPotensiSheet> {
 
   Future<void> _submitBatch() async {
     if (_selectedItems.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tidak ada item yang dipilih untuk disimpan'),
-          backgroundColor: AppColors.warning,
-        ),
+      AppToast.warning(
+        context,
+        'Tidak ada item yang dipilih untuk disimpan',
       );
       return;
     }
@@ -79,19 +78,15 @@ class _TambahPotensiSheetState extends ConsumerState<TambahPotensiSheet> {
       setState(() => _isSubmitting = false);
 
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Berhasil menambahkan ${_selectedItems.length} item ke daftar potensi'),
-            backgroundColor: AppColors.success,
-          ),
+        AppToast.success(
+          context,
+          'Berhasil menambahkan ${_selectedItems.length} item ke daftar potensi',
         );
         Navigator.pop(context, true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gagal menyimpan data potensi ke server'),
-            backgroundColor: AppColors.danger,
-          ),
+        AppToast.error(
+          context,
+          'Gagal menyimpan data potensi ke server',
         );
       }
     }

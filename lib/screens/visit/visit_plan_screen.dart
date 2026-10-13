@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/app_toast.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../models/customer_model.dart';
 import '../../models/visit_model.dart';
@@ -182,12 +183,7 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
     final targetSales = isManager ? _selectedSales : (user?.nama ?? '');
 
     if (targetSales.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Pilih sales terlebih dahulu'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      AppToast.error(context, 'Pilih sales terlebih dahulu');
       return;
     }
 
@@ -202,12 +198,7 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
     if (!mounted) return;
 
     if (waText == null || waText.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Data rekap WhatsApp tidak tersedia'),
-          backgroundColor: AppColors.warning,
-        ),
-      );
+      AppToast.warning(context, 'Data rekap WhatsApp tidak tersedia');
       return;
     }
 

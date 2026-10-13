@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/app_toast.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../models/customer_model.dart';
 import '../../providers/auth_provider.dart';
@@ -51,12 +52,7 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
 
   Future<void> _submit() async {
     if (_selectedCustomer == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Customer harus dipilih terlebih dahulu'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      AppToast.error(context, 'Customer harus dipilih terlebih dahulu');
       return;
     }
 
@@ -67,11 +63,9 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
     final planYmd = ymdFormat.format(_selectedDate);
 
     if (planYmd.compareTo(todayYmd) < 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tanggal plan tidak boleh tanggal yang sudah lewat'),
-          backgroundColor: AppColors.danger,
-        ),
+      AppToast.error(
+        context,
+        'Tanggal plan tidak boleh tanggal yang sudah lewat',
       );
       return;
     }
@@ -112,20 +106,13 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
       setState(() => _isLoading = false);
 
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Rencana kunjungan berhasil dijadwalkan'),
-            backgroundColor: AppColors.success,
-          ),
+        AppToast.success(
+          context,
+          'Rencana kunjungan berhasil dijadwalkan',
         );
         context.pop(true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gagal membuat visit plan'),
-            backgroundColor: AppColors.danger,
-          ),
-        );
+        AppToast.error(context, 'Gagal membuat visit plan');
       }
     }
   }

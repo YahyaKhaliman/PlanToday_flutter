@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/app_toast.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../models/customer_model.dart';
 import '../../repositories/customer_repository.dart';
@@ -84,12 +85,7 @@ class _EditCalonCustomerScreenState
     if (!_formKey.currentState!.validate()) return;
 
     if (!_isBasicEmail(_emailController.text)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Format email tidak valid'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      AppToast.error(context, 'Format email tidak valid');
       return;
     }
 
@@ -122,20 +118,10 @@ class _EditCalonCustomerScreenState
       setState(() => _isLoading = false);
 
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Data customer berhasil diperbarui'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        AppToast.success(context, 'Data customer berhasil diperbarui');
         context.pop(true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gagal memperbarui data customer'),
-            backgroundColor: AppColors.danger,
-          ),
-        );
+        AppToast.error(context, 'Gagal memperbarui data customer');
       }
     }
   }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/theme/app_colors.dart';
+import '../../core/utils/app_toast.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/ui/app_button.dart';
@@ -41,12 +41,7 @@ class _GantiPasswordScreenState extends ConsumerState<GantiPasswordScreen> {
     final confirmPass = _confirmPasswordController.text;
 
     if (newPass != confirmPass) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Konfirmasi password tidak cocok'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      AppToast.error(context, 'Konfirmasi password tidak cocok');
       return;
     }
 
@@ -65,32 +60,17 @@ class _GantiPasswordScreenState extends ConsumerState<GantiPasswordScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
         if (response.data != null && response.data['success'] == true) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Password berhasil diperbarui'),
-              backgroundColor: AppColors.success,
-            ),
-          );
+          AppToast.success(context, 'Password berhasil diperbarui');
           context.pop();
         } else {
           final msg = response.data?['message'] ?? 'Gagal mengganti password';
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(msg.toString()),
-              backgroundColor: AppColors.danger,
-            ),
-          );
+          AppToast.error(context, msg.toString());
         }
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Terjadi kesalahan: ${e.toString()}'),
-            backgroundColor: AppColors.danger,
-          ),
-        );
+        AppToast.error(context, 'Terjadi kesalahan: ${e.toString()}');
       }
     }
   }

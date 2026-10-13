@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/asset_constants.dart';
-import '../../core/theme/app_colors.dart';
+import '../../core/utils/app_toast.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../models/penawaran_model.dart';
 import '../../repositories/penawaran_repository.dart';
@@ -86,12 +86,7 @@ class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
             onPressed: () async {
               final alasan = reasonController.text.trim();
               if (alasan.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Alasan pengajuan wajib diisi'),
-                    backgroundColor: AppColors.danger,
-                  ),
-                );
+                AppToast.error(context, 'Alasan pengajuan wajib diisi');
                 return;
               }
               Navigator.pop(ctx);
@@ -102,18 +97,15 @@ class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
               );
 
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      success
-                          ? 'Pengajuan perubahan berhasil dikirim ke manager'
-                          : 'Gagal mengajukan perubahan',
-                    ),
-                    backgroundColor:
-                        success ? AppColors.success : AppColors.danger,
-                  ),
-                );
-                if (success) _fetchDetail();
+                if (success) {
+                  AppToast.success(
+                    context,
+                    'Pengajuan perubahan berhasil dikirim ke manager',
+                  );
+                  _fetchDetail();
+                } else {
+                  AppToast.error(context, 'Gagal mengajukan perubahan');
+                }
               }
             },
             child: const Text('Ajukan', style: TextStyle(fontWeight: FontWeight.w800)),
@@ -174,15 +166,12 @@ class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
               );
 
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      success ? 'Penawaran disetujui' : 'Gagal menyetujui penawaran',
-                    ),
-                    backgroundColor: success ? AppColors.success : AppColors.danger,
-                  ),
-                );
-                if (success) _fetchDetail();
+                if (success) {
+                  AppToast.success(context, 'Penawaran disetujui');
+                  _fetchDetail();
+                } else {
+                  AppToast.error(context, 'Gagal menyetujui penawaran');
+                }
               }
             },
             child: const Text('Setujui', style: TextStyle(fontWeight: FontWeight.w800)),

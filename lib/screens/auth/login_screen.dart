@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import '../../core/constants/asset_constants.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/app_toast.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/web_shortcut_guide_modal.dart';
@@ -137,6 +139,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
 
     if (mounted) {
+      FocusScope.of(context).unfocus();
       setState(() => _loading = false);
 
       if (success) {
@@ -148,16 +151,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           await storage.clearRememberedUsername();
         }
 
+        await Future.delayed(const Duration(milliseconds: 100));
         if (mounted) context.go('/');
       } else {
         final err = ref.read(authProvider).errorMessage ??
             'Login gagal. Periksa kembali akun Anda.';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(err),
-            backgroundColor: AppColors.danger,
-          ),
-        );
+        AppToast.error(context, err);
       }
     }
   }
@@ -175,11 +174,43 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
 
-                  // HEADER LOGO Teks Gradient persis Screenshot Image 1
+                  // 1. Icon Logo Aplikasi PlanToday Elegan
+                  Container(
+                    width: 76,
+                    height: 76,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(
+                        color: const Color.fromRGBO(15, 23, 42, 0.08),
+                        width: 1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF4F46E5).withValues(alpha: 0.12),
+                          blurRadius: 24,
+                          offset: const Offset(0, 10),
+                        ),
+                        BoxShadow(
+                          color: const Color.fromRGBO(15, 23, 42, 0.04),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Image.asset(
+                      AppAssets.logo,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // 2. HEADER LOGO Teks Gradient
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 32),
+                    padding: const EdgeInsets.only(bottom: 28),
                     child: ShaderMask(
                       shaderCallback: (bounds) => const LinearGradient(
                         colors: [Color(0xFF4F46E5), Color(0xFF00B4D8)],
@@ -189,7 +220,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       child: const Text(
                         'PlanToday',
                         style: TextStyle(
-                          fontSize: 46,
+                          fontSize: 38,
                           fontWeight: FontWeight.w900,
                           letterSpacing: -0.5,
                           color: Colors.white,
@@ -266,6 +297,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 color: Color(0xFF94A3B8),
                                 fontSize: 14,
                               ),
+                              filled: true,
+                              fillColor: Colors.transparent,
                               border: InputBorder.none,
                               enabledBorder: InputBorder.none,
                               focusedBorder: InputBorder.none,
@@ -321,6 +354,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       color: Color(0xFF94A3B8),
                                       fontSize: 14,
                                     ),
+                                    filled: true,
+                                    fillColor: Colors.transparent,
                                     border: InputBorder.none,
                                     enabledBorder: InputBorder.none,
                                     focusedBorder: InputBorder.none,

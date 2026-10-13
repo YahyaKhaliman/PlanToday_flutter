@@ -64,29 +64,27 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
                       constraints: BoxConstraints(
                         maxWidth: isMobile ? double.infinity : 660,
                       ),
-                      child: Material(
-                        elevation: 10,
-                        shadowColor: Colors.black.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(AppRadius.large),
-                        color: AppColors.ink,
-                        clipBehavior: Clip.antiAlias,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius:
-                                BorderRadius.circular(AppRadius.large),
-                            border: Border.all(
-                              color: AppColors.primary.withValues(alpha: 0.45),
-                              width: 1.5,
-                            ),
-                            gradient: const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Color(0xFF0F172A),
-                                Color(0xFF1E293B),
-                              ],
-                            ),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.card,
+                          borderRadius: BorderRadius.circular(AppRadius.large),
+                          boxShadow: AppShadows.card,
+                          border: Border.all(
+                            color: AppColors.primary.withValues(alpha: 0.22),
+                            width: 1.2,
                           ),
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              AppColors.card,
+                              AppColors.bgTop,
+                            ],
+                          ),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Material(
+                          color: Colors.transparent,
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -153,19 +151,61 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
       margin: const EdgeInsets.only(left: 8),
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.35),
+        color: AppColors.primary.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: AppColors.accent.withValues(alpha: 0.5),
+          color: AppColors.primary.withValues(alpha: 0.25),
           width: 0.8,
         ),
       ),
       child: Text(
         label,
         style: const TextStyle(
-          color: AppColors.accent,
+          color: AppColors.primary,
           fontSize: 10.5,
           fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGradientReloadButton({
+    required String label,
+    required VoidCallback onPressed,
+    bool fullWidth = false,
+  }) {
+    return Container(
+      width: fullWidth ? double.infinity : null,
+      height: fullWidth ? 40 : 38,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.primary, AppColors.accent],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(AppRadius.medium),
+        boxShadow: AppShadows.button,
+      ),
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: const Icon(Icons.refresh_rounded, size: 16, color: Colors.white),
+        label: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12.5,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          foregroundColor: Colors.white,
+          shadowColor: Colors.transparent,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.medium),
+          ),
         ),
       ),
     );
@@ -203,9 +243,9 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
                     child: Text(
                       'Pembaruan Sistem Tersedia',
                       style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
+                        color: AppColors.ink,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13.5,
                         letterSpacing: -0.2,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -220,7 +260,7 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               icon: const Icon(
                 Icons.close_rounded,
-                color: Colors.white70,
+                color: AppColors.muted,
                 size: 20,
               ),
               onPressed: () {
@@ -232,18 +272,18 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
         ),
         const SizedBox(height: 8),
         RichText(
-          text: TextSpan(
+          text: const TextSpan(
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.8),
+              color: AppColors.muted,
               fontSize: 11.5,
               height: 1.4,
             ),
-            children: const [
+            children: [
               TextSpan(
                 text: '⚠️ Simpan perubahan/pekerjaan Anda terlebih dahulu',
                 style: TextStyle(
-                  color: Color(0xFFFBBF24),
-                  fontWeight: FontWeight.w700,
+                  color: Color(0xFFD97706),
+                  fontWeight: FontWeight.w800,
                 ),
               ),
               TextSpan(
@@ -254,26 +294,12 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
           ),
         ),
         const SizedBox(height: 12),
-        ElevatedButton.icon(
+        _buildGradientReloadButton(
+          label: 'Muat Ulang Sekarang',
+          fullWidth: true,
           onPressed: () {
             ref.read(versionProvider.notifier).applyUpdateAndReload();
           },
-          icon: const Icon(Icons.refresh_rounded, size: 16),
-          label: const Text('Muat Ulang Sekarang'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            elevation: 0,
-            minimumSize: const Size.fromHeight(38),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.small),
-            ),
-            textStyle: const TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
         ),
       ],
     );
@@ -310,9 +336,9 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
                   const Text(
                     'Pembaruan Sistem Tersedia',
                     style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13.5,
+                      color: AppColors.ink,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 14,
                       letterSpacing: -0.2,
                     ),
                   ),
@@ -321,19 +347,19 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
               ),
               const SizedBox(height: 4),
               RichText(
-                text: TextSpan(
+                text: const TextSpan(
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.78),
+                    color: AppColors.muted,
                     fontSize: 11.5,
                     height: 1.35,
                   ),
-                  children: const [
+                  children: [
                     TextSpan(
                       text:
                           '⚠️ Simpan perubahan/pekerjaan Anda terlebih dahulu',
                       style: TextStyle(
-                        color: Color(0xFFFBBF24),
-                        fontWeight: FontWeight.w700,
+                        color: Color(0xFFD97706),
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                     TextSpan(
@@ -347,35 +373,17 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
           ),
         ),
         const SizedBox(width: 14),
-        ElevatedButton.icon(
+        _buildGradientReloadButton(
+          label: 'Muat Ulang',
           onPressed: () {
             ref.read(versionProvider.notifier).applyUpdateAndReload();
           },
-          icon: const Icon(Icons.refresh_rounded, size: 15),
-          label: const Text('Muat Ulang'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            elevation: 0,
-            minimumSize: Size.zero,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 10,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.small),
-            ),
-            textStyle: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
         ),
         const SizedBox(width: 6),
         IconButton(
           icon: const Icon(
             Icons.close_rounded,
-            color: Colors.white70,
+            color: AppColors.muted,
             size: 18,
           ),
           onPressed: () {

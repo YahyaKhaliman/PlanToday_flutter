@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/app_toast.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../models/visit_model.dart';
 import '../../repositories/visit_repository.dart';
@@ -195,12 +196,7 @@ class _EditVisitScreenState extends ConsumerState<EditVisitScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (widget.visit.id == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('ID kunjungan tidak valid'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      AppToast.error(context, 'ID kunjungan tidak valid');
       return;
     }
 
@@ -209,11 +205,9 @@ class _EditVisitScreenState extends ConsumerState<EditVisitScreen> {
     final ymd = ymdFormat.format(_selectedDate);
 
     if (ymd.compareTo(todayYmd) < 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tanggal visit tidak boleh kurang dari hari ini'),
-          backgroundColor: AppColors.danger,
-        ),
+      AppToast.error(
+        context,
+        'Tanggal visit tidak boleh kurang dari hari ini',
       );
       return;
     }
@@ -255,20 +249,13 @@ class _EditVisitScreenState extends ConsumerState<EditVisitScreen> {
       setState(() => _isLoading = false);
 
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Perubahan laporan visit berhasil disimpan'),
-            backgroundColor: AppColors.success,
-          ),
+        AppToast.success(
+          context,
+          'Perubahan laporan visit berhasil disimpan',
         );
         context.pop(true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gagal memperbarui laporan visit'),
-            backgroundColor: AppColors.danger,
-          ),
-        );
+        AppToast.error(context, 'Gagal memperbarui laporan visit');
       }
     }
   }

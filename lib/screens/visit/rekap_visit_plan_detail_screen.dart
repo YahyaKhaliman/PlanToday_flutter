@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/theme/app_colors.dart';
+import '../../core/utils/app_toast.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../repositories/visit_repository.dart';
 import '../../widgets/ui/app_button.dart';
@@ -58,12 +58,7 @@ class _RekapVisitPlanDetailScreenState
   Future<void> _submitNote() async {
     final note = _noteController.text.trim();
     if (note.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Catatan keperluan tidak boleh kosong'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      AppToast.error(context, 'Catatan keperluan tidak boleh kosong');
       return;
     }
 
@@ -74,20 +69,10 @@ class _RekapVisitPlanDetailScreenState
     if (mounted) {
       setState(() => _isSubmitting = false);
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Catatan keperluan berhasil diperbarui'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        AppToast.success(context, 'Catatan keperluan berhasil diperbarui');
         context.pop(true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gagal memperbarui catatan'),
-            backgroundColor: AppColors.danger,
-          ),
-        );
+        AppToast.error(context, 'Gagal memperbarui catatan');
       }
     }
   }

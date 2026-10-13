@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/app_toast.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../models/visit_model.dart';
 import '../../repositories/visit_repository.dart';
@@ -52,12 +53,7 @@ class _EditVisitPlanScreenState extends ConsumerState<EditVisitPlanScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (widget.plan.id == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('ID rencana kunjungan tidak valid'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      AppToast.error(context, 'ID rencana kunjungan tidak valid');
       return;
     }
 
@@ -66,11 +62,9 @@ class _EditVisitPlanScreenState extends ConsumerState<EditVisitPlanScreen> {
     final ymd = ymdFormat.format(_selectedDate);
 
     if (ymd.compareTo(todayYmd) < 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tanggal plan tidak boleh kurang dari hari ini'),
-          backgroundColor: AppColors.danger,
-        ),
+      AppToast.error(
+        context,
+        'Tanggal plan tidak boleh kurang dari hari ini',
       );
       return;
     }
@@ -107,20 +101,13 @@ class _EditVisitPlanScreenState extends ConsumerState<EditVisitPlanScreen> {
       setState(() => _isLoading = false);
 
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Perubahan rencana kunjungan berhasil disimpan'),
-            backgroundColor: AppColors.success,
-          ),
+        AppToast.success(
+          context,
+          'Perubahan rencana kunjungan berhasil disimpan',
         );
         context.pop(true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gagal memperbarui visit plan'),
-            backgroundColor: AppColors.danger,
-          ),
-        );
+        AppToast.error(context, 'Gagal memperbarui visit plan');
       }
     }
   }

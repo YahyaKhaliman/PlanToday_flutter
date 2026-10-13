@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/utils/app_toast.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../models/permintaan_harga_model.dart';
 import '../../repositories/permintaan_harga_repository.dart';
@@ -86,20 +87,10 @@ class _PermintaanHargaDetailScreenState
     if (mounted) {
       setState(() => _isLoading = false);
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Permintaan harga berhasil dihapus'),
-            backgroundColor: Color(0xFF10B981),
-          ),
-        );
+        AppToast.success(context, 'Permintaan harga berhasil dihapus');
         context.pop(true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gagal menghapus permintaan harga'),
-            backgroundColor: Color(0xFFEF4444),
-          ),
-        );
+        AppToast.error(context, 'Gagal menghapus permintaan harga');
       }
     }
   }
@@ -122,20 +113,10 @@ class _PermintaanHargaDetailScreenState
       setState(() => _isLoading = false);
       if (result != null) {
         final newNomor = result['nomor']?.toString() ?? 'Baru';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Berhasil copy ke nomor: $newNomor'),
-            backgroundColor: const Color(0xFF10B981),
-          ),
-        );
+        AppToast.success(context, 'Berhasil copy ke nomor: $newNomor');
         context.push('/permintaan-harga/$newNomor');
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gagal copy permintaan harga'),
-            backgroundColor: Color(0xFFEF4444),
-          ),
-        );
+        AppToast.error(context, 'Gagal copy permintaan harga');
       }
     }
   }

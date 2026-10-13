@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/theme/app_colors.dart';
+import '../../core/utils/app_toast.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../models/penawaran_model.dart';
 import '../../repositories/penawaran_repository.dart';
@@ -160,13 +160,9 @@ class _PenawaranStatusScreenState extends ConsumerState<PenawaranStatusScreen> {
 
   Future<void> _submitUpdates() async {
     if (_approvalState == 'WAIT') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Penawaran sedang dalam proses approval (WAIT). Perubahan status dikunci.',
-          ),
-          backgroundColor: AppColors.warning,
-        ),
+      AppToast.warning(
+        context,
+        'Penawaran sedang dalam proses approval (WAIT). Perubahan status dikunci.',
       );
       return;
     }
@@ -174,13 +170,9 @@ class _PenawaranStatusScreenState extends ConsumerState<PenawaranStatusScreen> {
     // Validasi alasan batal wajib diisi jika status BATAL
     for (final it in _updates.values) {
       if (it.status == 'BATAL' && it.ketBatal.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Item dengan status BATAL wajib mengisi alasan pembatalan',
-            ),
-            backgroundColor: AppColors.danger,
-          ),
+        AppToast.error(
+          context,
+          'Item dengan status BATAL wajib mengisi alasan pembatalan',
         );
         return;
       }
@@ -197,20 +189,10 @@ class _PenawaranStatusScreenState extends ConsumerState<PenawaranStatusScreen> {
       setState(() => _isSubmitting = false);
 
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Status item penawaran berhasil diperbarui'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        AppToast.success(context, 'Status item penawaran berhasil diperbarui');
         context.pop(true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gagal memperbarui status penawaran'),
-            backgroundColor: AppColors.danger,
-          ),
-        );
+        AppToast.error(context, 'Gagal memperbarui status penawaran');
       }
     }
   }

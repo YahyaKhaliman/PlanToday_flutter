@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/app_toast.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../models/customer_model.dart';
 import '../../repositories/customer_repository.dart';
@@ -95,12 +96,7 @@ class _RekapCalonCustomerScreenState
     if (!mounted) return;
 
     if (text == null || text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Data rekapan WA tidak tersedia'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      AppToast.error(context, 'Data rekapan WA tidak tersedia');
       return;
     }
 

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import '../../core/theme/app_colors.dart';
+import '../../core/utils/app_toast.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/kurir_repository.dart';
@@ -50,12 +50,7 @@ class _TambahPengirimanScreenState extends ConsumerState<TambahPengirimanScreen>
     final planYmd = _formatYmd(_selectedDate);
 
     if (planYmd.compareTo(todayYmd) < 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tanggal rencana tidak boleh sebelum hari ini'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      AppToast.error(context, 'Tanggal rencana tidak boleh sebelum hari ini');
       return;
     }
 
@@ -81,20 +76,10 @@ class _TambahPengirimanScreenState extends ConsumerState<TambahPengirimanScreen>
       setState(() => _isLoading = false);
 
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Jadwal pengiriman kurir berhasil dibuat'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        AppToast.success(context, 'Jadwal pengiriman kurir berhasil dibuat');
         context.pop(true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gagal membuat pengiriman kurir'),
-            backgroundColor: AppColors.danger,
-          ),
-        );
+        AppToast.error(context, 'Gagal membuat pengiriman kurir');
       }
     }
   }
