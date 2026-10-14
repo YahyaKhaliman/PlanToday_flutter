@@ -37,105 +37,96 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
     final versionState = ref.watch(versionProvider);
     final isMobile = ResponsiveHelper.isMobile(context);
 
-    return Stack(
-      children: [
-        widget.child,
-        IgnorePointer(
-          ignoring: !versionState.hasUpdate,
-          child: SafeArea(
-            child: AnimatedSlide(
-              duration: const Duration(milliseconds: 350),
-              curve: Curves.easeOutCubic,
-              offset: versionState.hasUpdate
-                  ? Offset.zero
-                  : const Offset(0, -1.2),
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeOut,
-                opacity: versionState.hasUpdate ? 1.0 : 0.0,
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isMobile ? 12.0 : 20.0,
-                      vertical: isMobile ? 8.0 : 16.0,
-                    ),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: isMobile ? double.infinity : 660,
-                      ),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.card,
-                          borderRadius: BorderRadius.circular(AppRadius.large),
-                          boxShadow: AppShadows.card,
-                          border: Border.all(
-                            color: AppColors.primary.withValues(alpha: 0.22),
-                            width: 1.2,
-                          ),
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              AppColors.card,
-                              AppColors.bgTop,
-                            ],
-                          ),
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: Material(
-                          color: Colors.transparent,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Padding(
-                                padding: EdgeInsets.fromLTRB(
-                                  isMobile ? 14.0 : 16.0,
-                                  isMobile ? 12.0 : 14.0,
-                                  isMobile ? 14.0 : 16.0,
-                                  isMobile ? 12.0 : 14.0,
-                                ),
-                                child: isMobile
-                                    ? _buildMobileContent(versionState)
-                                    : _buildDesktopContent(versionState),
-                              ),
-                              // Smooth Moving Underline (Animated Shimmer Bar)
-                              AnimatedBuilder(
-                                animation: _shimmerController,
-                                builder: (context, _) {
-                                  final t = _shimmerController.value;
-                                  return Container(
-                                    height: 3.5,
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment(-2.0 + (t * 4.0), 0),
-                                        end: Alignment(-0.5 + (t * 4.0), 0),
-                                        colors: const [
-                                          AppColors.primary,
-                                          AppColors.accent,
-                                          Color(0xFF38BDF8),
-                                          AppColors.accent,
-                                          AppColors.primary,
-                                        ],
-                                        tileMode: TileMode.mirror,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+    return Material(
+      color: Colors.transparent,
+      child: Column(
+        children: [
+          AnimatedSize(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+            child: versionState.hasUpdate
+                ? _buildTopBanner(context, versionState, isMobile)
+                : const SizedBox(width: double.infinity, height: 0),
+          ),
+          Expanded(child: widget.child),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopBanner(
+    BuildContext context,
+    VersionState versionState,
+    bool isMobile,
+  ) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        border: Border(
+          bottom: BorderSide(
+            color: AppColors.primary.withValues(alpha: 0.18),
+            width: 1.0,
           ),
         ),
-      ],
+        boxShadow: const [
+          BoxShadow(
+            color: Color.fromRGBO(15, 23, 42, 0.05),
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
+        ],
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            AppColors.card,
+            AppColors.bgTop,
+          ],
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 12.0 : 20.0,
+                vertical: isMobile ? 8.0 : 9.0,
+              ),
+              child: isMobile
+                  ? _buildMobileContent(versionState)
+                  : _buildDesktopContent(versionState),
+            ),
+            // Smooth Moving Underline (Animated Shimmer Bar)
+            AnimatedBuilder(
+              animation: _shimmerController,
+              builder: (context, _) {
+                final t = _shimmerController.value;
+                return Container(
+                  height: 3.0,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment(-2.0 + (t * 4.0), 0),
+                      end: Alignment(-0.5 + (t * 4.0), 0),
+                      colors: const [
+                        AppColors.primary,
+                        AppColors.accent,
+                        Color(0xFF38BDF8),
+                        AppColors.accent,
+                        AppColors.primary,
+                      ],
+                      tileMode: TileMode.mirror,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -176,7 +167,7 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
   }) {
     return Container(
       width: fullWidth ? double.infinity : null,
-      height: fullWidth ? 40 : 38,
+      height: fullWidth ? 38 : 36,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [AppColors.primary, AppColors.accent],
@@ -188,12 +179,12 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
       ),
       child: ElevatedButton.icon(
         onPressed: onPressed,
-        icon: const Icon(Icons.refresh_rounded, size: 16, color: Colors.white),
+        icon: const Icon(Icons.refresh_rounded, size: 15, color: Colors.white),
         label: Text(
           label,
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 12.5,
+            fontSize: 12,
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -202,7 +193,7 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
           foregroundColor: Colors.white,
           shadowColor: Colors.transparent,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.medium),
           ),
@@ -220,22 +211,22 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(7),
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [AppColors.primary, AppColors.accent],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(
                 Icons.system_update_rounded,
                 color: Colors.white,
-                size: 18,
+                size: 16,
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Expanded(
               child: Row(
                 children: [
@@ -245,7 +236,7 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
                       style: TextStyle(
                         color: AppColors.ink,
                         fontWeight: FontWeight.w900,
-                        fontSize: 13.5,
+                        fontSize: 12.5,
                         letterSpacing: -0.2,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -257,43 +248,41 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
             ),
             IconButton(
               padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
               icon: const Icon(
                 Icons.close_rounded,
                 color: AppColors.muted,
-                size: 20,
+                size: 18,
               ),
               onPressed: () {
                 ref.read(versionProvider.notifier).dismissUpdateNotification();
               },
-              tooltip: 'Nanti',
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         RichText(
           text: const TextSpan(
             style: TextStyle(
               color: AppColors.muted,
-              fontSize: 11.5,
-              height: 1.4,
+              fontSize: 11,
+              height: 1.35,
             ),
             children: [
               TextSpan(
-                text: '⚠️ Simpan perubahan/pekerjaan Anda terlebih dahulu',
+                text: '⚠️ Simpan pekerjaan Anda terlebih dahulu',
                 style: TextStyle(
                   color: Color(0xFFD97706),
                   fontWeight: FontWeight.w800,
                 ),
               ),
               TextSpan(
-                text:
-                    ' sebelum memuat ulang halaman agar pembaruan sistem diterapkan dengan aman.',
+                text: ' sebelum memuat ulang halaman.',
               ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         _buildGradientReloadButton(
           label: 'Muat Ulang Sekarang',
           fullWidth: true,
@@ -310,63 +299,58 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Container(
-          padding: const EdgeInsets.all(9),
+          padding: const EdgeInsets.all(7),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [AppColors.primary, AppColors.accent],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: const Icon(
             Icons.system_update_rounded,
             color: Colors.white,
-            size: 20,
+            size: 18,
           ),
         ),
-        const SizedBox(width: 14),
+        const SizedBox(width: 12),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+          child: Row(
             children: [
-              Row(
-                children: [
-                  const Text(
-                    'Pembaruan Sistem Tersedia',
-                    style: TextStyle(
-                      color: AppColors.ink,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 14,
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-                  _buildVersionBadge(versionState),
-                ],
+              const Text(
+                'Pembaruan Sistem Tersedia',
+                style: TextStyle(
+                  color: AppColors.ink,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13.5,
+                  letterSpacing: -0.2,
+                ),
               ),
-              const SizedBox(height: 4),
-              RichText(
-                text: const TextSpan(
-                  style: TextStyle(
-                    color: AppColors.muted,
-                    fontSize: 11.5,
-                    height: 1.35,
-                  ),
-                  children: [
-                    TextSpan(
-                      text:
-                          '⚠️ Simpan perubahan/pekerjaan Anda terlebih dahulu',
-                      style: TextStyle(
-                        color: Color(0xFFD97706),
-                        fontWeight: FontWeight.w800,
+              _buildVersionBadge(versionState),
+              const SizedBox(width: 12),
+              Expanded(
+                child: RichText(
+                  overflow: TextOverflow.ellipsis,
+                  text: const TextSpan(
+                    style: TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 11.5,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: '⚠️ Simpan pekerjaan Anda terlebih dahulu',
+                        style: TextStyle(
+                          color: Color(0xFFD97706),
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
-                    TextSpan(
-                      text:
-                          ' sebelum memuat ulang halaman untuk menerapkan pembaruan.',
-                    ),
-                  ],
+                      TextSpan(
+                        text:
+                            ' sebelum memuat ulang untuk menerapkan pembaruan.',
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -389,7 +373,6 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
           onPressed: () {
             ref.read(versionProvider.notifier).dismissUpdateNotification();
           },
-          tooltip: 'Nanti',
           splashRadius: 18,
         ),
       ],
