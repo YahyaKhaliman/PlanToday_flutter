@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/constants/app_constants.dart';
@@ -66,6 +67,32 @@ class KurirRepository {
     }
   }
 
+  Future<List<KurirRencanaItem>> getSelesaiKirim({
+    required String startDate,
+    required String endDate,
+  }) async {
+    try {
+      final response = await _api.dio.get(
+        ApiConfig.kurirKirim,
+        queryParameters: {
+          'tanggal_awal': startDate,
+          'tanggal_akhir': endDate,
+          'status': 'delivered',
+        },
+      );
+
+      final data = response.data;
+      if (data != null && data['data'] is List) {
+        return (data['data'] as List)
+            .map((item) => KurirRencanaItem.fromJson(item as Map<String, dynamic>))
+            .toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
   Future<bool> createPengiriman(Map<String, dynamic> payload) async {
     try {
       final response = await _api.dio.post(
@@ -84,6 +111,8 @@ class KurirRepository {
     double? latitude,
     double? longitude,
     File? photo,
+    Uint8List? photoBytes,
+    String? photoName,
   }) async {
     try {
       final payload = <String, dynamic>{
@@ -98,16 +127,25 @@ class KurirRepository {
         data: payload,
       );
 
-      final isSuccess = resStatus.data != null && resStatus.data['success'] == true;
+      final isSuccess =
+          resStatus.data != null && resStatus.data['success'] == true;
 
-      if (isSuccess && photo != null) {
+      if (isSuccess && (photoBytes != null || photo != null)) {
         try {
-          final formData = FormData.fromMap({
-            'file': await MultipartFile.fromFile(
-              photo.path,
-              filename: photo.path.split(Platform.pathSeparator).last,
-            ),
-          });
+          final MultipartFile multipartFile;
+          if (photoBytes != null) {
+            multipartFile = MultipartFile.fromBytes(
+              photoBytes,
+              filename: photoName ?? 'kurir_$id.jpg',
+            );
+          } else {
+            multipartFile = await MultipartFile.fromFile(
+              photo!.path,
+              filename: photo.path.split(RegExp(r'[/\\]')).last,
+            );
+          }
+
+          final formData = FormData.fromMap({'file': multipartFile});
           await _api.dio.post('/kurir/pengiriman/$id/photo', data: formData);
         } catch (_) {}
       }

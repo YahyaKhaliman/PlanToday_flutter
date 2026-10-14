@@ -118,6 +118,8 @@ class VisitRepository {
     double? latitude,
     double? longitude,
     File? photo,
+    Uint8List? photoBytes,
+    String? photoName,
   }) async {
     try {
       final payload = <String, dynamic>{
@@ -134,14 +136,20 @@ class VisitRepository {
       final isSuccess = response.data != null && response.data['success'] == true;
 
       final createdId = response.data?['data']?['id'] ?? response.data?['id'];
-      if (isSuccess && photo != null && createdId != null) {
+      if (isSuccess && (photoBytes != null || photo != null) && createdId != null) {
         try {
-          final formData = FormData.fromMap({
-            'file': await MultipartFile.fromFile(
-              photo.path,
-              filename: photo.path.split(Platform.pathSeparator).last,
-            ),
-          });
+          final MultipartFile multipartFile = photoBytes != null
+              ? MultipartFile.fromBytes(
+                  photoBytes,
+                  filename: (photoName != null && photoName.isNotEmpty)
+                      ? photoName
+                      : 'visit_$createdId.jpg',
+                )
+              : await MultipartFile.fromFile(
+                  photo!.path,
+                  filename: photo.path.split(RegExp(r'[/\\]')).last,
+                );
+          final formData = FormData.fromMap({'file': multipartFile});
           await _api.dio.post('${ApiConfig.visit}/$createdId/photo', data: formData);
         } catch (_) {}
       }
@@ -160,6 +168,8 @@ class VisitRepository {
     double? latitude,
     double? longitude,
     File? photo,
+    Uint8List? photoBytes,
+    String? photoName,
   }) async {
     try {
       final payload = <String, dynamic>{
@@ -173,14 +183,20 @@ class VisitRepository {
       final response = await _api.dio.put('${ApiConfig.visit}/$id', data: payload);
       final isSuccess = response.data != null && response.data['success'] == true;
 
-      if (isSuccess && photo != null) {
+      if (isSuccess && (photoBytes != null || photo != null)) {
         try {
-          final formData = FormData.fromMap({
-            'file': await MultipartFile.fromFile(
-              photo.path,
-              filename: photo.path.split(Platform.pathSeparator).last,
-            ),
-          });
+          final MultipartFile multipartFile = photoBytes != null
+              ? MultipartFile.fromBytes(
+                  photoBytes,
+                  filename: (photoName != null && photoName.isNotEmpty)
+                      ? photoName
+                      : 'visit_$id.jpg',
+                )
+              : await MultipartFile.fromFile(
+                  photo!.path,
+                  filename: photo.path.split(RegExp(r'[/\\]')).last,
+                );
+          final formData = FormData.fromMap({'file': multipartFile});
           await _api.dio.post('${ApiConfig.visit}/$id/photo', data: formData);
         } catch (_) {}
       }

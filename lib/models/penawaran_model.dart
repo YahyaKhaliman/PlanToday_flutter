@@ -55,6 +55,13 @@ class PenawaranHeader {
   final String customerKode;
   final String customer;
   final String customerAlamat;
+  final String customerKota;
+  final String up;
+  final String ttd;
+  final String ttdJabatan;
+  final int statusHarga;
+  final String digitalSign;
+  final String digitalSignDate;
   final String salesKode;
   final String sales;
   final String keterangan;
@@ -72,6 +79,13 @@ class PenawaranHeader {
     this.customerKode = '',
     this.customer = '',
     this.customerAlamat = '',
+    this.customerKota = '',
+    this.up = '',
+    this.ttd = '',
+    this.ttdJabatan = '',
+    this.statusHarga = 0,
+    this.digitalSign = '',
+    this.digitalSignDate = '',
     this.salesKode = '',
     this.sales = '',
     this.keterangan = '',
@@ -79,6 +93,10 @@ class PenawaranHeader {
     this.nominal = 0.0,
     this.approvalState = '',
   });
+
+  bool get isApproved =>
+      approvalState.toUpperCase() == 'ACC' ||
+      digitalSign.toUpperCase() == 'Y';
 
   factory PenawaranHeader.fromJson(Map<String, dynamic> json) {
     return PenawaranHeader(
@@ -91,6 +109,13 @@ class PenawaranHeader {
       customerKode: json['customer_kode']?.toString() ?? '',
       customer: json['customer']?.toString() ?? '',
       customerAlamat: json['customer_alamat']?.toString() ?? '',
+      customerKota: json['customer_kota']?.toString() ?? '',
+      up: json['up']?.toString() ?? '',
+      ttd: json['ttd']?.toString() ?? '',
+      ttdJabatan: json['ttd_jabatan']?.toString() ?? '',
+      statusHarga: int.tryParse(json['status_harga']?.toString() ?? '0') ?? 0,
+      digitalSign: json['digital_sign']?.toString() ?? '',
+      digitalSignDate: json['digital_sign_date']?.toString() ?? '',
       salesKode: json['sales_kode']?.toString() ?? '',
       sales: json['sales']?.toString() ?? '',
       keterangan: json['keterangan']?.toString() ?? '',
@@ -114,6 +139,8 @@ class PenawaranDetailItem {
   final double harga;
   final double total;
   final String status;
+  final String ketBatal;
+  final String ketConfirm;
 
   const PenawaranDetailItem({
     required this.id,
@@ -128,6 +155,8 @@ class PenawaranDetailItem {
     this.harga = 0.0,
     this.total = 0.0,
     this.status = '',
+    this.ketBatal = '',
+    this.ketConfirm = '',
   });
 
   factory PenawaranDetailItem.fromJson(Map<String, dynamic> json) {
@@ -144,6 +173,34 @@ class PenawaranDetailItem {
       harga: (json['harga'] as num?)?.toDouble() ?? 0.0,
       total: (json['total'] as num?)?.toDouble() ?? 0.0,
       status: json['status']?.toString() ?? '',
+      ketBatal: json['ket_batal']?.toString() ?? '',
+      ketConfirm: json['ket_confirm']?.toString() ?? '',
+    );
+  }
+}
+
+class PenawaranActivityLog {
+  final String type;
+  final String approvalState;
+  final String note;
+  final String user;
+  final String createdAt;
+
+  const PenawaranActivityLog({
+    this.type = '',
+    this.approvalState = '',
+    this.note = '',
+    this.user = '',
+    this.createdAt = '',
+  });
+
+  factory PenawaranActivityLog.fromJson(Map<String, dynamic> json) {
+    return PenawaranActivityLog(
+      type: json['type']?.toString() ?? '',
+      approvalState: json['approval_state']?.toString() ?? '',
+      note: json['note']?.toString() ?? '',
+      user: json['user']?.toString() ?? json['username']?.toString() ?? '',
+      createdAt: json['created_at']?.toString() ?? '',
     );
   }
 }

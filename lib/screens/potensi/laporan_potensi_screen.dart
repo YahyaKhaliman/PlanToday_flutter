@@ -4,17 +4,26 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/app_toast.dart';
-import '../../core/utils/responsive_helper.dart';
 import '../../models/potensi_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../repositories/penawaran_repository.dart';
 import '../../repositories/potensi_repository.dart';
 import '../../widgets/app_date_range_picker_modal.dart';
-import '../../widgets/ui/app_badge.dart';
-import '../../widgets/ui/app_card.dart';
+import 'modal_batal_potensi.dart';
 
 const _kShortMonths = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
-  'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'Mei',
+  'Jun',
+  'Jul',
+  'Agu',
+  'Sep',
+  'Okt',
+  'Nov',
+  'Des',
 ];
 
 class LaporanPotensiScreen extends ConsumerStatefulWidget {
@@ -29,16 +38,32 @@ class _LaporanPotensiScreenState extends ConsumerState<LaporanPotensiScreen> {
   final _searchController = TextEditingController();
 
   DateTime _startDate = DateTime(DateTime.now().year, DateTime.now().month, 1);
-  DateTime _endDate = DateTime(DateTime.now().year, DateTime.now().month + 1, 0);
+  DateTime _endDate = DateTime(
+    DateTime.now().year,
+    DateTime.now().month + 1,
+    0,
+  );
 
   List<PotensiListItem> _rawItems = [];
   bool _isLoading = false;
-  String _selectedSales = 'ALL';
+
+  // Filter
+  String _selectedStatus = 'ALL'; // ALL, POTENSI, CLOSE, BATAL
+  String _selectedSales = '';
+  List<String> _salesList = [];
+
+  final List<String> _statusOptions = ['ALL', 'POTENSI', 'CLOSE', 'BATAL'];
 
   @override
   void initState() {
     super.initState();
     _fetchData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final user = ref.read(authProvider).user;
+      if (user?.isManager == true) {
+        _loadSalesList();
+      }
+    });
   }
 
   @override
@@ -53,19 +78,61 @@ class _LaporanPotensiScreenState extends ConsumerState<LaporanPotensiScreen> {
   String _formatDisplayDate(DateTime d) =>
       '${d.day} ${_kShortMonths[d.month - 1]} ${d.year}';
 
+  String _formatItemDate(String? ymd) {
+    if (ymd == null || ymd.isEmpty) return '-';
+    try {
+      final clean = ymd.split('T')[0].split(' ')[0];
+      final parts = clean.split('-').map(int.parse).toList();
+      return '${parts[2]} ${_kShortMonths[parts[1] - 1]} ${parts[0]}';
+    } catch (_) {
+      return ymd;
+    }
+  }
+
+  Future<void> _loadSalesList() async {
+    try {
+      final repo = ref.read(penawaranRepositoryProvider);
+      final rows = await repo.getMasterSales('');
+      if (mounted) {
+        setState(() {
+          _salesList = rows
+              .map((e) => e['nama'] ?? '')
+              .where((n) => n.isNotEmpty)
+              .toList();
+        });
+      }
+    } catch (_) {}
+  }
+
   Future<void> _fetchData([String? query]) async {
     setState(() => _isLoading = true);
+
+    final user = ref.read(authProvider).user;
+    final isManager = user?.isManager ?? false;
 
     final repo = ref.read(potensiRepositoryProvider);
     final results = await repo.getPotensiList(
       startDate: _formatYmd(_startDate),
       endDate: _formatYmd(_endDate),
       search: query ?? _searchController.text.trim(),
+      sales: isManager && _selectedSales.isNotEmpty
+          ? _selectedSales
+          : (!isManager ? user?.nama : null),
     );
 
     if (mounted) {
       setState(() {
         _rawItems = results.list;
+        if (_salesList.isEmpty && isManager) {
+          final fromData =
+              results.list
+                  .map((e) => e.salesNama.trim())
+                  .where((n) => n.isNotEmpty)
+                  .toSet()
+                  .toList()
+                ..sort();
+          if (fromData.isNotEmpty) _salesList = fromData;
+        }
         _isLoading = false;
       });
     }
@@ -87,720 +154,981 @@ class _LaporanPotensiScreenState extends ConsumerState<LaporanPotensiScreen> {
     }
   }
 
-  List<String> get _availableSales {
-    final set = <String>{};
-    for (final it in _rawItems) {
-      if (it.salesNama.isNotEmpty) set.add(it.salesNama.trim());
-    }
-    final list = set.toList()..sort();
-    return list;
+  void _showSalesPicker() {
+    String searchKeyword = '';
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final filtered = _salesList.where((s) {
+              return s.toLowerCase().contains(searchKeyword.toLowerCase());
+            }).toList();
+
+            return SafeArea(
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.75,
+                ),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                child: Column(
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFCBD5E1),
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                      ),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Pilih Sales',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                        if (_selectedSales.isNotEmpty)
+                          TextButton(
+                            onPressed: () {
+                              setState(() => _selectedSales = '');
+                              Navigator.pop(ctx);
+                              _fetchData();
+                            },
+                            child: const Text(
+                              'Reset',
+                              style: TextStyle(color: Color(0xFFDC2626)),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      height: 44,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.search,
+                            size: 18,
+                            color: Color(0xFF64748B),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              onChanged: (val) {
+                                setModalState(() => searchKeyword = val);
+                              },
+                              decoration: const InputDecoration(
+                                hintText: 'Cari nama sales...',
+                                border: InputBorder.none,
+                                isDense: true,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: filtered.length,
+                        separatorBuilder: (_, _) =>
+                            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                        itemBuilder: (context, idx) {
+                          final sName = filtered[idx];
+                          final isSelected = _selectedSales == sName;
+                          return ListTile(
+                            title: Text(
+                              sName,
+                              style: TextStyle(
+                                fontWeight: isSelected
+                                    ? FontWeight.w800
+                                    : FontWeight.w600,
+                                color: isSelected
+                                    ? const Color(0xFF4F46E5)
+                                    : const Color(0xFF0F172A),
+                              ),
+                            ),
+                            trailing: isSelected
+                                ? const Icon(
+                                    Icons.check,
+                                    color: Color(0xFF4F46E5),
+                                  )
+                                : null,
+                            onTap: () {
+                              setState(() => _selectedSales = sName);
+                              Navigator.pop(ctx);
+                              _fetchData();
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
-  List<PotensiListItem> get _filteredItems {
-    final user = ref.read(authProvider).user;
-    final isManager = user?.jabatan.toUpperCase() == 'MANAGER';
-
+  // Item aktif adalah item yang statusnya belum CLOSE dan belum BATAL
+  List<PotensiListItem> get _activeOpenItems {
     return _rawItems.where((it) {
-      if (isManager && _selectedSales != 'ALL') {
-        if (it.salesNama.toLowerCase() != _selectedSales.toLowerCase()) {
-          return false;
-        }
-      }
-      return true;
-    }).toList();
-  }
-
-  // Item aktif adalah item dengan status belum CLOSE dan belum BATAL
-  List<PotensiListItem> get _activeItems {
-    return _filteredItems.where((it) {
       final s = it.status.toUpperCase();
       return s != 'CLOSE' && s != 'BATAL';
     }).toList();
   }
 
-  double get _totalNominalAktif =>
-      _activeItems.fold(0.0, (acc, it) => acc + it.harga);
-
-  void _showSalesPicker() {
-    final list = _availableSales;
-    if (list.isEmpty) return;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Pilih Sales',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Color(0xFF64748B)),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
-                ],
-              ),
-              const Divider(height: 16),
-              ListTile(
-                title: const Text(
-                  'Semua Sales',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-                trailing: _selectedSales == 'ALL'
-                    ? const Icon(Icons.check_circle_rounded,
-                        color: Color(0xFF4F46E5))
-                    : null,
-                onTap: () {
-                  setState(() => _selectedSales = 'ALL');
-                  Navigator.pop(ctx);
-                },
-              ),
-              ...list.map((salesName) {
-                final isSelected =
-                    _selectedSales.toLowerCase() == salesName.toLowerCase();
-                return ListTile(
-                  title: Text(
-                    salesName,
-                    style: TextStyle(
-                      fontWeight:
-                          isSelected ? FontWeight.w900 : FontWeight.w700,
-                      color: isSelected
-                          ? const Color(0xFF4F46E5)
-                          : const Color(0xFF0F172A),
-                    ),
-                  ),
-                  trailing: isSelected
-                      ? const Icon(Icons.check_circle_rounded,
-                          color: Color(0xFF4F46E5))
-                      : null,
-                  onTap: () {
-                    setState(() => _selectedSales = salesName);
-                    Navigator.pop(ctx);
-                  },
-                );
-              }),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showBatalDialog(PotensiListItem item) {
-    final reasonController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        title: const Text(
-          'Batalkan Potensi',
-          style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Batalkan potensi untuk ${item.customerNama}?',
-              style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: reasonController,
-              decoration: const InputDecoration(
-                hintText: 'Alasan pembatalan...',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFEF4444),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              final repo = ref.read(potensiRepositoryProvider);
-              final success = await repo.batalPotensi(
-                item.nomor,
-                reasonController.text.trim(),
-              );
-
-              if (mounted) {
-                if (success) {
-                  AppToast.success(context, 'Potensi berhasil dibatalkan');
-                  _fetchData();
-                } else {
-                  AppToast.error(context, 'Gagal membatalkan potensi');
-                }
-              }
-            },
-            child: const Text(
-              'Batalkan',
-              style: TextStyle(fontWeight: FontWeight.w800),
-            ),
-          ),
-        ],
-      ),
-    );
+  double get _totalNominalOpen {
+    return _activeOpenItems.fold<double>(0.0, (acc, it) => acc + it.harga);
   }
 
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
-    final isManager = user?.jabatan.toUpperCase() == 'MANAGER';
-    final currencyFormat =
-        NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+    final isManager = user?.isManager ?? false;
+    final currencyFormat = NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: 'Rp ',
+      decimalDigits: 0,
+    );
+
+    // Filter status & search
+    final q = _searchController.text.trim().toLowerCase();
+    final filteredList = _rawItems.where((it) {
+      final s = it.status.toUpperCase();
+      if (_selectedStatus != 'ALL') {
+        if (_selectedStatus == 'POTENSI' && (s == 'CLOSE' || s == 'BATAL')) {
+          return false;
+        }
+        if (_selectedStatus == 'CLOSE' && s != 'CLOSE') return false;
+        if (_selectedStatus == 'BATAL' && s != 'BATAL') return false;
+      }
+
+      if (q.isNotEmpty) {
+        final matchNomor = it.nomor.toLowerCase().contains(q);
+        final matchCustomer = it.customerNama.toLowerCase().contains(q);
+        final matchItem = it.namaItem.toLowerCase().contains(q);
+        final matchSales = it.salesNama.toLowerCase().contains(q);
+        return matchNomor || matchCustomer || matchItem || matchSales;
+      }
+      return true;
+    }).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FF),
       body: SafeArea(
-        child: ResponsiveContainer(
-          maxWidth: 1000,
-          child: Column(
-            children: [
-              // 1. TOP HEADER ALA UI-STYLING
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Row(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isDesktop = constraints.maxWidth >= 900;
+            final isTablet =
+                constraints.maxWidth >= 600 && constraints.maxWidth < 900;
+            final horizontalPadding = isDesktop
+                ? 32.0
+                : (isTablet ? 24.0 : 16.0);
+            final maxContainerWidth = isDesktop
+                ? 1040.0
+                : (isTablet ? 760.0 : double.infinity);
+
+            return Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxContainerWidth),
+                child: Column(
                   children: [
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => context.pop(),
-                      child: Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: const Color.fromRGBO(15, 23, 42, 0.08),
-                          ),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color.fromRGBO(15, 23, 42, 0.03),
-                              blurRadius: 6,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.chevron_left_rounded,
-                          size: 26,
-                          color: Color(0xFF4F46E5),
-                        ),
+                    // 1. TOP HEADER (Persis React Native)
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        horizontalPadding,
+                        12,
+                        horizontalPadding,
+                        0,
                       ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        children: const [
-                          Text(
-                            'Laporan Potensi',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF0F172A),
-                              letterSpacing: -0.3,
-                            ),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Rekapitulasi data potensi sales',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF64748B),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => _fetchData(),
-                      child: Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: const Color.fromRGBO(15, 23, 42, 0.08),
-                          ),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color.fromRGBO(15, 23, 42, 0.03),
-                              blurRadius: 6,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.refresh_rounded,
-                          size: 20,
-                          color: Color(0xFF4F46E5),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              // 2. KPI SUMMARY BANNER (Total Nominal Aktif & Jumlah Item)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF4F46E5), Color(0xFF00B4D8)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: AppShadows.card,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'TOTAL NOMINAL AKTIF',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.8,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            currencyFormat.format(_totalNominalAktif),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: -0.3,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          '${_activeItems.length} Item Aktif',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // 3. SEARCH & FILTER CARD
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: const Color.fromRGBO(15, 23, 42, 0.08),
-                    ),
-                    boxShadow: AppShadows.softCard,
-                  ),
-                  child: Column(
-                    children: [
-                      // Search Box
-                      Container(
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: const Color.fromRGBO(15, 23, 42, 0.06),
-                          ),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        alignment: Alignment.center,
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.search_rounded,
-                              size: 18,
-                              color: Color(0xFF64748B),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: TextField(
-                                controller: _searchController,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF0F172A),
-                                ),
-                                decoration: const InputDecoration(
-                                  hintText:
-                                      'Cari item, customer, atau nomor doc...',
-                                  hintStyle: TextStyle(
-                                    color: Color(0xFF64748B),
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  border: InputBorder.none,
-                                  enabledBorder: InputBorder.none,
-                                  focusedBorder: InputBorder.none,
-                                  isDense: true,
-                                  contentPadding: EdgeInsets.zero,
-                                ),
-                                onSubmitted: (q) => _fetchData(q),
-                              ),
-                            ),
-                            if (_searchController.text.isNotEmpty)
-                              GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onTap: () {
-                                  _searchController.clear();
-                                  _fetchData();
-                                },
-                                child: const Icon(
-                                  Icons.close_rounded,
-                                  size: 16,
-                                  color: Color(0xFF64748B),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-
-                      // Date Range Selector Row & Sales Filter
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      child: Row(
                         children: [
                           GestureDetector(
                             behavior: HitTestBehavior.opaque,
-                            onTap: _selectDateRange,
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(5),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFEEF2FF),
-                                    borderRadius: BorderRadius.circular(8),
+                            onTap: () {
+                              if (context.canPop()) {
+                                context.pop();
+                              } else {
+                                context.go('/potensi');
+                              }
+                            },
+                            child: Container(
+                              width: isDesktop ? 44 : 40,
+                              height: isDesktop ? 44 : 40,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: const Color.fromRGBO(15, 23, 42, 0.08),
+                                ),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color.fromRGBO(15, 23, 42, 0.03),
+                                    blurRadius: 6,
+                                    offset: Offset(0, 2),
                                   ),
-                                  child: const Icon(
-                                    Icons.calendar_month_rounded,
-                                    size: 15,
-                                    color: Color(0xFF4F46E5),
+                                ],
+                              ),
+                              alignment: Alignment.center,
+                              child: Icon(
+                                Icons.chevron_left_rounded,
+                                size: isDesktop ? 26 : 24,
+                                color: const Color(0xFF4F46E5),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Laporan Potensi',
+                                  style: TextStyle(
+                                    fontSize: isDesktop ? 20 : 18,
+                                    fontWeight: FontWeight.w900,
+                                    color: const Color(0xFF0F172A),
+                                    letterSpacing: -0.3,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  '${_formatDisplayDate(_startDate)} - ${_formatDisplayDate(_endDate)}',
-                                  style: const TextStyle(
-                                    fontSize: 12,
+                                const SizedBox(height: 2),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+
+                          // Tombol Shortcut Input Potensi
+                          Container(
+                            height: 40,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [AppColors.primary, AppColors.accent],
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: AppShadows.button,
+                            ),
+                            child: ElevatedButton.icon(
+                              onPressed: () => context.push('/potensi'),
+                              label: const Text(
+                                'Potensi',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 8,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // 2. SUMMARY BANNER (Kartu Gradien Persis React Native)
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: horizontalPadding,
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF4F46E5), Color(0xFF06B6D4)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: AppShadows.card,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'TOTAL POTENSI OMSET (AKTIF)',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 11,
                                     fontWeight: FontWeight.w800,
-                                    color: Color(0xFF0F172A),
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    '${_activeOpenItems.length} Item Aktif',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
-                          ),
-                          if (isManager && _availableSales.isNotEmpty)
-                            GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: _showSalesPicker,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF1F5F9),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Text(
-                                      _selectedSales == 'ALL'
-                                          ? 'Semua Sales'
-                                          : _selectedSales,
-                                      style: const TextStyle(
-                                        fontSize: 11.5,
-                                        fontWeight: FontWeight.w800,
-                                        color: Color(0xFF4F46E5),
+                            const SizedBox(height: 8),
+                            Text(
+                              currencyFormat.format(_totalNominalOpen),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // 3. BAR FILTER TANGGAL, SEARCH, & SALES
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: horizontalPadding,
+                      ),
+                      child: Column(
+                        children: [
+                          // Row 1: Search Bar & Sales Filter (Khusus Manager)
+                          Row(
+                            children: [
+                              // Search Input Box
+                              Expanded(
+                                child: Container(
+                                  height: 42,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: const Color.fromRGBO(
+                                        15,
+                                        23,
+                                        42,
+                                        0.08,
                                       ),
                                     ),
-                                    const Icon(
-                                      Icons.arrow_drop_down_rounded,
-                                      size: 16,
-                                      color: Color(0xFF4F46E5),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.search_rounded,
+                                        size: 18,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: TextField(
+                                          controller: _searchController,
+                                          onChanged: (_) => setState(() {}),
+                                          style: const TextStyle(
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF0F172A),
+                                          ),
+                                          decoration: const InputDecoration(
+                                            hintText:
+                                                'Cari customer, nomor, item...',
+                                            hintStyle: TextStyle(
+                                              color: Color(0xFF94A3B8),
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                            border: InputBorder.none,
+                                            isDense: true,
+                                            contentPadding: EdgeInsets.zero,
+                                          ),
+                                        ),
+                                      ),
+                                      if (_searchController.text.isNotEmpty)
+                                        GestureDetector(
+                                          onTap: () => setState(
+                                            () => _searchController.clear(),
+                                          ),
+                                          child: const Icon(
+                                            Icons.close_rounded,
+                                            size: 16,
+                                            color: Color(0xFF64748B),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              if (isManager) ...[
+                                const SizedBox(width: 8),
+                                InkWell(
+                                  onTap: _showSalesPicker,
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    height: 42,
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 140,
                                     ),
-                                  ],
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: _selectedSales.isNotEmpty
+                                            ? const Color(0xFF4F46E5)
+                                            : const Color.fromRGBO(
+                                                15,
+                                                23,
+                                                42,
+                                                0.08,
+                                              ),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.person_outline_rounded,
+                                          size: 16,
+                                          color: _selectedSales.isNotEmpty
+                                              ? const Color(0xFF4F46E5)
+                                              : const Color(0xFF64748B),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            _selectedSales.isNotEmpty
+                                                ? _selectedSales
+                                                : 'Sales',
+                                            style: TextStyle(
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: _selectedSales.isNotEmpty
+                                                  ? const Color(0xFF4F46E5)
+                                                  : const Color(0xFF0F172A),
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const Icon(
+                                          Icons.arrow_drop_down_rounded,
+                                          size: 18,
+                                          color: Color(0xFF64748B),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+
+                          // Row 2: Date Range Selector Full Width (Sesuai Standar Menu Lain)
+                          InkWell(
+                            onTap: _selectDateRange,
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: const Color.fromRGBO(
+                                    15,
+                                    23,
+                                    42,
+                                    0.08,
+                                  ),
+                                ),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.calendar_month_rounded,
+                                    size: 18,
+                                    color: Color(0xFF4F46E5),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _formatDisplayDate(_startDate),
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFF0F172A),
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                    ),
+                                    child: Icon(
+                                      Icons.arrow_forward_rounded,
+                                      size: 14,
+                                      color: Color(0xFF94A3B8),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      _formatDisplayDate(_endDate),
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFF0F172A),
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // 4. CHIP FILTER STATUS (ALL, POTENSI, CLOSE, BATAL)
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: horizontalPadding,
+                      ),
+                      child: Row(
+                        children: _statusOptions.map((st) {
+                          final isSelected = _selectedStatus == st;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                              label: Text(st),
+                              selected: isSelected,
+                              onSelected: (_) {
+                                setState(() => _selectedStatus = st);
+                              },
+                              selectedColor: const Color(0xFF4F46E5),
+                              backgroundColor: Colors.white,
+                              labelStyle: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
+                                color: isSelected
+                                    ? Colors.white
+                                    : const Color(0xFF64748B),
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                side: BorderSide(
+                                  color: isSelected
+                                      ? const Color(0xFF4F46E5)
+                                      : const Color.fromRGBO(15, 23, 42, 0.08),
+                                ),
+                              ),
+                              showCheckmark: false,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // 5. DAFTAR KARTU LAPORAN
+                    Expanded(
+                      child: _isLoading
+                          ? const Center(
+                              child: CircularProgressIndicator(
+                                color: Color(0xFF4F46E5),
+                              ),
+                            )
+                          : filteredList.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'Tidak ada laporan potensi pada periode ini.',
+                                style: TextStyle(
+                                  color: Color(0xFF64748B),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
                                 ),
                               ),
                             )
-                          else
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF1F5F9),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                '${_filteredItems.length} Data',
-                                style: const TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF0F172A),
-                                ),
-                              ),
+                          : _buildAdaptiveList(
+                              isDesktop: isDesktop,
+                              isTablet: isTablet,
+                              horizontalPadding: horizontalPadding,
+                              items: filteredList,
+                              currencyFormat: currencyFormat,
                             ),
-                        ],
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 10),
-
-              // 4. DAFTAR KARTU POTENSI
-              Expanded(
-                child: _isLoading
-                    ? const Center(
-                        child: CircularProgressIndicator(
-                          color: Color(0xFF4F46E5),
-                        ),
-                      )
-                    : _filteredItems.isEmpty
-                        ? const Center(
-                            child: Text(
-                              'Tidak ada data potensi pada periode ini.',
-                              style: TextStyle(
-                                color: Color(0xFF64748B),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          )
-                        : RefreshIndicator(
-                            color: const Color(0xFF4F46E5),
-                            onRefresh: () => _fetchData(),
-                            child: ListView.separated(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 6,
-                              ),
-                              itemCount: _filteredItems.length,
-                              separatorBuilder: (ctx, i) =>
-                                  const SizedBox(height: 10),
-                              itemBuilder: (context, index) {
-                                final item = _filteredItems[index];
-                                final isOpen = item.status == 'OPEN' ||
-                                    item.status == 'POTENSI';
-
-                                return _LaporanPotensiCard(
-                                  item: item,
-                                  currencyFormat: currencyFormat,
-                                  onBatal: isOpen
-                                      ? () => _showBatalDialog(item)
-                                      : null,
-                                );
-                              },
-                            ),
-                          ),
-              ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
   }
-}
 
-class _LaporanPotensiCard extends StatelessWidget {
-  final PotensiListItem item;
-  final NumberFormat currencyFormat;
-  final VoidCallback? onBatal;
+  Widget _buildAdaptiveList({
+    required bool isDesktop,
+    required bool isTablet,
+    required double horizontalPadding,
+    required List<PotensiListItem> items,
+    required NumberFormat currencyFormat,
+  }) {
+    final crossAxisCount = (isDesktop || isTablet) ? 2 : 1;
 
-  const _LaporanPotensiCard({
-    required this.item,
-    required this.currencyFormat,
-    this.onBatal,
-  });
+    if (crossAxisCount == 1) {
+      return ListView.separated(
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding,
+          6,
+          horizontalPadding,
+          24,
+        ),
+        itemCount: items.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
+        itemBuilder: (context, index) => _buildReportCard(
+          item: items[index],
+          currencyFormat: currencyFormat,
+        ),
+      );
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    Color badgeColor = const Color(0xFFF59E0B);
-    if (item.status == 'CLOSE') badgeColor = const Color(0xFF10B981);
-    if (item.status == 'BATAL') badgeColor = const Color(0xFFEF4444);
+    return GridView.builder(
+      padding: EdgeInsets.fromLTRB(horizontalPadding, 6, horizontalPadding, 24),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 14,
+        mainAxisSpacing: 14,
+        mainAxisExtent: 220,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) =>
+          _buildReportCard(item: items[index], currencyFormat: currencyFormat),
+    );
+  }
 
-    return AppCard(
+  Widget _buildReportCard({
+    required PotensiListItem item,
+    required NumberFormat currencyFormat,
+  }) {
+    final status = item.status.toUpperCase();
+    final isClose = status == 'CLOSE';
+    final isBatal = status == 'BATAL';
+    final isPotensi = !isClose && !isBatal;
+
+    Color badgeBg;
+    Color badgeBorder;
+    Color badgeText;
+
+    if (isClose) {
+      badgeBg = const Color(0xFFDCFCE7);
+      badgeBorder = const Color(0xFF86EFAC);
+      badgeText = const Color(0xFF15803D);
+    } else if (isBatal) {
+      badgeBg = const Color(0xFFFEE2E2);
+      badgeBorder = const Color(0xFFFCA5A5);
+      badgeText = const Color(0xFFB91C1C);
+    } else {
+      badgeBg = const Color(0xFFFEF3C7);
+      badgeBorder = const Color(0xFFFCD34D);
+      badgeText = const Color(0xFFB45309);
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color.fromRGBO(15, 23, 42, 0.08)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color.fromRGBO(15, 23, 42, 0.03),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          // Header Card (Nomor, Tanggal, Badge Status)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                item.nomor,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF4F46E5),
-                  letterSpacing: -0.2,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.trending_up_rounded,
+                        size: 16,
+                        color: Color(0xFF4F46E5),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        item.nomor,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF4F46E5),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: badgeBg,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: badgeBorder),
+                    ),
+                    child: Text(
+                      isPotensi ? 'POTENSI' : status,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w900,
+                        color: badgeText,
+                      ),
+                    ),
+                  ),
+                ],
               ),
+              const SizedBox(height: 6),
               Row(
                 children: [
-                  AppBadge(
-                    label: item.status,
-                    customColor: badgeColor,
+                  const Icon(
+                    Icons.event_outlined,
+                    size: 13,
+                    color: Color(0xFF94A3B8),
                   ),
-                  if (item.tanggal != null) ...[
+                  const SizedBox(width: 4),
+                  Text(
+                    _formatItemDate(item.tanggal),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (item.nomorSumber != null &&
+                      item.nomorSumber!.isNotEmpty) ...[
                     const SizedBox(width: 8),
                     Text(
-                      item.tanggal!,
+                      '• Ref: ${item.nomorSumber}',
                       style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF64748B),
-                        fontWeight: FontWeight.w500,
+                        fontSize: 11,
+                        color: Color(0xFF94A3B8),
+                        fontWeight: FontWeight.w600,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ],
               ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            item.customerNama,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
-              color: Color(0xFF0F172A),
-            ),
-          ),
-          if (item.namaItem.isNotEmpty) ...[
-            const SizedBox(height: 2),
-            Text(
-              item.namaItem,
-              style: const TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF0F172A),
-              ),
-            ),
-          ],
-          if (item.status == 'BATAL' &&
-              (item.alasanBatal ?? '').isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEF4444).withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: const Color(0xFFEF4444).withValues(alpha: 0.25),
-                ),
-              ),
-              child: Text(
-                'Alasan Batal: ${item.alasanBatal}',
-                style: const TextStyle(
-                  fontSize: 11.5,
-                  color: Color(0xFFEF4444),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-          const Divider(height: 18, color: Color(0xFFF1F5F9)),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
+              const SizedBox(height: 10),
               Text(
-                'Sales: ${item.salesNama}',
+                item.customerNama.isNotEmpty ? item.customerNama : '-',
                 style: const TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF64748B),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              Text(
-                currencyFormat.format(item.harga),
-                style: const TextStyle(
-                  fontSize: 15,
+                  fontSize: 14.5,
                   fontWeight: FontWeight.w900,
                   color: Color(0xFF0F172A),
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                item.namaItem.isNotEmpty ? item.namaItem : '-',
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  color: Color(0xFF475569),
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
-          if (onBatal != null) ...[
-            const SizedBox(height: 6),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: onBatal,
-                style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFFEF4444),
-                  visualDensity: VisualDensity.compact,
-                ),
-                icon: const Icon(Icons.cancel_outlined, size: 16),
-                label: const Text(
-                  'Batalkan Potensi',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                ),
+
+          // Alasan Batal Box jika Status BATAL
+          if (isBatal &&
+              item.alasanBatal != null &&
+              item.alasanBatal!.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFECACA)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.info_outline,
+                    size: 14,
+                    color: Color(0xFFDC2626),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Batal: ${item.alasanBatal}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFFB91C1C),
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
+
+          // Footer (Sales, Harga, & Tombol Batalkan jika masih Potensi)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (item.salesNama.isNotEmpty)
+                    Text(
+                      'Sales: ${item.salesNama}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF64748B),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  Text(
+                    currencyFormat.format(item.harga),
+                    style: const TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                ],
+              ),
+              if (isPotensi)
+                SizedBox(
+                  height: 32,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFDC2626),
+                      side: const BorderSide(color: Color(0xFFFCA5A5)),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    onPressed: () async {
+                      final confirmed = await showModalBatalPotensi(
+                        context,
+                        item: item,
+                        onConfirm: (alasan) async {
+                          final repo = ref.read(potensiRepositoryProvider);
+                          final ok = await repo.batalPotensi(
+                            item.nomor,
+                            alasan,
+                          );
+                          if (!mounted) return ok;
+                          if (ok) {
+                            AppToast.success(
+                              context,
+                              'Potensi ${item.nomor} berhasil dibatalkan',
+                            );
+                            _fetchData();
+                            return true;
+                          } else {
+                            AppToast.error(
+                              context,
+                              'Gagal membatalkan potensi',
+                            );
+                            return false;
+                          }
+                        },
+                      );
+                      if (confirmed == true && mounted) {
+                        _fetchData();
+                      }
+                    },
+                    child: const Text(
+                      'Batalkan',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ],
       ),
     );

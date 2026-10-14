@@ -271,7 +271,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: ':nomor',
             name: 'penawaran-detail',
             builder: (context, state) {
-              final nomor = state.pathParameters['nomor'] ?? '';
+              final raw = state.pathParameters['nomor'] ?? '';
+              final nomor = (state.extra as String?) ?? Uri.decodeComponent(raw);
               return PenawaranDetailScreen(nomor: nomor);
             },
             routes: [
@@ -279,7 +280,8 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: 'status',
                 name: 'penawaran-status',
                 builder: (context, state) {
-                  final nomor = state.pathParameters['nomor'] ?? '';
+                  final raw = state.pathParameters['nomor'] ?? '';
+                  final nomor = (state.extra as String?) ?? Uri.decodeComponent(raw);
                   return PenawaranStatusScreen(nomor: nomor);
                 },
               ),

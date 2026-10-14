@@ -76,8 +76,18 @@ class _AchievementDetailUserScreenState
     setState(() => _isLoading = true);
 
     final repo = ref.read(achievementRepositoryProvider);
+
+    // Pastikan rentang data bulanan mencakup minimal 5 bulan sebelum toMonth & toYear
+    // Contoh: jika difilter bulan Oktober (bulan 10), data Mei s/d Oktober (6 bulan) tetap dimuat
+    final targetIndex = widget.toYear * 12 + (widget.toMonth - 1);
+    final fiveMonthsPriorIndex = targetIndex - 5;
+    final fromReqIndex = widget.fromYear * 12 + (widget.fromMonth - 1);
+    final effectiveFromIndex = fromReqIndex < fiveMonthsPriorIndex ? fromReqIndex : fiveMonthsPriorIndex;
+    final fetchFromYear = effectiveFromIndex ~/ 12;
+    final fetchFromMonth = (effectiveFromIndex % 12) + 1;
+
     final fromYm =
-        '${widget.fromYear}-${widget.fromMonth.toString().padLeft(2, '0')}';
+        '$fetchFromYear-${fetchFromMonth.toString().padLeft(2, '0')}';
     final toYm =
         '${widget.toYear}-${widget.toMonth.toString().padLeft(2, '0')}';
 
@@ -295,7 +305,7 @@ class _AchievementDetailUserScreenState
                           horizontalPad,
                           6,
                           horizontalPad,
-                          12,
+                          10,
                         ),
                         child: _buildTopPinnedSummaryCard(
                           isDesktop: isDesktop,
@@ -309,6 +319,17 @@ class _AchievementDetailUserScreenState
                           isMissing: isMissing,
                           allSpkList: allSpkList,
                         ),
+                      ),
+
+                      // FIELD PROGRESS REALISASI PER DIVISI (HISTORI 5 BULAN SEBELUMNYA + BULAN FILTER)
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          horizontalPad,
+                          0,
+                          horizontalPad,
+                          10,
+                        ),
+                        child: _buildDivisiProgressCard(allSpkList),
                       ),
 
                       // 3. SCROLLABLE DAFTAR SPK DI BAWAHNYA
@@ -735,6 +756,11 @@ class _AchievementDetailUserScreenState
             margin: const EdgeInsets.symmetric(vertical: 14),
           ),
 
+          // FIELD PROGRESS REALISASI PER DIVISI (HISTORI 5 BULAN SEBELUMNYA + BULAN FILTER)
+          _buildDivisiProgressCard(allSpkList),
+
+          const SizedBox(height: 14),
+
           // DAFTAR SPK SECTION
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -773,6 +799,158 @@ class _AchievementDetailUserScreenState
             ),
         ],
       ),
+    );
+  }
+
+  // ── FIELD PROGRESS REALISASI PER DIVISI (HISTORI 5 BULAN SEBELUMNYA + BULAN FILTER)
+  Widget _buildDivisiProgressCard(List<AchievementDetailSpk> spkList) {
+    double realisasiSpanduk = 0.0;
+    double realisasiGarmen = 0.0;
+    double realisasiMmt = 0.0;
+
+    for (final spk in spkList) {
+      if (spk.spkDivisi == 1) {
+        realisasiSpanduk += spk.nilai;
+      } else if (spk.spkDivisi == 4) {
+        realisasiGarmen += spk.nilai;
+      } else if (spk.spkDivisi == 5) {
+        realisasiMmt += spk.nilai;
+      }
+    }
+
+    final totalSemua = realisasiSpanduk + realisasiGarmen + realisasiMmt;
+
+    final pctSpanduk = totalSemua > 0 ? (realisasiSpanduk / totalSemua) * 100 : 0.0;
+    final pctGarmen = totalSemua > 0 ? (realisasiGarmen / totalSemua) * 100 : 0.0;
+    final pctMmt = totalSemua > 0 ? (realisasiMmt / totalSemua) * 100 : 0.0;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color.fromRGBO(15, 23, 42, 0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.bar_chart_rounded, size: 18, color: Color(0xFF4F46E5)),
+                  SizedBox(width: 6),
+                  Text(
+                    'Realisasi per Divisi',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEEF2FF),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  '6 Bln Terakhir',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF4F46E5),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Divisi 1: Spanduk
+          _buildDivisiProgressRow(
+            label: '1 - Spanduk',
+            color: const Color(0xFF4F46E5),
+            nilai: realisasiSpanduk,
+            percentage: pctSpanduk,
+          ),
+          const SizedBox(height: 10),
+
+          // Divisi 4: Garmen
+          _buildDivisiProgressRow(
+            label: '4 - Garmen',
+            color: const Color(0xFF8B5CF6),
+            nilai: realisasiGarmen,
+            percentage: pctGarmen,
+          ),
+          const SizedBox(height: 10),
+
+          // Divisi 5: MMT
+          _buildDivisiProgressRow(
+            label: '5 - MMT',
+            color: const Color(0xFF06B6D4),
+            nilai: realisasiMmt,
+            percentage: pctMmt,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDivisiProgressRow({
+    required String label,
+    required Color color,
+    required double nilai,
+    required double percentage,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+              ],
+            ),
+            Text(
+              '${_formatRupiah(nilai)} (${percentage.toStringAsFixed(1)}%)',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(99),
+          child: LinearProgressIndicator(
+            value: (percentage / 100).clamp(0.0, 1.0),
+            minHeight: 6,
+            backgroundColor: const Color(0xFFE2E8F0),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ),
+        ),
+      ],
     );
   }
 

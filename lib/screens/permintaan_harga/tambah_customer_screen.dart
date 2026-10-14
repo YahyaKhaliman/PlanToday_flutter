@@ -3,12 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/app_toast.dart';
-import '../../core/utils/responsive_helper.dart';
 import '../../models/customer_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/customer_repository.dart';
 import '../../repositories/permintaan_harga_repository.dart';
-import '../../widgets/ui/app_button.dart';
 import '../../widgets/ui/app_card.dart';
 
 class TambahCustomerPermintaanHargaScreen extends ConsumerStatefulWidget {
@@ -82,6 +80,14 @@ class _TambahCustomerPermintaanHargaScreenState
     super.dispose();
   }
 
+  void _handleBack() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/customer');
+    }
+  }
+
   bool _isBasicEmail(String val) {
     final v = val.trim();
     if (v.isEmpty || v == '-') return true;
@@ -145,7 +151,6 @@ class _TambahCustomerPermintaanHargaScreenState
       return;
     }
 
-    // Mode Tambah Customer Baru (POST /permintaan-harga/customer)
     final user = ref.read(authProvider).user;
     final repo = ref.read(permintaanHargaRepositoryProvider);
 
@@ -187,293 +192,610 @@ class _TambahCustomerPermintaanHargaScreenState
     final isKorporasi = _korporasi == 'Y';
 
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go('/permintaan-harga');
-            }
-          },
-        ),
-        title: Text(_isEdit ? 'Edit Customer' : 'Tambah Customer'),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: ResponsiveContainer(
-          maxWidth: 600,
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                AppCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Text(
-                        'Informasi Utama',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.ink,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
+      backgroundColor: AppColors.bgTop,
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isDesktop = constraints.maxWidth >= 900;
+            final isTablet =
+                constraints.maxWidth >= 600 && constraints.maxWidth < 900;
+            final isWide = isDesktop || isTablet;
+            final horizontalPadding =
+                isDesktop ? 32.0 : (isTablet ? 24.0 : 16.0);
+            final maxFormWidth = isDesktop ? 840.0 : (isTablet ? 700.0 : 600.0);
 
-                      if (_isEdit) ...[
-                        TextFormField(
-                          controller: _kodeController,
-                          readOnly: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Kode Customer',
-                            prefixIcon: Icon(
-                              Icons.qr_code,
-                              size: 20,
-                              color: AppColors.muted,
-                            ),
-                            filled: true,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                      ],
-
-                      TextFormField(
-                        controller: _namaController,
-                        decoration: const InputDecoration(
-                          labelText: 'Nama Customer *',
-                          prefixIcon: Icon(
-                            Icons.person_outline,
-                            size: 20,
-                            color: AppColors.muted,
-                          ),
-                        ),
-                        validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'Nama wajib diisi'
-                            : null,
-                      ),
-                      const SizedBox(height: 14),
-
-                      TextFormField(
-                        controller: _alamatController,
-                        decoration: const InputDecoration(
-                          labelText: 'Alamat Lengkap *',
-                          prefixIcon: Icon(
-                            Icons.place_outlined,
-                            size: 20,
-                            color: AppColors.muted,
-                          ),
-                        ),
-                        maxLines: 2,
-                        validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'Alamat wajib diisi'
-                            : null,
-                      ),
-                      const SizedBox(height: 14),
-
-                      TextFormField(
-                        controller: _kotaController,
-                        decoration: const InputDecoration(
-                          labelText: 'Kota *',
-                          prefixIcon: Icon(
-                            Icons.location_city_outlined,
-                            size: 20,
-                            color: AppColors.muted,
-                          ),
-                        ),
-                        validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'Kota wajib diisi'
-                            : null,
-                      ),
-                      const SizedBox(height: 14),
-
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _telpController,
-                              keyboardType: TextInputType.phone,
-                              decoration: const InputDecoration(
-                                labelText: 'No. Telp / WA *',
-                                prefixIcon: Icon(
-                                  Icons.phone_outlined,
-                                  size: 20,
-                                  color: AppColors.muted,
-                                ),
-                              ),
-                              validator: (v) => (v == null || v.trim().isEmpty)
-                                  ? 'No telp wajib diisi'
-                                  : null,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _cpController,
-                              decoration: const InputDecoration(
-                                labelText: 'Contact Person *',
-                                prefixIcon: Icon(
-                                  Icons.badge_outlined,
-                                  size: 20,
-                                  color: AppColors.muted,
-                                ),
-                              ),
-                              validator: (v) => (v == null || v.trim().isEmpty)
-                                  ? 'CP wajib diisi'
-                                  : null,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-
-                      TextFormField(
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(
-                          labelText: 'Email *',
-                          prefixIcon: Icon(
-                            Icons.email_outlined,
-                            size: 20,
-                            color: AppColors.muted,
-                          ),
-                        ),
-                        validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'Email wajib diisi'
-                            : null,
-                      ),
-                      const SizedBox(height: 18),
-
-                      // Switch Korporasi
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.soft,
-                          borderRadius: BorderRadius.circular(AppRadius.medium),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Entitas Korporasi / Perusahaan?',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13,
-                                color: AppColors.ink,
-                              ),
-                            ),
-                            Switch(
-                              value: isKorporasi,
-                              activeThumbColor: AppColors.primary,
-                              onChanged: (val) {
-                                setState(() => _korporasi = val ? 'Y' : 'N');
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                if (isKorporasi) ...[
-                  const SizedBox(height: 16),
-                  AppCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Text(
-                          'Data Perpajakan / NPWP',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.ink,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        TextFormField(
-                          controller: _jenisUsahaController,
-                          decoration: const InputDecoration(
-                            labelText: 'Jenis Usaha *',
-                            prefixIcon: Icon(
-                              Icons.storefront_outlined,
-                              size: 20,
-                              color: AppColors.muted,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-
-                        TextFormField(
-                          controller: _npwpController,
-                          decoration: const InputDecoration(
-                            labelText: 'Nomor NPWP *',
-                            prefixIcon: Icon(
-                              Icons.credit_card_outlined,
-                              size: 20,
-                              color: AppColors.muted,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-
-                        TextFormField(
-                          controller: _namaNpwpController,
-                          decoration: const InputDecoration(
-                            labelText: 'Nama Tertera di NPWP',
-                            prefixIcon: Icon(
-                              Icons.account_box_outlined,
-                              size: 20,
-                              color: AppColors.muted,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-
-                        TextFormField(
-                          controller: _alamatNpwpController,
-                          decoration: const InputDecoration(
-                            labelText: 'Alamat NPWP',
-                            prefixIcon: Icon(
-                              Icons.home_work_outlined,
-                              size: 20,
-                              color: AppColors.muted,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-
-                        TextFormField(
-                          controller: _kotaNpwpController,
-                          decoration: const InputDecoration(
-                            labelText: 'Kota NPWP',
-                            prefixIcon: Icon(
-                              Icons.map_outlined,
-                              size: 20,
-                              color: AppColors.muted,
-                            ),
-                          ),
-                        ),
-                      ],
+            Widget buildNamaField() => TextFormField(
+                  controller: _namaController,
+                  decoration: const InputDecoration(
+                    labelText: 'Nama Customer *',
+                    prefixIcon: Icon(
+                      Icons.person_outline,
+                      size: 20,
+                      color: AppColors.muted,
                     ),
                   ),
-                ],
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Nama wajib diisi' : null,
+                );
 
-                const SizedBox(height: 20),
-                AppButton(
-                  text: _isEdit ? 'Simpan Perubahan' : 'Simpan Customer',
-                  isLoading: _isLoading,
-                  onPressed: _submit,
+            Widget buildKotaField() => TextFormField(
+                  controller: _kotaController,
+                  decoration: const InputDecoration(
+                    labelText: 'Kota *',
+                    prefixIcon: Icon(
+                      Icons.location_city_outlined,
+                      size: 20,
+                      color: AppColors.muted,
+                    ),
+                  ),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Kota wajib diisi' : null,
+                );
+
+            Widget buildTelpField() => TextFormField(
+                  controller: _telpController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'No. Telp / WA *',
+                    prefixIcon: Icon(
+                      Icons.phone_outlined,
+                      size: 20,
+                      color: AppColors.muted,
+                    ),
+                  ),
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'No telp wajib diisi'
+                      : null,
+                );
+
+            Widget buildCpField() => TextFormField(
+                  controller: _cpController,
+                  decoration: const InputDecoration(
+                    labelText: 'Contact Person *',
+                    prefixIcon: Icon(
+                      Icons.badge_outlined,
+                      size: 20,
+                      color: AppColors.muted,
+                    ),
+                  ),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'CP wajib diisi' : null,
+                );
+
+            Widget buildJenisUsahaField() => TextFormField(
+                  controller: _jenisUsahaController,
+                  decoration: const InputDecoration(
+                    labelText: 'Jenis Usaha *',
+                    prefixIcon: Icon(
+                      Icons.storefront_outlined,
+                      size: 20,
+                      color: AppColors.muted,
+                    ),
+                  ),
+                );
+
+            Widget buildNpwpField() => TextFormField(
+                  controller: _npwpController,
+                  decoration: const InputDecoration(
+                    labelText: 'Nomor NPWP *',
+                    prefixIcon: Icon(
+                      Icons.credit_card_outlined,
+                      size: 20,
+                      color: AppColors.muted,
+                    ),
+                  ),
+                );
+
+            Widget buildNamaNpwpField() => TextFormField(
+                  controller: _namaNpwpController,
+                  decoration: const InputDecoration(
+                    labelText: 'Nama Tertera di NPWP',
+                    prefixIcon: Icon(
+                      Icons.account_box_outlined,
+                      size: 20,
+                      color: AppColors.muted,
+                    ),
+                  ),
+                );
+
+            Widget buildKotaNpwpField() => TextFormField(
+                  controller: _kotaNpwpController,
+                  decoration: const InputDecoration(
+                    labelText: 'Kota NPWP',
+                    prefixIcon: Icon(
+                      Icons.map_outlined,
+                      size: 20,
+                      color: AppColors.muted,
+                    ),
+                  ),
+                );
+
+            return Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxFormWidth),
+                child: Column(
+                  children: [
+                    // 1. TOP HEADER (Adaptif Mobile/Tablet/Desktop)
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        horizontalPadding,
+                        12,
+                        horizontalPadding,
+                        0,
+                      ),
+                      child: Row(
+                        children: [
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: _handleBack,
+                            child: Container(
+                              width: isDesktop ? 44 : 40,
+                              height: isDesktop ? 44 : 40,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: const Color.fromRGBO(15, 23, 42, 0.08),
+                                ),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color.fromRGBO(15, 23, 42, 0.03),
+                                    blurRadius: 6,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              alignment: Alignment.center,
+                              child: Icon(
+                                Icons.chevron_left_rounded,
+                                size: isDesktop ? 26 : 24,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Column(
+                              children: [
+                                Text(
+                                  _isEdit ? 'Edit Customer' : 'Tambah Customer',
+                                  style: TextStyle(
+                                    fontSize: isDesktop ? 20 : 18,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppColors.ink,
+                                    letterSpacing: -0.3,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _isEdit
+                                      ? 'Perbarui data & informasi perpajakan customer'
+                                      : 'Input data customer & profil korporasi',
+                                  style: TextStyle(
+                                    fontSize: isDesktop ? 13 : 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.muted,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(width: isDesktop ? 44 : 40),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // 2. FORM BODY
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: horizontalPadding,
+                          vertical: 8,
+                        ),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              AppCard(
+                                padding: EdgeInsets.all(
+                                  isDesktop ? 28.0 : (isTablet ? 24.0 : 20.0),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    const Text(
+                                      'Informasi Utama',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                        color: AppColors.ink,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+
+                                    if (_isEdit) ...[
+                                      TextFormField(
+                                        controller: _kodeController,
+                                        readOnly: true,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Kode Customer',
+                                          prefixIcon: Icon(
+                                            Icons.qr_code,
+                                            size: 20,
+                                            color: AppColors.muted,
+                                          ),
+                                          filled: true,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 14),
+                                    ],
+
+                                    // Di Tablet/Desktop: Nama & Kota berdampingan
+                                    if (isWide)
+                                      Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            flex: 3,
+                                            child: buildNamaField(),
+                                          ),
+                                          const SizedBox(width: 14),
+                                          Expanded(
+                                            flex: 2,
+                                            child: buildKotaField(),
+                                          ),
+                                        ],
+                                      )
+                                    else ...[
+                                      buildNamaField(),
+                                      const SizedBox(height: 14),
+                                      buildKotaField(),
+                                    ],
+                                    const SizedBox(height: 14),
+
+                                    TextFormField(
+                                      controller: _alamatController,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Alamat Lengkap *',
+                                        prefixIcon: Icon(
+                                          Icons.place_outlined,
+                                          size: 20,
+                                          color: AppColors.muted,
+                                        ),
+                                      ),
+                                      maxLines: 2,
+                                      validator: (v) =>
+                                          (v == null || v.trim().isEmpty)
+                                              ? 'Alamat wajib diisi'
+                                              : null,
+                                    ),
+                                    const SizedBox(height: 14),
+
+                                    // Telp & Contact Person (2 kolom di layar >= 420px, vertikal di HP kecil)
+                                    if (constraints.maxWidth >= 420)
+                                      Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(child: buildTelpField()),
+                                          const SizedBox(width: 14),
+                                          Expanded(child: buildCpField()),
+                                        ],
+                                      )
+                                    else ...[
+                                      buildTelpField(),
+                                      const SizedBox(height: 14),
+                                      buildCpField(),
+                                    ],
+                                    const SizedBox(height: 14),
+
+                                    TextFormField(
+                                      controller: _emailController,
+                                      keyboardType: TextInputType.emailAddress,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Email *',
+                                        prefixIcon: Icon(
+                                          Icons.email_outlined,
+                                          size: 20,
+                                          color: AppColors.muted,
+                                        ),
+                                      ),
+                                      validator: (v) =>
+                                          (v == null || v.trim().isEmpty)
+                                              ? 'Email wajib diisi'
+                                              : null,
+                                    ),
+                                    const SizedBox(height: 18),
+
+                                    // Switch Korporasi
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 8,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.soft,
+                                        borderRadius: BorderRadius.circular(
+                                          AppRadius.medium,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          const Expanded(
+                                            child: Text(
+                                              'Entitas Korporasi / Perusahaan?',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w700,
+                                                fontSize: 13,
+                                                color: AppColors.ink,
+                                              ),
+                                            ),
+                                          ),
+                                          Switch(
+                                            value: isKorporasi,
+                                            activeThumbColor: AppColors.primary,
+                                            onChanged: (val) {
+                                              setState(
+                                                () =>
+                                                    _korporasi = val ? 'Y' : 'N',
+                                              );
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              if (isKorporasi) ...[
+                                const SizedBox(height: 16),
+                                AppCard(
+                                  padding: EdgeInsets.all(
+                                    isDesktop ? 28.0 : (isTablet ? 24.0 : 20.0),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      const Text(
+                                        'Data Perpajakan / NPWP',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w800,
+                                          color: AppColors.ink,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+
+                                      if (isWide)
+                                        Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Expanded(
+                                              child: buildJenisUsahaField(),
+                                            ),
+                                            const SizedBox(width: 14),
+                                            Expanded(child: buildNpwpField()),
+                                          ],
+                                        )
+                                      else ...[
+                                        buildJenisUsahaField(),
+                                        const SizedBox(height: 14),
+                                        buildNpwpField(),
+                                      ],
+                                      const SizedBox(height: 14),
+
+                                      if (isWide)
+                                        Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Expanded(
+                                              flex: 3,
+                                              child: buildNamaNpwpField(),
+                                            ),
+                                            const SizedBox(width: 14),
+                                            Expanded(
+                                              flex: 2,
+                                              child: buildKotaNpwpField(),
+                                            ),
+                                          ],
+                                        )
+                                      else ...[
+                                        buildNamaNpwpField(),
+                                        const SizedBox(height: 14),
+                                        buildKotaNpwpField(),
+                                      ],
+                                      const SizedBox(height: 14),
+
+                                      TextFormField(
+                                        controller: _alamatNpwpController,
+                                        maxLines: 2,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Alamat NPWP',
+                                          prefixIcon: Icon(
+                                            Icons.home_work_outlined,
+                                            size: 20,
+                                            color: AppColors.muted,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+
+                              const SizedBox(height: 20),
+
+                              // Tombol Simpan & Batal Adaptif (Mobile vs Tablet/Desktop)
+                              if (isWide)
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 2,
+                                      child: SizedBox(
+                                        height: 48,
+                                        child: TextButton(
+                                          style: TextButton.styleFrom(
+                                            foregroundColor: AppColors.muted,
+                                            backgroundColor: Colors.white,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
+                                              side: const BorderSide(
+                                                color: AppColors.border,
+                                              ),
+                                            ),
+                                          ),
+                                          onPressed: _handleBack,
+                                          child: const Text(
+                                            'Batal',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      flex: 3,
+                                      child: Container(
+                                        height: 48,
+                                        decoration: BoxDecoration(
+                                          gradient: const LinearGradient(
+                                            colors: [
+                                              AppColors.primary,
+                                              AppColors.accent,
+                                            ],
+                                          ),
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          boxShadow: AppShadows.button,
+                                        ),
+                                        child: ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.transparent,
+                                            shadowColor: Colors.transparent,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
+                                            ),
+                                          ),
+                                          onPressed:
+                                              _isLoading ? null : _submit,
+                                          child: _isLoading
+                                              ? const SizedBox(
+                                                  width: 20,
+                                                  height: 20,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                    color: Colors.white,
+                                                  ),
+                                                )
+                                              : Text(
+                                                  _isEdit
+                                                      ? 'SIMPAN PERUBAHAN'
+                                                      : 'SIMPAN CUSTOMER',
+                                                  style: const TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: Colors.white,
+                                                    letterSpacing: 0.4,
+                                                  ),
+                                                ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              else ...[
+                                Container(
+                                  width: double.infinity,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        AppColors.primary,
+                                        AppColors.accent,
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(14),
+                                    boxShadow: AppShadows.button,
+                                  ),
+                                  child: ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.transparent,
+                                      shadowColor: Colors.transparent,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                    ),
+                                    onPressed: _isLoading ? null : _submit,
+                                    child: _isLoading
+                                        ? const SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : Text(
+                                            _isEdit
+                                                ? 'SIMPAN PERUBAHAN'
+                                                : 'SIMPAN CUSTOMER',
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w800,
+                                              color: Colors.white,
+                                              letterSpacing: 0.4,
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 44,
+                                  child: TextButton(
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: AppColors.muted,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                    ),
+                                    onPressed: _handleBack,
+                                    child: const Text(
+                                      'Batal',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(height: 24),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       ),
     );

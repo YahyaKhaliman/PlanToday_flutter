@@ -420,7 +420,7 @@ class _RekapCalonCustomerScreenState
                               ),
                               alignment: Alignment.center,
                               child: const Icon(
-                                Icons.chat_bubble_rounded,
+                                Icons.call_outlined,
                                 size: 20,
                                 color: Colors.white,
                               ),
@@ -561,40 +561,38 @@ class _RekapCalonCustomerScreenState
                         ),
                       )
                     : _customers.isEmpty
-                        ? const Center(
-                            child: Text(
-                              'Belum ada data customer.',
-                              style: TextStyle(
-                                color: Color(0xFF64748B),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          )
-                        : RefreshIndicator(
-                            color: const Color(0xFF4F46E5),
-                            onRefresh: () =>
-                                _fetchCustomers(_searchController.text),
-                            child: ListView.separated(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 6,
-                              ),
-                              itemCount: _customers.length,
-                              separatorBuilder: (ctx, i) =>
-                                  const SizedBox(height: 12),
-                              itemBuilder: (context, index) {
-                                final customer = _customers[index];
-                                return _CustomerCard(
-                                  customer: customer,
-                                  onTap: () =>
-                                      _showCustomerActionSheet(customer),
-                                  onWhatsApp: () =>
-                                      _launchWhatsApp(customer.telp),
-                                  onCall: () => _launchCall(customer.telp),
-                                );
-                              },
-                            ),
+                    ? const Center(
+                        child: Text(
+                          'Belum ada data customer.',
+                          style: TextStyle(
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w600,
                           ),
+                        ),
+                      )
+                    : RefreshIndicator(
+                        color: const Color(0xFF4F46E5),
+                        onRefresh: () =>
+                            _fetchCustomers(_searchController.text),
+                        child: ListView.separated(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 6,
+                          ),
+                          itemCount: _customers.length,
+                          separatorBuilder: (ctx, i) =>
+                              const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            final customer = _customers[index];
+                            return _CustomerCard(
+                              customer: customer,
+                              onTap: () => _showCustomerActionSheet(customer),
+                              onWhatsApp: () => _launchWhatsApp(customer.telp),
+                              onCall: () => _launchCall(customer.telp),
+                            );
+                          },
+                        ),
+                      ),
               ),
 
               // 5. BOTTOM FIXED ACTION BAR (3 TOMBOL SEJAJAR PERSIS IMAGE 1)
@@ -603,9 +601,7 @@ class _RekapCalonCustomerScreenState
                 decoration: const BoxDecoration(
                   color: Colors.white,
                   border: Border(
-                    top: BorderSide(
-                      color: Color.fromRGBO(15, 23, 42, 0.08),
-                    ),
+                    top: BorderSide(color: Color.fromRGBO(15, 23, 42, 0.08)),
                   ),
                 ),
                 child: SizedBox(

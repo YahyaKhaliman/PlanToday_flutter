@@ -801,40 +801,95 @@ class _AchievementScreenState extends ConsumerState<AchievementScreen> {
                         : RefreshIndicator(
                             color: const Color(0xFF4F46E5),
                             onRefresh: _fetchAchievement,
-                            child: ListView.separated(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 6,
-                              ),
-                              itemCount: filteredRows.length,
-                              separatorBuilder: (ctx, i) =>
-                                  const SizedBox(height: 10),
-                              itemBuilder: (context, index) {
-                                final row = filteredRows[index];
-                                final prog = (row.target > 0)
-                                    ? ((row.realisasi / row.target) * 100)
-                                        .clamp(0.0, 500.0)
-                                    : 0.0;
-                                final achValue =
-                                    row.ach > 0 ? row.ach : prog;
-                                final barFill =
-                                    (achValue / 100.0).clamp(0.0, 1.0);
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                final isWide = constraints.maxWidth >= 640;
+                                if (isWide) {
+                                  return GridView.builder(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 6,
+                                    ),
+                                    gridDelegate:
+                                        const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 2,
+                                      crossAxisSpacing: 12,
+                                      mainAxisSpacing: 10,
+                                      mainAxisExtent: 84,
+                                    ),
+                                    itemCount: filteredRows.length,
+                                    itemBuilder: (context, index) {
+                                      final row = filteredRows[index];
+                                      final prog = (row.target > 0)
+                                          ? ((row.realisasi / row.target) * 100)
+                                              .clamp(0.0, 500.0)
+                                          : 0.0;
+                                      final achValue =
+                                          row.ach > 0 ? row.ach : prog;
+                                      final barFill =
+                                          (achValue / 100.0).clamp(0.0, 1.0);
 
-                                return _AchievementUserCardRN(
-                                  row: row,
-                                  achValue: achValue,
-                                  barFill: barFill,
-                                  targetShort: _formatRupiahShort(row.target),
-                                  realisasiShort:
-                                      _formatRupiahShort(row.realisasi),
-                                  onTap: () {
-                                    context.push('/achievement/detail', extra: {
-                                      'userRow': row,
-                                      'fromYear': _fromYear,
-                                      'fromMonth': _fromMonth,
-                                      'toYear': _toYear,
-                                      'toMonth': _toMonth,
-                                    });
+                                      return _AchievementUserCardRN(
+                                        row: row,
+                                        achValue: achValue,
+                                        barFill: barFill,
+                                        targetShort:
+                                            _formatRupiahShort(row.target),
+                                        realisasiShort:
+                                            _formatRupiahShort(row.realisasi),
+                                        onTap: () {
+                                          context.push('/achievement/detail',
+                                              extra: {
+                                                'userRow': row,
+                                                'fromYear': _fromYear,
+                                                'fromMonth': _fromMonth,
+                                                'toYear': _toYear,
+                                                'toMonth': _toMonth,
+                                              });
+                                        },
+                                      );
+                                    },
+                                  );
+                                }
+
+                                return ListView.separated(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 6,
+                                  ),
+                                  itemCount: filteredRows.length,
+                                  separatorBuilder: (ctx, i) =>
+                                      const SizedBox(height: 10),
+                                  itemBuilder: (context, index) {
+                                    final row = filteredRows[index];
+                                    final prog = (row.target > 0)
+                                        ? ((row.realisasi / row.target) * 100)
+                                            .clamp(0.0, 500.0)
+                                        : 0.0;
+                                    final achValue =
+                                        row.ach > 0 ? row.ach : prog;
+                                    final barFill =
+                                        (achValue / 100.0).clamp(0.0, 1.0);
+
+                                    return _AchievementUserCardRN(
+                                      row: row,
+                                      achValue: achValue,
+                                      barFill: barFill,
+                                      targetShort:
+                                          _formatRupiahShort(row.target),
+                                      realisasiShort:
+                                          _formatRupiahShort(row.realisasi),
+                                      onTap: () {
+                                        context.push('/achievement/detail',
+                                            extra: {
+                                              'userRow': row,
+                                              'fromYear': _fromYear,
+                                              'fromMonth': _fromMonth,
+                                              'toYear': _toYear,
+                                              'toMonth': _toMonth,
+                                            });
+                                      },
+                                    );
                                   },
                                 );
                               },

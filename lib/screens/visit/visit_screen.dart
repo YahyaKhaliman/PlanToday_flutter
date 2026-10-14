@@ -658,7 +658,7 @@ class _VisitScreenState extends ConsumerState<VisitScreen> {
                               ),
                               alignment: Alignment.center,
                               child: const Icon(
-                                Icons.chat_bubble_rounded,
+                                Icons.call_outlined,
                                 size: 20,
                                 color: Colors.white,
                               ),

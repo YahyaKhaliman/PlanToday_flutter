@@ -43,6 +43,23 @@ class TrackingRepository {
     }
   }
 
+  Future<List<TrackingMapDetailItem>> getTrackingPenawaranDetail(String noPenawaran) async {
+    try {
+      final encoded = Uri.encodeComponent(noPenawaran);
+      final response = await _api.dio.get('/tracking-penawaran/$encoded');
+      final data = response.data;
+      final rawDetails = data?['data']?['map_details'] ?? data?['map_details'];
+      if (rawDetails is List) {
+        return rawDetails
+            .map((item) => TrackingMapDetailItem.fromJson(item as Map<String, dynamic>))
+            .toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
   Future<List<TrackingMapListItem>> getTrackingMapList({
     String? startDate,
     String? endDate,

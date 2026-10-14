@@ -2,13 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import '../../core/constants/asset_constants.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/utils/app_toast.dart';
-import '../../core/utils/responsive_helper.dart';
 import '../../models/penawaran_model.dart';
+import '../../providers/auth_provider.dart';
 import '../../repositories/penawaran_repository.dart';
-import '../../widgets/ui/app_badge.dart';
-import '../../widgets/ui/app_card.dart';
+import '../../services/penawaran_pdf_service.dart';
+
+const _kShortMonths = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'Mei',
+  'Jun',
+  'Jul',
+  'Agu',
+  'Sep',
+  'Okt',
+  'Nov',
+  'Des',
+];
 
 class PenawaranDetailScreen extends ConsumerStatefulWidget {
   final String nomor;
@@ -16,12 +30,19 @@ class PenawaranDetailScreen extends ConsumerStatefulWidget {
   const PenawaranDetailScreen({super.key, required this.nomor});
 
   @override
-  ConsumerState<PenawaranDetailScreen> createState() => _PenawaranDetailScreenState();
+  ConsumerState<PenawaranDetailScreen> createState() =>
+      _PenawaranDetailScreenState();
 }
 
 class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
-  PenawaranDetailData? _detailData;
-  bool _isLoading = false;
+  PenawaranHeader? _header;
+  List<PenawaranDetailItem> _details = [];
+  List<PenawaranActivityLog> _activityLogs = [];
+  bool _isLoading = true;
+  bool _isExportingPdf = false;
+  bool _isSubmittingApproval = false;
+
+  String get _decodedNomor => Uri.decodeComponent(widget.nomor);
 
   @override
   void initState() {
@@ -32,41 +53,226 @@ class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
   Future<void> _fetchDetail() async {
     setState(() => _isLoading = true);
     final repo = ref.read(penawaranRepositoryProvider);
-    final data = await repo.getPenawaranDetail(widget.nomor);
 
-    if (mounted) {
-      setState(() {
-        _detailData = data;
-        _isLoading = false;
-      });
+    try {
+      final results = await Future.wait([
+        repo.getPenawaranDetail(_decodedNomor),
+        repo.getPenawaranActivityLogs(_decodedNomor),
+      ]);
+
+      if (mounted) {
+        final detailData = results[0] as PenawaranDetailData?;
+        final logsData = results[1] as List<PenawaranActivityLog>?;
+
+        setState(() {
+          _header = detailData?.header;
+          _details = detailData?.details ?? [];
+          _activityLogs = logsData ?? [];
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
+  String _formatDisplayDate(String ymd) {
+    if (ymd.isEmpty) return '-';
+    try {
+      final parts = ymd.split('-');
+      if (parts.length == 3) {
+        final y = int.tryParse(parts[0]);
+        final m = int.tryParse(parts[1]);
+        final d = int.tryParse(parts[2]);
+        if (y != null && m != null && d != null && m >= 1 && m <= 12) {
+          return '$d ${_kShortMonths[m - 1]} $y';
+        }
+      }
+      final dt = DateTime.parse(ymd);
+      return '${dt.day} ${_kShortMonths[dt.month - 1]} ${dt.year}';
+    } catch (_) {
+      return ymd;
+    }
+  }
+
+  String _formatDateTime(String raw) {
+    if (raw.isEmpty) return '-';
+    try {
+      final dt = DateTime.parse(raw).toLocal();
+      final dd = dt.day.toString().padLeft(2, '0');
+      final mm = dt.month.toString().padLeft(2, '0');
+      final yyyy = dt.year;
+      final hh = dt.hour.toString().padLeft(2, '0');
+      final mi = dt.minute.toString().padLeft(2, '0');
+      final ss = dt.second.toString().padLeft(2, '0');
+      return '$dd/$mm/$yyyy $hh:$mi:$ss';
+    } catch (_) {
+      return raw;
+    }
+  }
+
+  void _showUnapprovedModal() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Indicator bar
+              Container(
+                width: 44,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: const Color.fromRGBO(79, 70, 229, 0.24),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Icon Lock Clock
+              Container(
+                width: 58,
+                height: 58,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFFDE68A)),
+                ),
+                alignment: Alignment.center,
+                child: const Icon(
+                  Icons.lock_clock_rounded,
+                  size: 32,
+                  color: Color(0xFFD97706),
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              const Text(
+                'Penawaran Belum Diapprove',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF0F172A),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+
+              const Text(
+                'Dokumen penawaran ini belum ditandatangani atau belum diapprove oleh manager, sehingga belum dapat dieksport ke PDF.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF64748B),
+                  fontWeight: FontWeight.w600,
+                  height: 1.4,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4F46E5),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text(
+                    'Mengerti',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showRequestChangeDialog() {
+    final isSigned = _header?.isApproved ?? false;
+    if (isSigned) {
+      AppToast.warning(
+        context,
+        'Penawaran sudah diapprove dan tidak dapat diajukan perubahan',
+      );
+      return;
+    }
+
     final reasonController = TextEditingController();
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
           'Pengajuan Perubahan',
-          style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 18,
+            color: Color(0xFF0F172A),
+          ),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Ajukan perubahan data penawaran ${widget.nomor} ke manager?',
-              style: const TextStyle(fontSize: 14),
+              'Ajukan perubahan data penawaran $_decodedNomor ke manager?',
+              style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             TextField(
               controller: reasonController,
               maxLines: 3,
-              decoration: const InputDecoration(
-                hintText: 'Jelaskan alasan pengajuan perubahan *',
+              style: const TextStyle(fontSize: 13),
+              decoration: InputDecoration(
+                hintText: 'Jelaskan alasan perubahan data...',
+                hintStyle: const TextStyle(
+                  fontSize: 12.5,
+                  color: Color(0xFF94A3B8),
+                ),
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFF4F46E5)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Pengajuan akan dikirim untuk persetujuan manager',
+              style: TextStyle(
+                fontStyle: FontStyle.italic,
+                fontSize: 11,
+                color: Color(0xFF94A3B8),
               ),
             ),
           ],
@@ -74,14 +280,23 @@ class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
+            child: const Text(
+              'Batal',
+              style: TextStyle(
+                color: Color(0xFF64748B),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF4F46E5),
               foregroundColor: Colors.white,
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             onPressed: () async {
               final alasan = reasonController.text.trim();
@@ -92,7 +307,7 @@ class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
               Navigator.pop(ctx);
               final repo = ref.read(penawaranRepositoryProvider);
               final success = await repo.requestApprovalPerubahan(
-                widget.nomor,
+                _decodedNomor,
                 alasan: alasan,
               );
 
@@ -100,7 +315,7 @@ class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
                 if (success) {
                   AppToast.success(
                     context,
-                    'Pengajuan perubahan berhasil dikirim ke manager',
+                    'Pengajuan perubahan berhasil dibuat',
                   );
                   _fetchDetail();
                 } else {
@@ -108,7 +323,10 @@ class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
                 }
               }
             },
-            child: const Text('Ajukan', style: TextStyle(fontWeight: FontWeight.w800)),
+            child: const Text(
+              'Ajukan',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
           ),
         ],
       ),
@@ -121,26 +339,49 @@ class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
-          'Approval Penawaran',
-          style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+          'Konfirmasi Approval',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 18,
+            color: Color(0xFF0F172A),
+          ),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Setujui penawaran ${widget.nomor}?',
-              style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
+              'Setujui dan tandatangani penawaran $_decodedNomor secara digital?',
+              style: const TextStyle(fontSize: 13.5, color: Color(0xFF334155)),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             TextField(
               controller: noteController,
-              decoration: const InputDecoration(
+              maxLines: 2,
+              style: const TextStyle(fontSize: 13),
+              decoration: InputDecoration(
                 hintText: 'Catatan approval (opsional)',
+                hintStyle: const TextStyle(
+                  fontSize: 12.5,
+                  color: Color(0xFF94A3B8),
+                ),
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFF059669)),
+                ),
               ),
             ),
           ],
@@ -148,422 +389,850 @@ class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
+            child: const Text(
+              'Batal',
+              style: TextStyle(
+                color: Color(0xFF64748B),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF10B981),
+              backgroundColor: const Color(0xFF059669),
               foregroundColor: Colors.white,
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             onPressed: () async {
               Navigator.pop(ctx);
+              setState(() => _isSubmittingApproval = true);
               final repo = ref.read(penawaranRepositoryProvider);
               final success = await repo.approvePenawaran(
-                widget.nomor,
-                noteController.text.trim(),
+                _decodedNomor,
+                note: noteController.text.trim(),
               );
 
               if (mounted) {
+                setState(() => _isSubmittingApproval = false);
                 if (success) {
-                  AppToast.success(context, 'Penawaran disetujui');
+                  AppToast.success(context, 'Penawaran berhasil disetujui');
                   _fetchDetail();
                 } else {
                   AppToast.error(context, 'Gagal menyetujui penawaran');
                 }
               }
             },
-            child: const Text('Setujui', style: TextStyle(fontWeight: FontWeight.w800)),
+            child: const Text(
+              'Ya, Approve',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
           ),
         ],
       ),
     );
   }
 
+  Future<void> _handleExportPdf() async {
+    final header = _header;
+    if (header == null) return;
+
+    final isSigned = header.isApproved;
+
+    // Logika React Native: Jika belum signed, tampilkan dialog penjelasan
+    if (!isSigned) {
+      _showUnapprovedModal();
+      return;
+    }
+
+    setState(() => _isExportingPdf = true);
+    try {
+      await PenawaranPdfService.exportPenawaran(
+        header: header,
+        details: _details,
+      );
+    } catch (e) {
+      if (mounted) {
+        AppToast.error(context, 'Gagal mengekspor PDF: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isExportingPdf = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final currencyFormat = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-    final header = _detailData?.header;
-    final items = _detailData?.details ?? [];
-    final grandTotal = items.fold<double>(0.0, (acc, curr) => acc + curr.total);
+    final currencyFormat = NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: 'Rp ',
+      decimalDigits: 0,
+    );
+    final header = _header;
+    final isSigned = header?.isApproved ?? false;
+
+    final user = ref.watch(authProvider).user;
+    final isManager = user?.isManager ?? false;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FF),
-      body: SafeArea(
-        child: ResponsiveContainer(
-          maxWidth: 900,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFF7F9FF), Color(0xFFFFFFFF)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: SafeArea(
           child: Column(
             children: [
-              // 1. TOP HEADER ALA UI-STYLING
+              // 1. HEADER AREA (Persis styles.headerArea React Native)
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
                 child: Row(
                   children: [
                     GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () => context.pop(),
                       child: Container(
-                        width: 42,
-                        height: 42,
+                        width: 38,
+                        height: 38,
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: const Color.fromRGBO(15, 23, 42, 0.08),
                           ),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color.fromRGBO(15, 23, 42, 0.03),
-                              blurRadius: 6,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
                         ),
                         alignment: Alignment.center,
                         child: const Icon(
-                          Icons.chevron_left_rounded,
-                          size: 26,
+                          Icons.arrow_back_ios_new_rounded,
+                          size: 18,
                           color: Color(0xFF4F46E5),
                         ),
                       ),
                     ),
                     Expanded(
                       child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            widget.nomor,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
+                          const Text(
+                            'Detail Penawaran',
+                            style: TextStyle(
                               color: Color(0xFF0F172A),
-                              letterSpacing: -0.3,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 20,
+                              letterSpacing: 0.2,
                             ),
+                            textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 2),
-                          const Text(
-                            'Detail Surat Penawaran',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                          Text(
+                            _decodedNomor,
+                            style: const TextStyle(
                               color: Color(0xFF64748B),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
                             ),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
                     ),
-                    Row(
-                      children: [
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: _showRequestChangeDialog,
-                          child: Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFEF3C7),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            alignment: Alignment.center,
-                            child: const Icon(
-                              Icons.edit_calendar_rounded,
-                              size: 18,
-                              color: Color(0xFFD97706),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () async {
-                            await context.push('/penawaran/${widget.nomor}/status');
-                            _fetchDetail();
-                          },
-                          child: Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEEF2FF),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            alignment: Alignment.center,
-                            child: const Icon(
-                              Icons.rule_folder_outlined,
-                              size: 18,
-                              color: Color(0xFF4F46E5),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: _showApproveDialog,
-                          child: Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFDCFCE7),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            alignment: Alignment.center,
-                            child: const Icon(
-                              Icons.check_circle_outline_rounded,
-                              size: 18,
-                              color: Color(0xFF16A34A),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                    const SizedBox(
+                      width: 38,
+                    ), // headerSpacer simetris React Native
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
 
-              // 2. KONTEN DETAIL
+              // 2. KONTEN DETAIL (Persis FlatList React Native)
               Expanded(
                 child: _isLoading
                     ? const Center(
-                        child: CircularProgressIndicator(color: Color(0xFF4F46E5)),
-                      )
-                    : SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Kop Surat Perusahaan
-                            if (header != null) ...[
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(16),
-                                child: Image.asset(
-                                  AppAssets.getPenawaranKop(header.perusahaanKode),
-                                  fit: BoxFit.fitWidth,
-                                  errorBuilder: (ctx, err, stack) => const SizedBox.shrink(),
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-
-                              // Header Summary Card
-                              AppCard(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          header.nomor,
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w900,
-                                            color: Color(0xFF4F46E5),
-                                            letterSpacing: -0.2,
-                                          ),
-                                        ),
-                                        if (header.approvalState.isNotEmpty)
-                                          AppBadge(
-                                            label: header.approvalState,
-                                            variant: header.approvalState == 'ACC'
-                                                ? BadgeVariant.success
-                                                : (header.approvalState == 'TOLAK'
-                                                    ? BadgeVariant.danger
-                                                    : BadgeVariant.warning),
-                                          ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      header.customer,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w900,
-                                        color: Color(0xFF0F172A),
-                                      ),
-                                    ),
-                                    if (header.perusahaan.isNotEmpty) ...[
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        'Perusahaan: ${header.perusahaan}',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Color(0xFF64748B),
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                    const Divider(height: 18, color: Color(0xFFF1F5F9)),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          'Sales: ${header.sales}',
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Color(0xFF64748B),
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        Text(
-                                          'Tanggal: ${header.tanggal}',
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Color(0xFF64748B),
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                            ],
-
-                            // Section Title
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                              child: Text(
-                                'Rincian Barang',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFF0F172A),
-                                ),
+                            CircularProgressIndicator(color: Color(0xFF4F46E5)),
+                            SizedBox(height: 10),
+                            Text(
+                              'Memuat detail penawaran...',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
-                            const SizedBox(height: 8),
+                          ],
+                        ),
+                      )
+                    : header == null
+                    ? const Center(
+                        child: Text(
+                          'Data tidak ditemukan.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: _fetchDetail,
+                        color: const Color(0xFF4F46E5),
+                        child: ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: EdgeInsets.fromLTRB(
+                            20,
+                            2,
+                            20,
+                            (isManager ? 85 : 145) +
+                                MediaQuery.of(context).padding.bottom,
+                          ),
+                          children: [
+                            // KARTU 1: Informasi Header (styles.sectionCard)
+                            _buildHeaderSectionCard(header, currencyFormat),
+                            const SizedBox(height: 10),
 
-                            // Items List
-                            if (items.isEmpty)
-                              const Center(
-                                child: Padding(
-                                  padding: EdgeInsets.all(32),
-                                  child: Text(
-                                    'Tidak ada rincian barang.',
-                                    style: TextStyle(color: Color(0xFF64748B)),
-                                  ),
-                                ),
-                              )
-                            else
-                              ...items.map((item) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 12),
-                                  child: AppCard(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                item.namaBarang,
-                                                style: const TextStyle(
-                                                  fontSize: 15,
-                                                  fontWeight: FontWeight.w900,
-                                                  color: Color(0xFF0F172A),
-                                                  letterSpacing: -0.2,
-                                                ),
-                                              ),
-                                            ),
-                                            AppBadge(
-                                              label: '${item.qty.toInt()} ${item.satuan}',
-                                              variant: BadgeVariant.primary,
-                                            ),
-                                          ],
-                                        ),
-                                        if (item.bahan.isNotEmpty) ...[
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Bahan: ${item.bahan}',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w500,
-                                              color: Color(0xFF64748B),
-                                            ),
-                                          ),
-                                        ],
-                                        const Divider(height: 18, color: Color(0xFFF1F5F9)),
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text(
-                                              currencyFormat.format(item.harga),
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                color: Color(0xFF64748B),
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            Text(
-                                              currencyFormat.format(item.total),
-                                              style: const TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w900,
-                                                color: Color(0xFF0F172A),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              }),
+                            // LIST ITEM-ITEM RINCIAN BARANG (styles.itemCard)
+                            ..._details.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final item = entry.value;
+                              return _buildDetailItemCard(
+                                item: item,
+                                index: index,
+                                currencyFormat: currencyFormat,
+                              );
+                            }),
+
+                            // KARTU 2: Activity Log jika ada (styles.sectionCard)
+                            if (_activityLogs.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              _buildActivityLogSectionCard(_activityLogs),
+                            ],
                           ],
                         ),
                       ),
               ),
 
-              // 3. FOOTER TOTAL CARD
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  border: Border(top: BorderSide(color: Color.fromRGBO(15, 23, 42, 0.08))),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'TOTAL PENAWARAN',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF64748B),
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${items.length} Macam Barang',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF0F172A),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      currencyFormat.format(grandTotal),
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF4F46E5),
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              // 3. BOTTOM ACTION (Persis styles.bottomAction React Native)
+              if (!_isLoading && header != null)
+                _buildBottomAction(isManager: isManager, isSigned: isSigned),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  // --- WIDGET KARTU 1: INFORMASI HEADER ---
+  Widget _buildHeaderSectionCard(
+    PenawaranHeader header,
+    NumberFormat currencyFormat,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color.fromRGBO(15, 23, 42, 0.08)),
+        boxShadow: AppShadows.softCard,
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Informasi Header',
+            style: TextStyle(
+              fontSize: 14,
+              color: Color(0xFF0F172A),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          _buildInfoRow('Tanggal', _formatDisplayDate(header.tanggal)),
+          _buildInfoRow('Customer', header.customer),
+          _buildInfoRow('Perusahaan', header.perusahaan),
+          _buildInfoRow('Sales', header.sales),
+          _buildInfoRow('Tipe', header.tipe),
+          _buildInfoRow('UP', header.up),
+          _buildInfoRow('TTD', header.ttd),
+          _buildInfoRow(
+            'Status PPN',
+            header.statusHarga == 1
+                ? 'Sudah Termasuk PPN (INC PPN)'
+                : 'Belum Termasuk PPN (EXC PPN)',
+          ),
+
+          // Note Block
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 6),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color.fromRGBO(79, 70, 229, 0.06),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: const Color.fromRGBO(79, 70, 229, 0.22),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Note',
+                  style: TextStyle(
+                    color: Color(0xFF4F46E5),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  header.note.trim().isNotEmpty ? header.note : '-',
+                  style: const TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontSize: 12,
+                    height: 1.4,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          _buildInfoRow('Nominal', currencyFormat.format(header.nominal)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String? value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 4,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF64748B),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 6,
+            child: Text(
+              (value == null || value.trim().isEmpty) ? '-' : value,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: Color(0xFF0F172A),
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- WIDGET KARTU ITEM RINCIAN BARANG ---
+  Widget _buildDetailItemCard({
+    required PenawaranDetailItem item,
+    required int index,
+    required NumberFormat currencyFormat,
+  }) {
+    final dimensionText = item.panjang > 0 || item.lebar > 0
+        ? '${item.panjang.toInt()} x ${item.lebar.toInt()} cm'
+        : (item.ukuran.isNotEmpty ? item.ukuran : '-');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color.fromRGBO(15, 23, 42, 0.08)),
+        boxShadow: AppShadows.softCard,
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Top Row: Nama Barang & Status
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  '${index + 1}. ${item.namaBarang.isNotEmpty ? item.namaBarang : '-'}',
+                  style: const TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                item.status.isNotEmpty ? item.status : '-',
+                style: const TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+
+          // Meta 1: Bahan • Ukuran • Satuan
+          const SizedBox(height: 4),
+          Text(
+            '${item.bahan.isNotEmpty ? item.bahan : '-'} • $dimensionText • ${item.satuan.isNotEmpty ? item.satuan : '-'}',
+            style: const TextStyle(
+              color: Color(0xFF0F172A),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+
+          // Meta 2: Qty x Harga
+          const SizedBox(height: 2),
+          Text(
+            'Qty ${item.qty.toInt()} x ${currencyFormat.format(item.harga)}',
+            style: const TextStyle(
+              color: Color(0xFF0F172A),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+
+          // Total
+          const SizedBox(height: 8),
+          Text(
+            currencyFormat.format(item.total),
+            style: const TextStyle(
+              color: Color(0xFF4F46E5),
+              fontWeight: FontWeight.w800,
+              fontSize: 13.5,
+            ),
+          ),
+
+          // Remark Batal / Confirm
+          if (item.ketBatal.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Batal: ${item.ketBatal}',
+              style: const TextStyle(
+                color: Color(0xFFDC2626),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+          if (item.ketConfirm.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Confirm: ${item.ketConfirm}',
+              style: const TextStyle(
+                color: Color(0xFF16A34A),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // --- WIDGET KARTU ACTIVITY LOG ---
+  Widget _buildActivityLogSectionCard(List<PenawaranActivityLog> logs) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color.fromRGBO(15, 23, 42, 0.08)),
+        boxShadow: AppShadows.softCard,
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Activity Log',
+            style: TextStyle(
+              fontSize: 14,
+              color: Color(0xFF0F172A),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          ...logs.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final log = entry.value;
+            final isApproval = log.type.toUpperCase() == 'APPROVAL';
+            final stateLabel = log.approvalState.isNotEmpty
+                ? log.approvalState
+                : '-';
+
+            Color stateColor = const Color(0xFF64748B);
+            if (stateLabel == 'ACC') stateColor = const Color(0xFF16A34A);
+            if (stateLabel == 'WAIT') stateColor = const Color(0xFFD97706);
+            if (stateLabel == 'TOLAK') stateColor = const Color(0xFFDC2626);
+
+            return Container(
+              margin: EdgeInsets.only(top: idx == 0 ? 0 : 8),
+              padding: EdgeInsets.only(top: idx == 0 ? 0 : 8),
+              decoration: BoxDecoration(
+                border: idx == 0
+                    ? null
+                    : const Border(
+                        top: BorderSide(
+                          color: Color.fromRGBO(15, 23, 42, 0.08),
+                        ),
+                      ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        isApproval
+                            ? 'Approval $stateLabel'
+                            : 'Update Status Detail',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      if (isApproval)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: stateColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: const Color.fromRGBO(15, 23, 42, 0.06),
+                            ),
+                          ),
+                          child: Text(
+                            stateLabel,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: stateColor,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${_formatDateTime(log.createdAt)} • ${log.user.isNotEmpty ? log.user : '-'}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF0F172A),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (log.note.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      log.note,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  // --- WIDGET BOTTOM ACTION ---
+  Widget _buildBottomAction({required bool isManager, required bool isSigned}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          top: BorderSide(color: Color.fromRGBO(15, 23, 42, 0.08)),
+        ),
+      ),
+      child: isManager
+          ? Row(
+              children: [
+                // Button Export PDF
+                Expanded(
+                  child: GestureDetector(
+                    onTap: (_isExportingPdf || !isSigned)
+                        ? () {
+                            if (!isSigned) _showUnapprovedModal();
+                          }
+                        : _handleExportPdf,
+                    child: Container(
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: isSigned
+                            ? const Color(0xFF4F46E5)
+                            : const Color(0xFF94A3B8).withValues(alpha: 0.65),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: const Color.fromRGBO(79, 70, 229, 0.18),
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        _isExportingPdf ? 'Export PDF...' : 'Eksport PDF',
+                        style: TextStyle(
+                          color: isSigned
+                              ? Colors.white
+                              : const Color(0xFFF8FAFC).withValues(alpha: 0.9),
+                          fontWeight: FontWeight.w900,
+                          fontSize: 13,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+
+                // Button Approve / Sudah Diapprove
+                Expanded(
+                  child: isSigned
+                      ? Container(
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: const Color.fromRGBO(5, 150, 105, 0.12),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: const Color.fromRGBO(5, 150, 105, 0.25),
+                            ),
+                          ),
+                          alignment: Alignment.center,
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.verified,
+                                size: 16,
+                                color: Color(0xFF059669),
+                              ),
+                              SizedBox(width: 6),
+                              Text(
+                                'Sudah Diapprove',
+                                style: TextStyle(
+                                  color: Color(0xFF059669),
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : GestureDetector(
+                          onTap: _isSubmittingApproval
+                              ? null
+                              : _showApproveDialog,
+                          child: Container(
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF059669),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: const Color(0xFF047857),
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.done_all,
+                                  size: 16,
+                                  color: Colors.white,
+                                ),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Approve',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 13,
+                                    letterSpacing: 0.2,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                ),
+              ],
+            )
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Row 1: Ajukan Perubahan & Ubah Status
+                Row(
+                  children: [
+                    // Button Ajukan Perubahan
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: isSigned
+                            ? () {
+                                AppToast.warning(
+                                  context,
+                                  'Penawaran sudah diapprove dan tidak dapat diajukan perubahan',
+                                );
+                              }
+                            : _showRequestChangeDialog,
+                        child: Container(
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: isSigned
+                                ? const Color(0xFFF1F5F9)
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: isSigned
+                                  ? const Color(0xFFCBD5E1)
+                                  : const Color(0xFF4F46E5),
+                              width: 1.2,
+                            ),
+                          ),
+                          alignment: Alignment.center,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.edit_note,
+                                size: 18,
+                                color: isSigned
+                                    ? const Color(0xFF94A3B8)
+                                    : const Color(0xFF4F46E5),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Ajukan Perubahan',
+                                style: TextStyle(
+                                  color: isSigned
+                                      ? const Color(0xFF94A3B8)
+                                      : const Color(0xFF4F46E5),
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 12.5,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+
+                    // Button Ubah Status
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () async {
+                          await context.push(
+                            '/penawaran/${Uri.encodeComponent(_decodedNomor)}/status',
+                            extra: _decodedNomor,
+                          );
+                          _fetchDetail();
+                        },
+                        child: Container(
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0284C7),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: const Color(0xFF0369A1)),
+                          ),
+                          alignment: Alignment.center,
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.published_with_changes,
+                                size: 18,
+                                color: Colors.white,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'Ubah Status',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 12.5,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // Row 2: Full Width Eksport PDF
+                GestureDetector(
+                  onTap: _handleExportPdf,
+                  child: Container(
+                    height: 44,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: isSigned
+                          ? const Color(0xFF4F46E5)
+                          : const Color(0xFF94A3B8),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: const Color.fromRGBO(79, 70, 229, 0.18),
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      _isExportingPdf ? 'Export PDF...' : 'Eksport PDF',
+                      style: TextStyle(
+                        color: isSigned
+                            ? Colors.white
+                            : const Color(0xFFF8FAFC).withValues(alpha: 0.9),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }

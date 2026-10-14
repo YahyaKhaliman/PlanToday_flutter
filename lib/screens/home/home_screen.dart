@@ -1816,7 +1816,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               onPressed: () =>
                                   context.push('/visit-plan/tambah'),
                               child: const Text(
-                                'Jadwalkan Kunjungan',
+                                'Buat Visit Plan',
                                 style: TextStyle(
                                   fontWeight: FontWeight.w800,
                                   fontSize: 12,
@@ -2617,14 +2617,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ),
       ]),
       items: _recentPh.map((ph) {
+        final phToken = PermintaanHargaStatusHelper.getToken(ph.status);
         return _buildRecentItemBox(
           code: ph.nomor,
           date: ph.tanggal,
           customer: ph.customer,
           detail: '${ph.nama} (${ph.divisi})',
           status: ph.status,
-          statusColor: const Color(0xFFDC2626),
-          statusBg: const Color(0xFFFEE2E2),
+          statusColor: phToken.base,
+          statusBg: phToken.unselectedBg,
         );
       }).toList(),
     );

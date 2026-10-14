@@ -38,18 +38,113 @@ class StatusColors {
 class CompanyStatusToken {
   final Color base;
   final Color text;
+  final Color unselectedBg;
+  final Color unselectedBorder;
+  final Color unselectedText;
 
-  const CompanyStatusToken({required this.base, required this.text});
+  const CompanyStatusToken({
+    required this.base,
+    required this.text,
+    Color? unselectedBg,
+    Color? unselectedBorder,
+    Color? unselectedText,
+  })  : unselectedBg = unselectedBg ?? const Color(0xFFF1F5F9),
+        unselectedBorder = unselectedBorder ?? const Color(0xFFCBD5E1),
+        unselectedText = unselectedText ?? text;
 }
 
 class CompanyStatusColors {
-  static const belum = CompanyStatusToken(base: Color(0xFF6B7280), text: Color(0xFF374151));
-  static const minta = CompanyStatusToken(base: Color(0xFFDC2626), text: Color(0xFF991B1B));
-  static const wait = CompanyStatusToken(base: Color(0xFF16A34A), text: Color(0xFF15803D));
-  static const nego = CompanyStatusToken(base: Color(0xFF6B21A8), text: Color(0xFF4A044E));
-  static const done = CompanyStatusToken(base: Color(0xFF18181B), text: Color(0xFF09090B));
-  static const cancel = CompanyStatusToken(base: Color(0xFF2563EB), text: Color(0xFF1D4ED8));
-  static const def = CompanyStatusToken(base: Color(0xFF6366F1), text: Color(0xFF4F46E5));
+  static const belum = CompanyStatusToken(
+    base: Color(0xFF6B7280),
+    text: Color(0xFF374151),
+    unselectedBg: Color(0xFFF8FAFC),
+    unselectedBorder: Color(0xFFE2E8F0),
+    unselectedText: Color(0xFF475569),
+  );
+  static const minta = CompanyStatusToken(
+    base: Color(0xFFDC2626),
+    text: Color(0xFF991B1B),
+    unselectedBg: Color(0xFFFEF2F2),
+    unselectedBorder: Color(0xFFFECACA),
+    unselectedText: Color(0xFFDC2626),
+  );
+  static const wait = CompanyStatusToken(
+    base: Color(0xFF16A34A),
+    text: Color(0xFF15803D),
+    unselectedBg: Color(0xFFF0FDF4),
+    unselectedBorder: Color(0xFFBBF7D0),
+    unselectedText: Color(0xFF15803D),
+  );
+  static const nego = CompanyStatusToken(
+    base: Color(0xFF6B21A8),
+    text: Color(0xFF4A044E),
+    unselectedBg: Color(0xFFFAF5FF),
+    unselectedBorder: Color(0xFFE9D5FF),
+    unselectedText: Color(0xFF6B21A8),
+  );
+  static const done = CompanyStatusToken(
+    base: Color(0xFF18181B),
+    text: Color(0xFF09090B),
+    unselectedBg: Color(0xFFF1F5F9),
+    unselectedBorder: Color(0xFFCBD5E1),
+    unselectedText: Color(0xFF18181B),
+  );
+  static const cancel = CompanyStatusToken(
+    base: Color(0xFF2563EB),
+    text: Color(0xFF1D4ED8),
+    unselectedBg: Color(0xFFEFF6FF),
+    unselectedBorder: Color(0xFFBFDBFE),
+    unselectedText: Color(0xFF1D4ED8),
+  );
+  static const def = CompanyStatusToken(
+    base: Color(0xFF6366F1),
+    text: Color(0xFF4F46E5),
+    unselectedBg: Color(0xFFEEF2FF),
+    unselectedBorder: Color(0xFFC7D2FE),
+    unselectedText: Color(0xFF4338CA),
+  );
+}
+
+class PermintaanHargaStatusHelper {
+  static CompanyStatusToken getToken(String status) {
+    switch (status.toUpperCase().trim()) {
+      case 'BELUM':
+        return CompanyStatusColors.belum;
+      case 'MINTA':
+        return CompanyStatusColors.minta;
+      case 'WAIT':
+        return CompanyStatusColors.wait;
+      case 'NEGO':
+        return CompanyStatusColors.nego;
+      case 'DONE':
+      case 'SELESAI':
+        return CompanyStatusColors.done;
+      case 'CANCEL':
+        return CompanyStatusColors.cancel;
+      default:
+        return CompanyStatusColors.def;
+    }
+  }
+
+  static String getDescription(String status) {
+    switch (status.toUpperCase().trim()) {
+      case 'BELUM':
+        return 'Pengajuan ke MO terlebih dahulu';
+      case 'MINTA':
+        return 'Sedang dimintakan harga ke Finance';
+      case 'WAIT':
+        return 'Sudah diproses, menunggu acc';
+      case 'NEGO':
+        return 'Permintaan harga dibawah standar kalkulasi';
+      case 'DONE':
+      case 'SELESAI':
+        return 'Permintaan harga telah selesai diproses';
+      case 'CANCEL':
+        return 'Permintaan harga dibatalkan';
+      default:
+        return '-';
+    }
+  }
 }
 
 class AppRadius {

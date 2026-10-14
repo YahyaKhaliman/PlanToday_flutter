@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -95,7 +96,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final rememberedUser = await storage.getRememberedUsername();
       if (rememberedUser != null && rememberedUser.isNotEmpty) {
         if (mounted) {
-          setState(() => _usernameController.text = rememberedUser);
+          setState(() => _usernameController.text = rememberedUser.toUpperCase());
         }
         return;
       }
@@ -106,7 +107,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         if (res.data != null &&
             res.data['success'] == true &&
             res.data['username'] != null) {
-          final resolved = res.data['username'].toString().trim();
+          final resolved = res.data['username'].toString().trim().toUpperCase();
           if (mounted) {
             setState(() => _usernameController.text = resolved);
           }
@@ -285,6 +286,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           child: TextField(
                             controller: _usernameController,
                             enabled: !_loading,
+                            textCapitalization: TextCapitalization.characters,
+                            inputFormatters: [
+                              TextInputFormatter.withFunction(
+                                (oldValue, newValue) => TextEditingValue(
+                                  text: newValue.text.toUpperCase(),
+                                  selection: newValue.selection,
+                                ),
+                              ),
+                            ],
                             textInputAction: TextInputAction.next,
                             style: const TextStyle(
                               fontSize: 15,

@@ -1,11 +1,10 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/utils/app_toast.dart';
-import '../../core/utils/responsive_helper.dart';
 import '../../models/kurir_model.dart';
 import '../../repositories/kurir_repository.dart';
 import '../../widgets/ui/app_button.dart';
@@ -21,7 +20,8 @@ class ProsesPengirimanScreen extends ConsumerStatefulWidget {
       _ProsesPengirimanScreenState();
 }
 
-class _ProsesPengirimanScreenState extends ConsumerState<ProsesPengirimanScreen> {
+class _ProsesPengirimanScreenState
+    extends ConsumerState<ProsesPengirimanScreen> {
   final _formKey = GlobalKey<FormState>();
   final _catatanController = TextEditingController();
 
@@ -29,7 +29,8 @@ class _ProsesPengirimanScreenState extends ConsumerState<ProsesPengirimanScreen>
   double? _longitude;
   bool _isGettingGps = false;
 
-  File? _photoFile;
+  Uint8List? _photoBytes;
+  String? _photoName;
   final ImagePicker _picker = ImagePicker();
   bool _isLoading = false;
 
@@ -85,7 +86,11 @@ class _ProsesPengirimanScreenState extends ConsumerState<ProsesPengirimanScreen>
         imageQuality: 75,
       );
       if (picked != null && mounted) {
-        setState(() => _photoFile = File(picked.path));
+        final bytes = await picked.readAsBytes();
+        setState(() {
+          _photoBytes = bytes;
+          _photoName = picked.name;
+        });
       }
     } catch (_) {}
   }
@@ -178,7 +183,7 @@ class _ProsesPengirimanScreenState extends ConsumerState<ProsesPengirimanScreen>
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    if (_photoFile == null) {
+    if (_photoBytes == null) {
       AppToast.error(
         context,
         'Foto bukti penerimaan barang wajib dilampirkan',
@@ -194,7 +199,8 @@ class _ProsesPengirimanScreenState extends ConsumerState<ProsesPengirimanScreen>
       catatan: _catatanController.text.trim(),
       latitude: _latitude,
       longitude: _longitude,
-      photo: _photoFile,
+      photoBytes: _photoBytes,
+      photoName: _photoName,
     );
 
     if (mounted) {
@@ -217,331 +223,362 @@ class _ProsesPengirimanScreenState extends ConsumerState<ProsesPengirimanScreen>
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FF),
       body: SafeArea(
-        child: ResponsiveContainer(
-          maxWidth: 600,
-          child: Column(
-            children: [
-              // 1. TOP HEADER ALA UI-STYLING
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => context.pop(),
-                      child: Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: const Color.fromRGBO(15, 23, 42, 0.08),
-                          ),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color.fromRGBO(15, 23, 42, 0.03),
-                              blurRadius: 6,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.chevron_left_rounded,
-                          size: 26,
-                          color: Color(0xFF4F46E5),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        children: const [
-                          Text(
-                            'Proses Pengiriman',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF0F172A),
-                              letterSpacing: -0.3,
-                            ),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Konfirmasi serah terima barang ke penerima',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF64748B),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 42),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isDesktop = constraints.maxWidth >= 900;
+            final isTablet =
+                constraints.maxWidth >= 600 && constraints.maxWidth < 900;
+            final horizontalPadding =
+                isDesktop ? 32.0 : (isTablet ? 24.0 : 16.0);
+            final maxContainerWidth =
+                isDesktop ? 760.0 : (isTablet ? 640.0 : 540.0);
 
-              // 2. FORM KONTEN
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // INFO PENERIMA CARD
-                        AppCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    widget.item.kodePengiriman,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w900,
-                                      color: Color(0xFF4F46E5),
-                                    ),
-                                  ),
-                                  Text(
-                                    '${widget.item.tanggalPlan} ${widget.item.jamPlan}',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Color(0xFF64748B),
-                                      fontWeight: FontWeight.w500,
-                                    ),
+            return Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxContainerWidth),
+                child: Column(
+                  children: [
+                    // 1. TOP HEADER
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        horizontalPadding,
+                        12,
+                        horizontalPadding,
+                        0,
+                      ),
+                      child: Row(
+                        children: [
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => context.pop(),
+                            child: Container(
+                              width: 42,
+                              height: 42,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: const Color.fromRGBO(15, 23, 42, 0.08),
+                                ),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color.fromRGBO(15, 23, 42, 0.03),
+                                    blurRadius: 6,
+                                    offset: Offset(0, 2),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Tujuan: ${widget.item.receiver}',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFF0F172A),
-                                ),
+                              alignment: Alignment.center,
+                              child: const Icon(
+                                Icons.chevron_left_rounded,
+                                size: 26,
+                                color: Color(0xFF4F46E5),
                               ),
-                              if (widget.item.sender.isNotEmpty) ...[
-                                const SizedBox(height: 2),
+                            ),
+                          ),
+                          Expanded(
+                            child: Column(
+                              children: const [
                                 Text(
-                                  'Dari: ${widget.item.sender}',
-                                  style: const TextStyle(
-                                    fontSize: 12.5,
+                                  'Proses Pengiriman',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w900,
+                                    color: Color(0xFF0F172A),
+                                    letterSpacing: -0.3,
+                                  ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Konfirmasi serah terima barang ke penerima',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
                                     color: Color(0xFF64748B),
                                   ),
                                 ),
                               ],
-                              if (widget.item.note.isNotEmpty) ...[
-                                const Divider(
-                                    height: 18, color: Color(0xFFF1F5F9)),
-                                Text(
-                                  'Keterangan: ${widget.item.note}',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontStyle: FontStyle.italic,
-                                    color: Color(0xFF475569),
-                                  ),
-                                ),
-                              ],
-                            ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 14),
+                          const SizedBox(width: 42),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
 
-                        // FORM BUKTI SERAH TERIMA
-                        AppCard(
+                    // 2. FORM KONTEN
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: horizontalPadding,
+                          vertical: 6,
+                        ),
+                        child: Form(
+                          key: _formKey,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              const Text(
-                                'Bukti Serah Terima Barang',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFF0F172A),
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-
-                              // GPS Lokasi Card
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF8FAFC),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: const Color.fromRGBO(15, 23, 42, 0.06),
-                                  ),
-                                ),
-                                child: Row(
+                              // INFO PENERIMA CARD
+                              AppCard(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF4F46E5)
-                                            .withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: const Icon(
-                                        Icons.pin_drop_rounded,
-                                        color: Color(0xFF4F46E5),
-                                        size: 20,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          const Text(
-                                            'Koordinat GPS Penyerahan',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w800,
-                                              fontSize: 12,
-                                              color: Color(0xFF0F172A),
-                                            ),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          widget.item.kodePengiriman,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w900,
+                                            color: Color(0xFF4F46E5),
                                           ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            _isGettingGps
-                                                ? 'Mendeteksi titik GPS...'
-                                                : (_latitude != null &&
-                                                        _longitude != null
-                                                    ? 'Lat: ${_latitude!.toStringAsFixed(5)}, Long: ${_longitude!.toStringAsFixed(5)}'
-                                                    : 'GPS belum terdeteksi'),
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: _latitude != null
-                                                  ? const Color(0xFF10B981)
-                                                  : const Color(0xFF64748B),
-                                              fontWeight: FontWeight.w600,
-                                            ),
+                                        ),
+                                        Text(
+                                          '${widget.item.tanggalPlan} ${widget.item.jamPlan}',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Color(0xFF64748B),
+                                            fontWeight: FontWeight.w500,
                                           ),
-                                        ],
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Tujuan: ${widget.item.receiver}',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w900,
+                                        color: Color(0xFF0F172A),
                                       ),
                                     ),
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.my_location_rounded,
-                                        size: 20,
-                                        color: Color(0xFF4F46E5),
+                                    if (widget.item.sender.isNotEmpty) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Dari: ${widget.item.sender}',
+                                        style: const TextStyle(
+                                          fontSize: 12.5,
+                                          color: Color(0xFF64748B),
+                                        ),
                                       ),
-                                      onPressed: _fetchGpsLocation,
-                                      tooltip: 'Ambil Titik Lokasi',
-                                    ),
+                                    ],
+                                    if (widget.item.note.isNotEmpty) ...[
+                                      const Divider(
+                                          height: 18,
+                                          color: Color(0xFFF1F5F9)),
+                                      Text(
+                                        'Keterangan: ${widget.item.note}',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontStyle: FontStyle.italic,
+                                          color: Color(0xFF475569),
+                                        ),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),
                               const SizedBox(height: 14),
 
-                              // Foto Serah Terima
-                              const Text(
-                                'Foto Bukti Serah Terima *',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
-                                  color: Color(0xFF0F172A),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onTap: _showImageSourceDialog,
-                                child: Container(
-                                  height: 150,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF1F5F9),
-                                    borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(
-                                      color: const Color.fromRGBO(15, 23, 42, 0.08),
+                              // FORM BUKTI SERAH TERIMA
+                              AppCard(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    const Text(
+                                      'Bukti Serah Terima Barang',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w900,
+                                        color: Color(0xFF0F172A),
+                                      ),
                                     ),
-                                  ),
-                                  alignment: Alignment.center,
-                                  child: _photoFile != null
-                                      ? ClipRRect(
+                                    const SizedBox(height: 14),
+
+                                    // GPS Lokasi Card
+                                    Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF8FAFC),
+                                        borderRadius:
+                                            BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: const Color.fromRGBO(
+                                              15, 23, 42, 0.06),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF4F46E5)
+                                                  .withValues(alpha: 0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: const Icon(
+                                              Icons.pin_drop_rounded,
+                                              color: Color(0xFF4F46E5),
+                                              size: 20,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                const Text(
+                                                  'Koordinat GPS Penyerahan',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w800,
+                                                    fontSize: 12,
+                                                    color: Color(0xFF0F172A),
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  _isGettingGps
+                                                      ? 'Mendeteksi titik GPS...'
+                                                      : (_latitude != null &&
+                                                              _longitude != null
+                                                          ? 'Lat: ${_latitude!.toStringAsFixed(5)}, Long: ${_longitude!.toStringAsFixed(5)}'
+                                                          : 'GPS belum terdeteksi'),
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: _latitude != null
+                                                        ? const Color(0xFF10B981)
+                                                        : const Color(0xFF64748B),
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.my_location_rounded,
+                                              size: 20,
+                                              color: Color(0xFF4F46E5),
+                                            ),
+                                            onPressed: _fetchGpsLocation,
+                                            tooltip: 'Ambil Titik Lokasi',
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 14),
+
+                                    // Foto Serah Terima (Web-Safe Memory Preview)
+                                    const Text(
+                                      'Foto Bukti Serah Terima *',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 13,
+                                        color: Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      onTap: _showImageSourceDialog,
+                                      child: Container(
+                                        height: 160,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF1F5F9),
                                           borderRadius:
                                               BorderRadius.circular(14),
-                                          child: Image.file(
-                                            _photoFile!,
-                                            width: double.infinity,
-                                            height: 150,
-                                            fit: BoxFit.cover,
+                                          border: Border.all(
+                                            color: const Color.fromRGBO(
+                                                15, 23, 42, 0.08),
                                           ),
-                                        )
-                                      : Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: const [
-                                            Icon(
-                                              Icons.add_a_photo_outlined,
-                                              size: 32,
-                                              color: Color(0xFF64748B),
-                                            ),
-                                            SizedBox(height: 6),
-                                            Text(
-                                              'Ambil Foto Bukti Penerimaan Barang',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w600,
-                                                color: Color(0xFF64748B),
-                                              ),
-                                            ),
-                                          ],
                                         ),
-                                ),
-                              ),
-                              const SizedBox(height: 14),
+                                        alignment: Alignment.center,
+                                        child: _photoBytes != null
+                                            ? ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(14),
+                                                child: Image.memory(
+                                                  _photoBytes!,
+                                                  width: double.infinity,
+                                                  height: 160,
+                                                  fit: BoxFit.cover,
+                                                ),
+                                              )
+                                            : Column(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: const [
+                                                  Icon(
+                                                    Icons.add_a_photo_outlined,
+                                                    size: 32,
+                                                    color: Color(0xFF64748B),
+                                                  ),
+                                                  SizedBox(height: 6),
+                                                  Text(
+                                                    'Ambil Foto Bukti Penerimaan Barang',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: Color(0xFF64748B),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 14),
 
-                              // Catatan Penerimaan
-                              const Text(
-                                'Nama Penerima / Catatan Serah Terima *',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
-                                  color: Color(0xFF0F172A),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              TextFormField(
-                                controller: _catatanController,
-                                maxLines: 2,
-                                decoration: const InputDecoration(
-                                  hintText:
-                                      'Contoh: Diterima oleh Bpk. Budi (Security)...',
-                                  prefixIcon: Icon(Icons.badge_outlined, size: 20),
-                                ),
-                                validator: (v) =>
-                                    (v == null || v.trim().isEmpty)
-                                        ? 'Catatan / nama penerima wajib diisi'
-                                        : null,
-                              ),
-                              const SizedBox(height: 20),
+                                    // Catatan Penerimaan
+                                    const Text(
+                                      'Nama Penerima / Catatan Serah Terima *',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 13,
+                                        color: Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    TextFormField(
+                                      controller: _catatanController,
+                                      maxLines: 2,
+                                      decoration: const InputDecoration(
+                                        hintText:
+                                            'Contoh: Diterima oleh Bpk. Budi (Security)...',
+                                        prefixIcon: Icon(Icons.badge_outlined,
+                                            size: 20),
+                                      ),
+                                      validator: (v) =>
+                                          (v == null || v.trim().isEmpty)
+                                              ? 'Catatan / nama penerima wajib diisi'
+                                              : null,
+                                    ),
+                                    const SizedBox(height: 20),
 
-                              // Tombol Konfirmasi Selesai
-                              AppButton(
-                                text: 'Selesaikan Pengiriman (Delivered)',
-                                isLoading: _isLoading,
-                                onPressed: _submit,
+                                    // Tombol Konfirmasi Selesai
+                                    AppButton(
+                                      text:
+                                          'Selesaikan Pengiriman (Delivered)',
+                                      isLoading: _isLoading,
+                                      onPressed: _submit,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
                         ),
-                      ],
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

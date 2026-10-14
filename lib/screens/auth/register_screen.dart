@@ -74,18 +74,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }) {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      backgroundColor: Colors.white,
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+        child: SafeArea(
+          top: false,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Sheet Handle persis React Native
+              // Sheet Handle persis React Native (sheetHandle)
               Center(
                 child: Container(
                   width: 44,
@@ -154,7 +157,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               }),
 
               // Tombol Tutup persis React Native
-              const SizedBox(height: 2),
+              const SizedBox(height: 4),
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => Navigator.pop(ctx),
@@ -188,7 +191,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   Widget _buildLabel(String text) {
     return Padding(
-      padding: const EdgeInsets.only(left: 4, top: 4, bottom: 6),
+      padding: const EdgeInsets.only(left: 4, top: 6, bottom: 6),
       child: Text(
         text.toUpperCase(),
         style: const TextStyle(
@@ -206,12 +209,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final password = _passwordController.text;
 
     if (nama.isEmpty || password.isEmpty) {
-      AppToast.error(context, 'Nama dan password wajib diisi', title: 'Validasi');
+      AppToast.error(context, 'Nama dan password wajib diisi',
+          title: 'Validasi');
       return;
     }
 
     if (password.length < 3) {
-      AppToast.error(context, 'Password minimal 3 karakter', title: 'Validasi');
+      AppToast.error(context, 'Password minimal 3 karakter',
+          title: 'Validasi');
       return;
     }
 
@@ -281,7 +286,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // HERO ala Home di React Native
+                    // HERO Box ala Home di React Native
                     Container(
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
@@ -303,7 +308,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       padding: const EdgeInsets.all(14),
                       child: Column(
                         children: [
-                          // Header: REGISTER & PLANTODAY
+                          // Header: Back button + REGISTER & PLANTODAY
                           Stack(
                             alignment: Alignment.center,
                             children: [
@@ -313,8 +318,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                   behavior: HitTestBehavior.opaque,
                                   onTap: () => context.pop(),
                                   child: Container(
-                                    width: 34,
-                                    height: 34,
+                                    width: 36,
+                                    height: 36,
                                     decoration: BoxDecoration(
                                       color: Colors.white,
                                       shape: BoxShape.circle,
@@ -325,7 +330,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                     ),
                                     child: const Icon(
                                       Icons.arrow_back_rounded,
-                                      size: 16,
+                                      size: 18,
                                       color: Color(0xFF4F46E5),
                                     ),
                                   ),
@@ -369,7 +374,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           ),
                           const SizedBox(height: 14),
 
-                          // Form Card (maxWidth: 380 persis React Native)
+                          // Form Card (maxWidth: 380 persis React Native formCard)
                           Container(
                             width: double.infinity,
                             constraints: const BoxConstraints(maxWidth: 380),
@@ -446,9 +451,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                     onChanged: (_) => setState(() {}),
                                   ),
                                 ),
-                                const SizedBox(height: 12),
+                                const SizedBox(height: 10),
 
-                                // GlassSelect: JABATAN
+                                // GlassSelect: JABATAN (Persis RN)
                                 _buildLabel('Jabatan'),
                                 GestureDetector(
                                   behavior: HitTestBehavior.opaque,
@@ -497,9 +502,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(height: 12),
+                                const SizedBox(height: 10),
 
-                                // GlassSelect: CABANG
+                                // GlassSelect: CABANG (Persis RN)
                                 _buildLabel('Cabang'),
                                 GestureDetector(
                                   behavior: HitTestBehavior.opaque,
@@ -548,7 +553,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(height: 12),
+                                const SizedBox(height: 10),
 
                                 // Input: PASSWORD
                                 _buildLabel('Password'),

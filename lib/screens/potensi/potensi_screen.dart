@@ -4,14 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/app_toast.dart';
-import '../../core/utils/responsive_helper.dart';
-import '../../models/potensi_model.dart';
+import '../../models/potensi_kandidat_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/penawaran_repository.dart';
 import '../../repositories/potensi_repository.dart';
-import '../../widgets/ui/app_badge.dart';
-import '../../widgets/ui/app_card.dart';
-import 'tambah_potensi_sheet.dart';
 
 class PotensiScreen extends ConsumerStatefulWidget {
   const PotensiScreen({super.key});
@@ -22,21 +18,22 @@ class PotensiScreen extends ConsumerStatefulWidget {
 
 class _PotensiScreenState extends ConsumerState<PotensiScreen> {
   final _searchController = TextEditingController();
-  List<PotensiListItem> _list = [];
-  PotensiKpiSummary? _kpi;
-  bool _isLoading = false;
-  String _selectedStatus = 'ALL';
 
-  // State Sales (Khusus Manager bisa pilih, non-manager terkunci)
+  bool _isLoading = false;
+  bool _isSubmitting = false;
+
+  List<PotensiKandidatItem> _rawKandidat = [];
+  String _activeTab = 'ALL'; // 'ALL' | 'PENAWARAN' | 'MAP'
   String _selectedSales = '';
   List<String> _salesList = [];
 
-  final List<String> _statusFilters = ['ALL', 'OPEN', 'CLOSE', 'BATAL'];
+  // Pilihan item batch
+  final Map<String, PotensiKandidatItem> _selectedItems = {};
 
   @override
   void initState() {
     super.initState();
-    _fetchPotensi();
+    _fetchKandidat();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = ref.read(authProvider).user;
       if (user?.isManager == true) {
@@ -57,22 +54,23 @@ class _PotensiScreenState extends ConsumerState<PotensiScreen> {
       final rows = await repo.getMasterSales('');
       if (mounted) {
         setState(() {
-          _salesList = rows.map((e) => e['nama'] ?? '').where((n) => n.isNotEmpty).toList();
+          _salesList = rows
+              .map((e) => e['nama'] ?? '')
+              .where((n) => n.isNotEmpty)
+              .toList();
         });
       }
     } catch (_) {}
   }
 
-  Future<void> _fetchPotensi([String? query]) async {
+  Future<void> _fetchKandidat() async {
     setState(() => _isLoading = true);
 
     final user = ref.read(authProvider).user;
     final isManager = user?.isManager ?? false;
 
     final repo = ref.read(potensiRepositoryProvider);
-    final res = await repo.getPotensiList(
-      status: _selectedStatus,
-      search: query ?? _searchController.text.trim(),
+    final results = await repo.getPotensiKandidatList(
       sales: isManager && _selectedSales.isNotEmpty
           ? _selectedSales
           : (!isManager ? user?.nama : null),
@@ -80,19 +78,44 @@ class _PotensiScreenState extends ConsumerState<PotensiScreen> {
 
     if (mounted) {
       setState(() {
-        _list = res.list;
-        _kpi = res.kpi;
+        _rawKandidat = results;
         if (_salesList.isEmpty && isManager) {
-          final fromData = res.list
-              .map((e) => e.salesNama.trim())
-              .where((n) => n.isNotEmpty)
-              .toSet()
-              .toList()
-            ..sort();
+          final fromData =
+              results
+                  .map((e) => (e.salesNama ?? '').trim())
+                  .where((n) => n.isNotEmpty)
+                  .toSet()
+                  .toList()
+                ..sort();
           if (fromData.isNotEmpty) _salesList = fromData;
         }
         _isLoading = false;
       });
+    }
+  }
+
+  String _formatDate(String? ymd) {
+    if (ymd == null || ymd.isEmpty) return '-';
+    try {
+      final clean = ymd.split('T')[0].split(' ')[0];
+      final parts = clean.split('-').map(int.parse).toList();
+      const bulan = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'Mei',
+        'Jun',
+        'Jul',
+        'Agu',
+        'Sep',
+        'Okt',
+        'Nov',
+        'Des',
+      ];
+      return '${parts[2]} ${bulan[parts[1] - 1]} ${parts[0]}';
+    } catch (_) {
+      return ymd;
     }
   }
 
@@ -119,8 +142,6 @@ class _PotensiScreenState extends ConsumerState<PotensiScreen> {
                 ),
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Center(
                       child: Container(
@@ -144,82 +165,86 @@ class _PotensiScreenState extends ConsumerState<PotensiScreen> {
                             color: Color(0xFF0F172A),
                           ),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.close, color: Color(0xFF64748B)),
-                          onPressed: () => Navigator.pop(ctx),
-                        ),
+                        if (_selectedSales.isNotEmpty)
+                          TextButton(
+                            onPressed: () {
+                              setState(() => _selectedSales = '');
+                              Navigator.pop(ctx);
+                              _fetchKandidat();
+                            },
+                            child: const Text(
+                              'Reset',
+                              style: TextStyle(color: Color(0xFFDC2626)),
+                            ),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     Container(
-                      height: 40,
+                      height: 44,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
                       child: Row(
                         children: [
-                          const Icon(Icons.search, size: 18, color: Color(0xFF64748B)),
+                          const Icon(
+                            Icons.search,
+                            size: 18,
+                            color: Color(0xFF64748B),
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: TextField(
+                              onChanged: (val) {
+                                setModalState(() => searchKeyword = val);
+                              },
                               decoration: const InputDecoration(
-                                hintText: 'Cari sales...',
+                                hintText: 'Cari nama sales...',
                                 border: InputBorder.none,
                                 isDense: true,
                                 contentPadding: EdgeInsets.zero,
                               ),
-                              onChanged: (val) {
-                                setModalState(() => searchKeyword = val);
-                              },
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     Expanded(
-                      child: ListView(
-                        children: [
-                          ListTile(
-                            leading: const Icon(Icons.people_outline, color: Color(0xFF4F46E5)),
-                            title: const Text(
-                              'Semua Sales',
-                              style: TextStyle(fontWeight: FontWeight.w700),
+                      child: ListView.separated(
+                        itemCount: filtered.length,
+                        separatorBuilder: (_, _) =>
+                            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                        itemBuilder: (context, idx) {
+                          final sName = filtered[idx];
+                          final isSelected = _selectedSales == sName;
+                          return ListTile(
+                            title: Text(
+                              sName,
+                              style: TextStyle(
+                                fontWeight: isSelected
+                                    ? FontWeight.w800
+                                    : FontWeight.w600,
+                                color: isSelected
+                                    ? const Color(0xFF4F46E5)
+                                    : const Color(0xFF0F172A),
+                              ),
                             ),
-                            selected: _selectedSales.isEmpty,
-                            trailing: _selectedSales.isEmpty
-                                ? const Icon(Icons.check, color: Color(0xFF4F46E5))
+                            trailing: isSelected
+                                ? const Icon(
+                                    Icons.check,
+                                    color: Color(0xFF4F46E5),
+                                  )
                                 : null,
                             onTap: () {
+                              setState(() => _selectedSales = sName);
                               Navigator.pop(ctx);
-                              setState(() {
-                                _selectedSales = '';
-                              });
-                              _fetchPotensi();
+                              _fetchKandidat();
                             },
-                          ),
-                          const Divider(height: 1),
-                          ...filtered.map((s) {
-                            final isSel = _selectedSales == s;
-                            return ListTile(
-                              leading: const Icon(Icons.person_outline, color: Color(0xFF64748B)),
-                              title: Text(s, style: const TextStyle(fontWeight: FontWeight.w600)),
-                              selected: isSel,
-                              trailing: isSel
-                                  ? const Icon(Icons.check, color: Color(0xFF4F46E5))
-                                  : null,
-                              onTap: () {
-                                Navigator.pop(ctx);
-                                setState(() {
-                                  _selectedSales = s;
-                                });
-                                _fetchPotensi();
-                              },
-                            );
-                          }),
-                        ],
+                          );
+                        },
                       ),
                     ),
                   ],
@@ -232,623 +257,835 @@ class _PotensiScreenState extends ConsumerState<PotensiScreen> {
     );
   }
 
-  void _showBatalDialog(PotensiListItem item) {
-    final reasonController = TextEditingController();
+  Future<void> _submitBatch() async {
+    if (_selectedItems.isEmpty) {
+      AppToast.warning(
+        context,
+        'Pilih minimal 1 kandidat untuk dijadikan Potensi',
+      );
+      return;
+    }
 
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.card),
-        ),
-        title: const Text(
-          'Batalkan Potensi',
-          style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Batalkan potensi ${item.nomor} (${item.customerNama})?'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: reasonController,
-              decoration: const InputDecoration(
-                hintText: 'Alasan pembatalan...',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Tutup'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.danger,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              final repo = ref.read(potensiRepositoryProvider);
-              final success = await repo.batalPotensi(
-                item.nomor,
-                reasonController.text.trim(),
-              );
+    setState(() => _isSubmitting = true);
 
-              if (mounted) {
-                if (success) {
-                  AppToast.success(context, 'Potensi dibatalkan');
-                  _fetchPotensi();
-                } else {
-                  AppToast.error(context, 'Gagal membatalkan potensi');
-                }
-              }
-            },
-            child: const Text('Batalkan'),
-          ),
-        ],
-      ),
-    );
+    final repo = ref.read(potensiRepositoryProvider);
+    final payloadList = _selectedItems.values
+        .map((it) => it.toBatchPayload())
+        .toList();
+
+    final success = await repo.createPotensiBatch(payloadList);
+
+    if (mounted) {
+      setState(() => _isSubmitting = false);
+
+      if (success) {
+        AppToast.success(
+          context,
+          'Berhasil menambahkan ${_selectedItems.length} potensi baru',
+        );
+        setState(() => _selectedItems.clear());
+        _fetchKandidat();
+      } else {
+        AppToast.error(context, 'Gagal menyimpan potensi ke server');
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormat =
-        NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+    final user = ref.watch(authProvider).user;
+    final isManager = user?.isManager ?? false;
+    final currencyFormat = NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: 'Rp ',
+      decimalDigits: 0,
+    );
+
+    // Filter tab, sales, & search
+    final q = _searchController.text.trim().toLowerCase();
+    final filteredList = _rawKandidat.filter((it) {
+      if (_activeTab == 'PENAWARAN' && it.tipeSumber != 'PENAWARAN') {
+        return false;
+      }
+      if (_activeTab == 'MAP' && it.tipeSumber != 'MAP') {
+        return false;
+      }
+
+      if (_selectedSales.isNotEmpty) {
+        final sNama = (it.salesNama ?? '').toLowerCase();
+        final sKode = (it.salesKode ?? '').toLowerCase();
+        final target = _selectedSales.toLowerCase();
+        if (sNama != target && sKode != target && !sNama.contains(target)) {
+          return false;
+        }
+      }
+
+      if (q.isNotEmpty) {
+        final matchNomor = (it.penNomor ?? it.mspkNomor ?? '')
+            .toLowerCase()
+            .contains(q);
+        final matchCustomer = (it.customerNama ?? '').toLowerCase().contains(q);
+        final matchItem = it.namaItem.toLowerCase().contains(q);
+        final matchSales = (it.salesNama ?? '').toLowerCase().contains(q);
+        return matchNomor || matchCustomer || matchItem || matchSales;
+      }
+
+      return true;
+    }).toList();
+
+    final penawaranCount = _rawKandidat
+        .where((it) => it.tipeSumber == 'PENAWARAN')
+        .length;
+    final mapCount = _rawKandidat.where((it) => it.tipeSumber == 'MAP').length;
+
+    final selectedTotalNominal = _selectedItems.values.fold<double>(
+      0.0,
+      (acc, it) => acc + it.harga,
+    );
+
+    final isAllSelected =
+        filteredList.isNotEmpty &&
+        filteredList.every((it) => _selectedItems.containsKey(it.itemKey));
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FF),
       body: SafeArea(
-        child: ResponsiveContainer(
-          maxWidth: 1000,
-          child: Column(
-            children: [
-              // 1. TOP HEADER ALA UI-STYLING
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Row(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isDesktop = constraints.maxWidth >= 900;
+            final isTablet =
+                constraints.maxWidth >= 600 && constraints.maxWidth < 900;
+            final horizontalPadding = isDesktop
+                ? 32.0
+                : (isTablet ? 24.0 : 16.0);
+            final maxContainerWidth = isDesktop
+                ? 1100.0
+                : (isTablet ? 760.0 : double.infinity);
+
+            return Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxContainerWidth),
+                child: Column(
                   children: [
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () {
-                        if (context.canPop()) {
-                          context.pop();
-                        } else {
-                          context.go('/');
-                        }
-                      },
-                      child: Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: const Color.fromRGBO(15, 23, 42, 0.08),
-                          ),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color.fromRGBO(15, 23, 42, 0.03),
-                              blurRadius: 6,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.chevron_left_rounded,
-                          size: 26,
-                          color: Color(0xFF4F46E5),
-                        ),
+                    // 1. TOP HEADER (Persis React Native)
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        horizontalPadding,
+                        12,
+                        horizontalPadding,
+                        0,
                       ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        children: const [
-                          Text(
-                            'Potensi Sales',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF0F172A),
-                              letterSpacing: -0.3,
+                      child: Row(
+                        children: [
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              if (context.canPop()) {
+                                context.pop();
+                              } else {
+                                context.go('/home');
+                              }
+                            },
+                            child: Container(
+                              width: isDesktop ? 44 : 40,
+                              height: isDesktop ? 44 : 40,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: const Color.fromRGBO(15, 23, 42, 0.08),
+                                ),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color.fromRGBO(15, 23, 42, 0.03),
+                                    blurRadius: 6,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              alignment: Alignment.center,
+                              child: Icon(
+                                Icons.chevron_left_rounded,
+                                size: isDesktop ? 26 : 24,
+                                color: const Color(0xFF4F46E5),
+                              ),
                             ),
                           ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Manajemen prospek dan potensi closing',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF64748B),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Potensi',
+                                  style: TextStyle(
+                                    fontSize: isDesktop ? 20 : 18,
+                                    fontWeight: FontWeight.w900,
+                                    color: const Color(0xFF0F172A),
+                                    letterSpacing: -0.3,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Pilih kandidat penawaran & MAP untuk dijadikan potensi',
+                                  style: TextStyle(
+                                    fontSize: isDesktop ? 13 : 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF64748B),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+
+                          // Tombol Shortcut ke Laporan Potensi
+                          Container(
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEEF2FF),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFFC7D2FE),
+                              ),
+                            ),
+                            child: TextButton.icon(
+                              onPressed: () => context.push('/laporan-potensi'),
+                              icon: const Icon(
+                                Icons.assessment_outlined,
+                                size: 16,
+                                color: Color(0xFF4F46E5),
+                              ),
+                              label: const Text(
+                                'Laporan',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF4F46E5),
+                                ),
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => _fetchPotensi(),
-                      child: Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: const Color.fromRGBO(15, 23, 42, 0.08),
-                          ),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color.fromRGBO(15, 23, 42, 0.03),
-                              blurRadius: 6,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        alignment: Alignment.center,
-                        child: _isLoading
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Color(0xFF4F46E5),
-                                ),
-                              )
-                            : const Icon(
-                                Icons.refresh_rounded,
-                                size: 20,
-                                color: Color(0xFF4F46E5),
-                              ),
+                    const SizedBox(height: 12),
+
+                    // 2. SEGMENTED TABS (SEMUA / PENAWARAN / MAP)
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: horizontalPadding,
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: Column(
-                  children: [
-          // KPI Summary Cards
-          if (_kpi != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.05),
-                border: const Border(bottom: BorderSide(color: AppColors.border)),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _KpiMiniCard(
-                      label: 'Total Potensi',
-                      value: '${_kpi!.totalCount}',
-                      color: AppColors.ink,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _KpiMiniCard(
-                      label: 'Closing Rate',
-                      value: '${_kpi!.closingRatePct.toStringAsFixed(1)}%',
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _KpiMiniCard(
-                      label: 'Won / Close',
-                      value: '${_kpi!.closeCount}',
-                      color: AppColors.success,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-          // Search & Filter
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(AppRadius.medium),
-                    boxShadow: AppShadows.softCard,
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Cari customer, barang, atau sales...',
-                      prefixIcon: const Icon(Icons.search, color: AppColors.muted),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear, color: AppColors.muted),
-                              onPressed: () {
-                                _searchController.clear();
-                                _fetchPotensi();
-                              },
-                            )
-                          : null,
-                    ),
-                    onSubmitted: (q) => _fetchPotensi(q),
-                  ),
-                ),
-                const SizedBox(height: 10),
-
-                // Filter Sales (Manager bisa pilih, Non-Manager terkunci)
-                Builder(
-                  builder: (context) {
-                    final user = ref.watch(authProvider).user;
-                    final isManager = user?.isManager ?? false;
-                    final displayName = isManager
-                        ? (_selectedSales.isEmpty ? 'Semua Sales' : _selectedSales)
-                        : (user?.nama.isNotEmpty == true ? user!.nama : 'Sales');
-
-                    return GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: isManager ? _showSalesPicker : null,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: isManager && _selectedSales.isNotEmpty
-                              ? const Color(0xFFEEF2FF)
-                              : const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: isManager && _selectedSales.isNotEmpty
-                                ? const Color(0xFF4F46E5)
-                                : const Color.fromRGBO(15, 23, 42, 0.08),
-                          ),
+                          color: const Color(0xFFE2E8F0).withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(14),
                         ),
                         child: Row(
                           children: [
-                            Icon(
-                              Icons.person_outline_rounded,
-                              size: 16,
-                              color: isManager && _selectedSales.isNotEmpty
-                                  ? const Color(0xFF4F46E5)
-                                  : const Color(0xFF64748B),
+                            _buildTabPill(
+                              label: 'Semua (${_rawKandidat.length})',
+                              value: 'ALL',
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                displayName,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: isManager && _selectedSales.isNotEmpty
-                                      ? const Color(0xFF4F46E5)
-                                      : (isManager
-                                          ? const Color(0xFF0F172A)
-                                          : const Color(0xFF64748B)),
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                            _buildTabPill(
+                              label: 'Penawaran ($penawaranCount)',
+                              value: 'PENAWARAN',
                             ),
-                            if (isManager && _selectedSales.isNotEmpty)
-                              GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onTap: () {
-                                  setState(() => _selectedSales = '');
-                                  _fetchPotensi();
-                                },
-                                child: const Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 4),
-                                  child: Icon(
-                                    Icons.close_rounded,
-                                    size: 16,
-                                    color: Color(0xFF4F46E5),
-                                  ),
-                                ),
-                              )
-                            else if (isManager)
-                              const Icon(
-                                Icons.arrow_drop_down_rounded,
-                                size: 18,
-                                color: Color(0xFF64748B),
-                              )
-                            else
-                              const Icon(
-                                Icons.lock_outline_rounded,
-                                size: 14,
-                                color: Color(0xFF94A3B8),
-                              ),
+                            _buildTabPill(
+                              label: 'MAP ($mapCount)',
+                              value: 'MAP',
+                            ),
                           ],
                         ),
                       ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 12),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: _statusFilters.map((st) {
-                      final isSelected = _selectedStatus == st;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8.0),
-                        child: ChoiceChip(
-                          label: Text(st),
-                          selected: isSelected,
-                          selectedColor: AppColors.primary,
-                          labelStyle: TextStyle(
-                            color: isSelected ? Colors.white : AppColors.ink,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
-                          ),
-                          onSelected: (val) {
-                            if (val) {
-                              setState(() => _selectedStatus = st);
-                              _fetchPotensi();
-                            }
-                          },
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ],
-            ),
-          ),
+                    ),
+                    const SizedBox(height: 10),
 
-          // List Items
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _list.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'Tidak ada data potensi',
-                          style: TextStyle(color: AppColors.muted),
+                    // 3. SEARCH & SALES FILTER ROW
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: horizontalPadding,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: const Color.fromRGBO(15, 23, 42, 0.08),
+                                ),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color.fromRGBO(15, 23, 42, 0.02),
+                                    blurRadius: 4,
+                                    offset: Offset(0, 1),
+                                  ),
+                                ],
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              alignment: Alignment.center,
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.search_rounded,
+                                    size: 20,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _searchController,
+                                      onChanged: (_) => setState(() {}),
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF0F172A),
+                                      ),
+                                      decoration: const InputDecoration(
+                                        hintText:
+                                            'Cari nomor, customer, atau item...',
+                                        hintStyle: TextStyle(
+                                          color: Color(0xFF94A3B8),
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        border: InputBorder.none,
+                                        isDense: true,
+                                        contentPadding: EdgeInsets.zero,
+                                      ),
+                                    ),
+                                  ),
+                                  if (_searchController.text.isNotEmpty)
+                                    GestureDetector(
+                                      onTap: () => setState(
+                                        () => _searchController.clear(),
+                                      ),
+                                      child: const Icon(
+                                        Icons.close_rounded,
+                                        size: 18,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          if (isManager) ...[
+                            const SizedBox(width: 10),
+                            InkWell(
+                              onTap: _showSalesPicker,
+                              borderRadius: BorderRadius.circular(14),
+                              child: Container(
+                                height: 44,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: _selectedSales.isNotEmpty
+                                        ? const Color(0xFF4F46E5)
+                                        : const Color.fromRGBO(
+                                            15,
+                                            23,
+                                            42,
+                                            0.08,
+                                          ),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.person_outline_rounded,
+                                      size: 18,
+                                      color: _selectedSales.isNotEmpty
+                                          ? const Color(0xFF4F46E5)
+                                          : const Color(0xFF64748B),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      _selectedSales.isNotEmpty
+                                          ? _selectedSales
+                                          : 'Sales: Semua',
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: _selectedSales.isNotEmpty
+                                            ? const Color(0xFF4F46E5)
+                                            : const Color(0xFF0F172A),
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const Icon(
+                                      Icons.arrow_drop_down,
+                                      size: 18,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // 4. BAR SELECT ALL
+                    if (filteredList.isNotEmpty)
+                      Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: horizontalPadding,
+                          vertical: 4,
                         ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: () => _fetchPotensi(),
-                        child: ListView.separated(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
-                          itemCount: _list.length,
-                          separatorBuilder: (ctx, i) =>
-                              const SizedBox(height: 12),
-                          itemBuilder: (context, index) {
-                            final item = _list[index];
-                            return _PotensiCard(
-                              item: item,
-                              currencyFormat: currencyFormat,
-                              onBatal: item.status == 'OPEN'
-                                  ? () => _showBatalDialog(item)
-                                  : null,
-                            );
-                          },
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            InkWell(
+                              onTap: () {
+                                setState(() {
+                                  if (isAllSelected) {
+                                    for (final it in filteredList) {
+                                      _selectedItems.remove(it.itemKey);
+                                    }
+                                  } else {
+                                    for (final it in filteredList) {
+                                      _selectedItems[it.itemKey] = it;
+                                    }
+                                  }
+                                });
+                              },
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    isAllSelected
+                                        ? Icons.check_circle_rounded
+                                        : Icons.radio_button_unchecked_rounded,
+                                    size: 20,
+                                    color: isAllSelected
+                                        ? const Color(0xFF4F46E5)
+                                        : const Color(0xFF94A3B8),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Pilih Semua (${filteredList.length})',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              '${_selectedItems.length} item dipilih',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF4F46E5),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  ),
-),
-floatingActionButton: FloatingActionButton(
-        backgroundColor: AppColors.primary,
-        onPressed: () async {
-          final refresh = await showModalBottomSheet<bool>(
-            context: context,
-            isScrollControlled: true,
-            backgroundColor: Colors.transparent,
-            builder: (ctx) => const TambahPotensiSheet(),
-          );
-          if (refresh == true) {
-            _fetchPotensi();
-          }
-        },
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
-    );
-  }
-}
 
-class _KpiMiniCard extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color color;
+                    // 5. GRID / LIST KANDIDAT
+                    Expanded(
+                      child: _isLoading
+                          ? const Center(
+                              child: CircularProgressIndicator(
+                                color: Color(0xFF4F46E5),
+                              ),
+                            )
+                          : filteredList.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'Tidak ada kandidat potensi yang cocok.',
+                                style: TextStyle(
+                                  color: Color(0xFF64748B),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            )
+                          : _buildAdaptiveGrid(
+                              isDesktop: isDesktop,
+                              isTablet: isTablet,
+                              horizontalPadding: horizontalPadding,
+                              items: filteredList,
+                              currencyFormat: currencyFormat,
+                            ),
+                    ),
 
-  const _KpiMiniCard({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(AppRadius.medium),
-        border: Border.all(color: AppColors.border),
-        boxShadow: AppShadows.softCard,
-      ),
-      child: Column(
-        children: [
-          Text(label,
-              style: const TextStyle(fontSize: 11, color: AppColors.muted, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PotensiCard extends StatelessWidget {
-  final PotensiListItem item;
-  final NumberFormat currencyFormat;
-  final VoidCallback? onBatal;
-
-  const _PotensiCard({
-    required this.item,
-    required this.currencyFormat,
-    this.onBatal,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    Color badgeColor = StatusColors.wait;
-    if (item.status == 'CLOSE') badgeColor = StatusColors.acc;
-    if (item.status == 'BATAL') badgeColor = StatusColors.tolak;
-
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Text(
-                  item.nomor,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.primary,
-                    letterSpacing: -0.2,
-                  ),
+                    // 6. FLOATING BOTTOM BAR AKUMULASI (Muncul jika ada item dipilih)
+                    if (_selectedItems.isNotEmpty)
+                      Container(
+                        padding: EdgeInsets.fromLTRB(
+                          horizontalPadding,
+                          12,
+                          horizontalPadding,
+                          14,
+                        ),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          border: Border(
+                            top: BorderSide(
+                              color: Color.fromRGBO(15, 23, 42, 0.08),
+                            ),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Color.fromRGBO(15, 23, 42, 0.04),
+                              blurRadius: 10,
+                              offset: Offset(0, -3),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '${_selectedItems.length} Item Dipilih',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                  ),
+                                  Text(
+                                    currencyFormat.format(selectedTotalNominal),
+                                    style: const TextStyle(
+                                      fontSize: 16.5,
+                                      fontWeight: FontWeight.w900,
+                                      color: Color(0xFF0F172A),
+                                      letterSpacing: -0.3,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Container(
+                              height: 44,
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [AppColors.primary, AppColors.accent],
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: AppShadows.button,
+                              ),
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.transparent,
+                                  foregroundColor: Colors.white,
+                                  shadowColor: Colors.transparent,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 22,
+                                    vertical: 10,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                ),
+                                onPressed: _isSubmitting ? null : _submitBatch,
+                                child: _isSubmitting
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : Text(
+                                        'Simpan Potensi (${_selectedItems.length})',
+                                        style: const TextStyle(
+                                          fontSize: 13.5,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 0.3,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              Wrap(
-                spacing: 6,
-                crossAxisAlignment: WrapCrossAlignment.center,
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabPill({required String label, required String value}) {
+    final isSelected = _activeTab == value;
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => setState(() => _activeTab = value),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: isSelected
+                ? const [
+                    BoxShadow(
+                      color: Color.fromRGBO(15, 23, 42, 0.06),
+                      blurRadius: 4,
+                      offset: Offset(0, 1),
+                    ),
+                  ]
+                : null,
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w800,
+              color: isSelected
+                  ? const Color(0xFF4F46E5)
+                  : const Color(0xFF64748B),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdaptiveGrid({
+    required bool isDesktop,
+    required bool isTablet,
+    required double horizontalPadding,
+    required List<PotensiKandidatItem> items,
+    required NumberFormat currencyFormat,
+  }) {
+    final crossAxisCount = isDesktop ? 3 : (isTablet ? 2 : 1);
+
+    if (crossAxisCount == 1) {
+      return ListView.separated(
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding,
+          6,
+          horizontalPadding,
+          24,
+        ),
+        itemCount: items.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 10),
+        itemBuilder: (context, index) =>
+            _buildCardItem(item: items[index], currencyFormat: currencyFormat),
+      );
+    }
+
+    return GridView.builder(
+      padding: EdgeInsets.fromLTRB(horizontalPadding, 6, horizontalPadding, 24),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        mainAxisExtent: 175,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) =>
+          _buildCardItem(item: items[index], currencyFormat: currencyFormat),
+    );
+  }
+
+  Widget _buildCardItem({
+    required PotensiKandidatItem item,
+    required NumberFormat currencyFormat,
+  }) {
+    final isSelected = _selectedItems.containsKey(item.itemKey);
+    final isPenawaran = item.tipeSumber == 'PENAWARAN';
+
+    return InkWell(
+      onTap: () {
+        setState(() {
+          if (isSelected) {
+            _selectedItems.remove(item.itemKey);
+          } else {
+            _selectedItems[item.itemKey] = item;
+          }
+        });
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF4F46E5)
+                : const Color.fromRGBO(15, 23, 42, 0.08),
+            width: isSelected ? 1.5 : 1.0,
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color.fromRGBO(15, 23, 42, 0.03),
+              blurRadius: 6,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              isSelected
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked_rounded,
+              size: 22,
+              color: isSelected
+                  ? const Color(0xFF4F46E5)
+                  : const Color(0xFFCBD5E1),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  if (item.isRealisasi)
-                    const AppBadge(
-                      label: 'REALISASI',
-                      variant: BadgeVariant.success,
-                    ),
-                  if (item.tipeSumber.isNotEmpty)
-                    AppBadge(
-                      label: item.tipeSumber,
-                      variant: item.tipeSumber == 'PENAWARAN'
-                          ? BadgeVariant.primary
-                          : BadgeVariant.neutral,
-                      customColor: item.tipeSumber == 'MAP'
-                          ? const Color(0xFF0284C7)
-                          : null,
-                    ),
-                  AppBadge(
-                    label: item.status,
-                    customColor: badgeColor,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2.5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isPenawaran
+                                  ? const Color(0xFFEEF2FF)
+                                  : const Color(0xFFECFEFF),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: isPenawaran
+                                    ? const Color(0xFFC7D2FE)
+                                    : const Color(0xFFA5F3FC),
+                              ),
+                            ),
+                            child: Text(
+                              item.tipeSumber,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                                color: isPenawaran
+                                    ? const Color(0xFF4F46E5)
+                                    : const Color(0xFF0891B2),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              item.penNomor ?? item.mspkNomor ?? '-',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF64748B),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Text(
+                            _formatDate(item.tanggal),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF94A3B8),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        item.customerNama ?? '-',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF0F172A),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        item.namaItem,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: Color(0xFF475569),
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (item.salesNama != null && item.salesNama!.isNotEmpty)
+                        Text(
+                          'Sales: ${item.salesNama}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        )
+                      else
+                        const SizedBox.shrink(),
+                      Text(
+                        currencyFormat.format(item.harga),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF4F46E5),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            item.customerNama,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: AppColors.ink,
-            ),
-          ),
-          if (item.namaItem.isNotEmpty) ...[
-            const SizedBox(height: 2),
-            Text(
-              item.namaItem,
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.ink,
-                fontWeight: FontWeight.w600,
-              ),
             ),
           ],
-          if (item.nomorSumber != null && item.nomorSumber!.isNotEmpty) ...[
-            const SizedBox(height: 2),
-            Text(
-              'Doc: ${item.nomorSumber}',
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppColors.muted,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-          if (item.status == 'BATAL' && (item.alasanBatal ?? '').isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.danger.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: AppColors.danger.withValues(alpha: 0.2)),
-              ),
-              child: Text(
-                'Alasan Batal: ${item.alasanBatal}',
-                style: const TextStyle(
-                  fontSize: 11.5,
-                  color: AppColors.danger,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-          const Divider(height: 18, color: AppColors.border),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Sales: ${item.salesNama}',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.muted,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              Text(
-                currencyFormat.format(item.harga),
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.ink,
-                ),
-              ),
-            ],
-          ),
-          if (onBatal != null) ...[
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: onBatal,
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.danger,
-                  visualDensity: VisualDensity.compact,
-                ),
-                icon: const Icon(Icons.cancel_outlined, size: 16),
-                label: const Text(
-                  'Batalkan',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                ),
-              ),
-            ),
-          ],
-        ],
+        ),
       ),
     );
+  }
+}
+
+extension IterableExtension<T> on Iterable<T> {
+  Iterable<T> filter(bool Function(T element) test) sync* {
+    for (var element in this) {
+      if (test(element)) yield element;
+    }
   }
 }

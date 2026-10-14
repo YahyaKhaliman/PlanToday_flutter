@@ -8,6 +8,31 @@ import '../../core/utils/responsive_helper.dart';
 import '../../repositories/penawaran_repository.dart';
 import '../../widgets/ui/app_card.dart';
 
+const _kShortMonths = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+  'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+];
+
+String _formatItemDate(String ymd) {
+  if (ymd.isEmpty) return '-';
+  try {
+    final parts = ymd.split('-');
+    if (parts.length == 3) {
+      final y = int.tryParse(parts[0]);
+      final m = int.tryParse(parts[1]);
+      final d = int.tryParse(parts[2]);
+      if (y != null && m != null && d != null && m >= 1 && m <= 12) {
+        return '$d ${_kShortMonths[m - 1]} $y';
+      }
+    }
+    final dt = DateTime.tryParse(ymd);
+    if (dt != null) {
+      return '${dt.day} ${_kShortMonths[dt.month - 1]} ${dt.year}';
+    }
+  } catch (_) {}
+  return ymd;
+}
+
 class CariNomorPenawaranScreen extends ConsumerStatefulWidget {
   final String? initialKeyword;
 
@@ -270,11 +295,11 @@ class _CariNomorPenawaranScreenState
                                         ),
                                         if (tgl.isNotEmpty)
                                           Text(
-                                            tgl,
+                                            _formatItemDate(tgl),
                                             style: const TextStyle(
                                               fontSize: 12,
                                               color: Color(0xFF64748B),
-                                              fontWeight: FontWeight.w500,
+                                              fontWeight: FontWeight.w600,
                                             ),
                                           ),
                                       ],

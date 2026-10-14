@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../core/utils/app_toast.dart';
-import '../../core/utils/responsive_helper.dart';
 import '../../models/customer_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/penawaran_repository.dart';
@@ -19,6 +18,10 @@ class DraftDetailItem {
   final TextEditingController lebarController;
   final TextEditingController qtyController;
   final TextEditingController hargaController;
+
+  String noPermintaan = '';
+  String nomorKalkulasi = '';
+  bool isIncludePpn = false;
 
   DraftDetailItem()
       : namaBarangController = TextEditingController(),
@@ -65,27 +68,53 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
   String _selectedPerusahaanKode = 'KP';
 
   CustomerModel? _selectedCustomer;
+  bool _isCustomerLockedByPermintaan = false;
+
   String _selectedSalesKode = '';
   String _selectedSalesNama = '';
 
+  final _upController = TextEditingController();
+  final _ttdController = TextEditingController();
+  final _ttdJabatanController = TextEditingController();
   final _keteranganController = TextEditingController();
   final _noteController = TextEditingController();
+  final _berlakuHariController = TextEditingController();
+
+  int _statusHarga = 0; // 0 = Exclude PPN, 1 = Include PPN
 
   final List<DraftDetailItem> _items = [];
   bool _isLoading = false;
 
-  final List<Map<String, String>> _divisiOptions = [
+  static const _kPerusahaanTtdMap = {
+    'KP': {
+      'nama': 'CV. KENCANA PRINT',
+      'ttd': 'Tri Yuliani, S.I.Kom',
+      'jabatan': 'Supervisor Office Marketing',
+    },
+    'JA': {
+      'nama': 'PT. JAYA ABADI MULIA',
+      'ttd': 'Widi Hariyanto',
+      'jabatan': 'Manager Marketing',
+    },
+    'MD': {
+      'nama': 'PT. MADANI PRODUCTION',
+      'ttd': 'Ariyani Trikusumastuti, S.E.',
+      'jabatan': 'Chief Marketing Officer',
+    },
+  };
+
+  final List<Map<String, String>> _divisiOptions = const [
     {'kode': '1', 'label': '1 - SPANDUK'},
     {'kode': '4', 'label': '4 - GARMEN'},
     {'kode': '5', 'label': '5 - MMT'},
   ];
 
-  final List<String> _tipeOptions = ['Medium', 'Premium'];
+  final List<String> _tipeOptions = const ['Medium', 'Premium'];
 
-  final List<Map<String, String>> _perusahaanOptions = [
-    {'kode': 'KP', 'label': 'KENCANA PRINT'},
-    {'kode': 'JA', 'label': 'JAYA ABADI MULIA'},
-    {'kode': 'MD', 'label': 'MADANI PRODUCTION'},
+  final List<Map<String, String>> _perusahaanOptions = const [
+    {'kode': 'KP', 'label': 'CV. KENCANA PRINT'},
+    {'kode': 'JA', 'label': 'PT. JAYA ABADI MULIA'},
+    {'kode': 'MD', 'label': 'PT. MADANI PRODUCTION'},
   ];
 
   @override
@@ -94,13 +123,27 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
     final user = ref.read(authProvider).user;
     _selectedSalesKode = user?.salesKode ?? user?.kode ?? '';
     _selectedSalesNama = user?.nama ?? '';
+
+    _applyPerusahaanTtd('KP');
     _addItemRow();
+  }
+
+  void _applyPerusahaanTtd(String pKode) {
+    final mapping = _kPerusahaanTtdMap[pKode];
+    if (mapping != null) {
+      _ttdController.text = mapping['ttd'] ?? '';
+      _ttdJabatanController.text = mapping['jabatan'] ?? '';
+    }
   }
 
   @override
   void dispose() {
+    _upController.dispose();
+    _ttdController.dispose();
+    _ttdJabatanController.dispose();
     _keteranganController.dispose();
     _noteController.dispose();
+    _berlakuHariController.dispose();
     for (final it in _items) {
       it.dispose();
     }
@@ -124,11 +167,305 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
     });
   }
 
+  void _updateBerlakuHari(String hariInput) {
+    final cleanDigits = hariInput.replaceAll(RegExp(r'[^0-9]'), '');
+    _berlakuHariController.value = TextEditingValue(
+      text: cleanDigits,
+      selection: TextSelection.collapsed(offset: cleanDigits.length),
+    );
+
+    final regex = RegExp(r'surat penawaran berlaku\s+\d*\s*hari', caseSensitive: false);
+    final curNote = _noteController.text;
+
+    if (cleanDigits.isEmpty) {
+      _noteController.text = curNote.replaceAll(regex, '').trim();
+    } else {
+      final newSentence = 'Surat penawaran berlaku $cleanDigits hari';
+      if (regex.hasMatch(curNote)) {
+        _noteController.text = curNote.replaceAll(regex, newSentence);
+      } else if (curNote.trim().isEmpty) {
+        _noteController.text = newSentence;
+      } else {
+        _noteController.text = '$newSentence\n${curNote.trim()}';
+      }
+    }
+  }
+
+  void _handleNoteChange(String text) {
+    final match = RegExp(r'surat penawaran berlaku\s+(\d+)\s+hari', caseSensitive: false).firstMatch(text);
+    final parsedHari = match != null ? match.group(1) ?? '' : '';
+    if (parsedHari != _berlakuHariController.text) {
+      _berlakuHariController.text = parsedHari;
+    }
+  }
+
   Future<void> _selectCustomer() async {
+    if (_isCustomerLockedByPermintaan) {
+      AppToast.warning(
+        context,
+        'Customer terkunci karena rincian diambil dari No. Permintaan. Gunakan tombol Reset Detail jika ingin mengganti customer.',
+      );
+      return;
+    }
     final selected = await showCustomerPickerModal(context);
     if (selected != null && mounted) {
       setState(() => _selectedCustomer = selected);
     }
+  }
+
+  void _resetDetailAndUnlockCustomer() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reset Detail Barang?'),
+        content: const Text(
+          'Semua rincian barang akan dikosongkan dan kunci Customer akan dibuka kembali.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              setState(() {
+                for (final it in _items) {
+                  it.dispose();
+                }
+                _items.clear();
+                _addItemRow();
+                _isCustomerLockedByPermintaan = false;
+                _selectedCustomer = null;
+              });
+              AppToast.success(context, 'Detail barang berhasil direset');
+            },
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showPermintaanHargaPicker(int rowIndex) async {
+    final targetSalesKode = _selectedSalesKode.trim();
+    if (targetSalesKode.isEmpty) {
+      AppToast.warning(context, 'Sales belum dipilih');
+      return;
+    }
+
+    final repo = ref.read(penawaranRepositoryProvider);
+    String searchKeyword = '';
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return SafeArea(
+            child: Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.8,
+              ),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: Column(
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFCBD5E1),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    ),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Pilih No. Permintaan (DONE)',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 20),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.search_rounded, size: 18, color: Color(0xFF64748B)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            onChanged: (val) {
+                              setModalState(() => searchKeyword = val);
+                            },
+                            decoration: const InputDecoration(
+                              hintText: 'Cari nomor, item, customer...',
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: FutureBuilder<Map<String, dynamic>>(
+                      future: repo.getMasterPermintaanHargaForPenawaran(
+                        salesKode: targetSalesKode,
+                        customerKode: _selectedCustomer?.kode,
+                        search: searchKeyword,
+                        limit: 30,
+                      ),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(color: Color(0xFF4F46E5)),
+                          );
+                        }
+                        final options = snapshot.data?['options'] as List<Map<String, dynamic>>? ?? [];
+                        if (options.isEmpty) {
+                          return const Center(
+                            child: Text(
+                              'Tidak ada permintaan harga DONE yang belum terpakai.',
+                              style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+                              textAlign: TextAlign.center,
+                            ),
+                          );
+                        }
+
+                        return ListView.separated(
+                          itemCount: options.length,
+                          separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                          itemBuilder: (context, idx) {
+                            final item = options[idx];
+                            final nomor = item['nomor']?.toString() ?? '-';
+                            final customer = item['customer']?.toString() ?? '-';
+                            final customerKode = item['customer_kode']?.toString() ?? '';
+                            final namaBarang = item['nama_barang']?.toString() ?? '-';
+                            final bahan = item['bahan']?.toString() ?? '';
+                            final ukuran = item['ukuran']?.toString() ?? '';
+                            final panjang = item['panjang']?.toString() ?? '0';
+                            final lebar = item['lebar']?.toString() ?? '0';
+                            final qty = item['qty']?.toString() ?? '1';
+                            final hrgRef = double.tryParse(item['harga_referensi']?.toString() ?? '0') ?? 0.0;
+                            final isIncPpn = item['is_include_ppn'] == 1 || item['is_include_ppn'] == true;
+
+                            return ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              title: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    nomor,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 13,
+                                      color: Color(0xFF4F46E5),
+                                    ),
+                                  ),
+                                  Text(
+                                    NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(hrgRef),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 12.5,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    customer,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 12,
+                                      color: Color(0xFF334155),
+                                    ),
+                                  ),
+                                  Text(
+                                    '$namaBarang ${bahan.isNotEmpty ? '• $bahan' : ''}',
+                                    style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                                  ),
+                                ],
+                              ),
+                              onTap: () {
+                                Navigator.pop(ctx);
+                                final target = _items[rowIndex];
+                                setState(() {
+                                  target.noPermintaan = nomor;
+                                  target.namaBarangController.text = namaBarang;
+                                  target.bahanController.text = bahan;
+                                  target.ukuranController.text = ukuran;
+                                  target.panjangController.text = panjang;
+                                  target.lebarController.text = lebar;
+                                  target.qtyController.text = qty;
+                                  target.hargaController.text = hrgRef.toInt().toString();
+                                  target.nomorKalkulasi = item['nomor_kalkulasi']?.toString() ?? '';
+                                  target.isIncludePpn = isIncPpn;
+
+                                  // Otomatis sinkronkan PPN dan Kunci Customer
+                                  _statusHarga = isIncPpn ? 1 : 0;
+                                  if (_selectedCustomer == null || _selectedCustomer!.kode != customerKode) {
+                                    _selectedCustomer = CustomerModel(
+                                      kode: customerKode,
+                                      nama: customer,
+                                      alamat: '',
+                                      kota: '',
+                                    );
+                                  }
+                                  _isCustomerLockedByPermintaan = true;
+
+                                  final pickedDivisi = item['divisi']?.toString() ?? '';
+                                  if (pickedDivisi.isNotEmpty &&
+                                      _divisiOptions.any((opt) => opt['kode'] == pickedDivisi)) {
+                                    _selectedDivisi = pickedDivisi;
+                                  }
+                                });
+                                AppToast.success(context, 'Rincian no. $nomor berhasil dimuat');
+                              },
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _submit() async {
@@ -141,10 +478,12 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
 
     for (int i = 0; i < _items.length; i++) {
       if (_items[i].namaBarangController.text.trim().isEmpty) {
-        AppToast.error(
-          context,
-          'Nama barang pada baris ke-${i + 1} wajib diisi',
-        );
+        AppToast.error(context, 'Nama barang pada baris ke-${i + 1} wajib diisi');
+        return;
+      }
+      final qty = double.tryParse(_items[i].qtyController.text) ?? 0;
+      if (qty <= 0) {
+        AppToast.error(context, 'Qty pada baris ke-${i + 1} harus lebih dari 0');
         return;
       }
     }
@@ -157,21 +496,20 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
 
     final detailsPayload = _items.map((it) {
       final q = double.tryParse(it.qtyController.text) ?? 1.0;
-      final h = double.tryParse(
-              it.hargaController.text.replaceAll(RegExp(r'[^0-9]'), '')) ??
-          0.0;
+      final h = double.tryParse(it.hargaController.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0.0;
       final p = double.tryParse(it.panjangController.text) ?? 0.0;
       final l = double.tryParse(it.lebarController.text) ?? 0.0;
 
       return {
-        'nama_barang': it.namaBarangController.text.trim(),
-        'bahan': it.bahanController.text.trim(),
+        'nama_barang': it.namaBarangController.text.trim().toUpperCase(),
+        'bahan': it.bahanController.text.trim().toUpperCase(),
         'ukuran': it.ukuranController.text.trim(),
         'panjang': p,
         'lebar': l,
-        'satuan': 'pcs',
+        'satuan': 'PCS',
         'qty': q,
         'harga': h,
+        'minta': it.noPermintaan.trim(),
       };
     }).toList();
 
@@ -185,663 +523,511 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
       'sales_kode': _selectedSalesKode.isNotEmpty
           ? _selectedSalesKode
           : (user?.salesKode ?? user?.kode ?? ''),
-      'sales': _selectedSalesNama.isNotEmpty
-          ? _selectedSalesNama
-          : (user?.nama ?? ''),
+      'sales': _selectedSalesNama.isNotEmpty ? _selectedSalesNama : (user?.nama ?? ''),
+      'up': _upController.text.trim(),
+      'ttd': _ttdController.text.trim(),
+      'ttd_jabatan': _ttdJabatanController.text.trim(),
       'keterangan': _keteranganController.text.trim(),
       'note': _noteController.text.trim(),
+      'status_harga': _statusHarga,
       'details': detailsPayload,
     };
 
-    final success = await repo.createPenawaran(payload);
+    final resultNomor = await repo.createPenawaran(payload);
 
     if (mounted) {
       setState(() => _isLoading = false);
 
-      if (success) {
-        AppToast.success(context, 'Surat penawaran harga berhasil dibuat');
-        context.pop(true);
+      if (resultNomor != null) {
+        AppToast.success(context, 'Surat penawaran $resultNomor berhasil dibuat');
+        context.pushReplacement('/penawaran/$resultNomor');
       } else {
-        AppToast.error(
-          context,
-          'Gagal membuat penawaran. Periksa koneksi ke server.',
-        );
+        AppToast.error(context, 'Gagal membuat surat penawaran harga');
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormat =
-        NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-    final dmyFormat = DateFormat('dd MMMM yyyy');
+    final currencyFormat = NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: 'Rp ',
+      decimalDigits: 0,
+    );
 
-    final grandTotal = _items.fold<double>(0.0, (acc, it) => acc + it.total);
+    final grandTotal = _items.fold<double>(0.0, (acc, curr) => acc + curr.total);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FF),
-      body: SafeArea(
-        child: ResponsiveContainer(
-          maxWidth: 800,
-          child: Column(
+      appBar: AppBar(
+        title: const Text('Buat Surat Penawaran'),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          if (_isCustomerLockedByPermintaan)
+            TextButton.icon(
+              onPressed: _resetDetailAndUnlockCustomer,
+              icon: const Icon(Icons.refresh_rounded, size: 16, color: Color(0xFFDC2626)),
+              label: const Text(
+                'Reset Detail',
+                style: TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.w700),
+              ),
+            ),
+        ],
+      ),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: Color.fromRGBO(15, 23, 42, 0.08))),
+        ),
+        child: SafeArea(
+          child: Row(
             children: [
-              // 1. TOP HEADER ALA UI-STYLING
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Row(
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => context.pop(),
-                      child: Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: const Color.fromRGBO(15, 23, 42, 0.08),
-                          ),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color.fromRGBO(15, 23, 42, 0.03),
-                              blurRadius: 6,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.chevron_left_rounded,
-                          size: 26,
-                          color: Color(0xFF4F46E5),
-                        ),
+                    const Text(
+                      'TOTAL PENAWARAN',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF64748B),
+                        letterSpacing: 0.5,
                       ),
                     ),
-                    Expanded(
-                      child: Column(
-                        children: const [
-                          Text(
-                            'Buat Penawaran Harga',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF0F172A),
-                              letterSpacing: -0.3,
-                            ),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Form penerbitan surat penawaran baru',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF64748B),
-                            ),
-                          ),
-                        ],
+                    Text(
+                      currencyFormat.format(grandTotal),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF0F172A),
+                        letterSpacing: -0.5,
                       ),
                     ),
-                    const SizedBox(width: 42),
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
-
-              // 2. FORM KONTEN
-              Expanded(
-                child: SingleChildScrollView(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  child: Form(
-                    key: _formKey,
+              const SizedBox(width: 14),
+              AppButton(
+                text: 'Simpan Penawaran',
+                onPressed: _submit,
+                isLoading: _isLoading,
+                icon: Icons.check_circle_outline,
+              ),
+            ],
+          ),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 840),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // CARD INFORMASI UTAMA
+                  AppCard(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // INFORMASI UTAMA DOKUMEN
-                        AppCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              const Text(
-                                'Informasi Dokumen Penawaran',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFF0F172A),
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-
-                              // Tanggal Penawaran
-                              const Text(
-                                'Tanggal Penawaran *',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
-                                  color: Color(0xFF0F172A),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              InkWell(
-                                onTap: () async {
-                                  final picked = await showDatePicker(
-                                    context: context,
-                                    initialDate: _selectedDate,
-                                    firstDate: DateTime(2020),
-                                    lastDate: DateTime(2030),
-                                  );
-                                  if (picked != null) {
-                                    setState(() => _selectedDate = picked);
-                                  }
-                                },
-                                borderRadius: BorderRadius.circular(12),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF1F5F9),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color:
-                                          const Color.fromRGBO(15, 23, 42, 0.06),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        dmyFormat.format(_selectedDate),
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 13,
-                                          color: Color(0xFF0F172A),
-                                        ),
-                                      ),
-                                      const Icon(
-                                        Icons.calendar_today_rounded,
-                                        size: 16,
-                                        color: Color(0xFF4F46E5),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-
-                              // Customer Selector
-                              const Text(
-                                'Customer *',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
-                                  color: Color(0xFF0F172A),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              InkWell(
-                                onTap: _selectCustomer,
-                                borderRadius: BorderRadius.circular(12),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF1F5F9),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color:
-                                          const Color.fromRGBO(15, 23, 42, 0.06),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          _selectedCustomer?.nama ??
-                                              'Pilih customer tujuan penawaran...',
-                                          style: TextStyle(
-                                            color: _selectedCustomer != null
-                                                ? const Color(0xFF0F172A)
-                                                : const Color(0xFF64748B),
-                                            fontWeight: _selectedCustomer != null
-                                                ? FontWeight.w700
-                                                : FontWeight.w500,
-                                            fontSize: 13,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      const Icon(
-                                        Icons.arrow_drop_down_rounded,
-                                        color: Color(0xFF64748B),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-
-                              // Sales Selector
-                              const Text(
-                                'Sales *',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
-                                  color: Color(0xFF0F172A),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              InkWell(
-                                onTap: (ref.watch(authProvider).user?.jabatan.toUpperCase() == 'MANAGER')
-                                    ? () async {
-                                        final picked = await context.push<Map<String, String>>(
-                                          '/penawaran/cari-sales',
-                                          extra: _selectedSalesNama,
-                                        );
-                                        if (picked != null && mounted) {
-                                          setState(() {
-                                            _selectedSalesKode = picked['kode'] ?? '';
-                                            _selectedSalesNama = picked['nama'] ?? '';
-                                          });
-                                        }
-                                      }
-                                    : null,
-                                borderRadius: BorderRadius.circular(12),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF1F5F9),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: const Color.fromRGBO(15, 23, 42, 0.06),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        _selectedSalesNama.isNotEmpty
-                                            ? _selectedSalesNama
-                                            : 'Pilih Sales Penawaran...',
-                                        style: TextStyle(
-                                          color: _selectedSalesNama.isNotEmpty
-                                              ? const Color(0xFF0F172A)
-                                              : const Color(0xFF64748B),
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                      if (ref.watch(authProvider).user?.jabatan.toUpperCase() == 'MANAGER')
-                                        const Icon(
-                                          Icons.arrow_drop_down_rounded,
-                                          color: Color(0xFF64748B),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-
-                              // Baris Pilihan Divisi & Tipe
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Divisi *',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 13,
-                                            color: Color(0xFF0F172A),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        DropdownButtonFormField<String>(
-                                          initialValue: _selectedDivisi,
-                                          decoration: InputDecoration(
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                              horizontal: 14,
-                                              vertical: 10,
-                                            ),
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                          ),
-                                          items: _divisiOptions.map((d) {
-                                            return DropdownMenuItem(
-                                              value: d['kode'],
-                                              child: Text(
-                                                d['label']!,
-                                                style: const TextStyle(
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w700,
-                                                ),
-                                              ),
-                                            );
-                                          }).toList(),
-                                          onChanged: (val) {
-                                            if (val != null) {
-                                              setState(
-                                                  () => _selectedDivisi = val);
-                                            }
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Tipe *',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 13,
-                                            color: Color(0xFF0F172A),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        DropdownButtonFormField<String>(
-                                          initialValue: _selectedTipe,
-                                          decoration: InputDecoration(
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                              horizontal: 14,
-                                              vertical: 10,
-                                            ),
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                          ),
-                                          items: _tipeOptions.map((t) {
-                                            return DropdownMenuItem(
-                                              value: t,
-                                              child: Text(
-                                                t,
-                                                style: const TextStyle(
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w700,
-                                                ),
-                                              ),
-                                            );
-                                          }).toList(),
-                                          onChanged: (val) {
-                                            if (val != null) {
-                                              setState(() => _selectedTipe = val);
-                                            }
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 14),
-
-                              // Perusahaan Dropdown (Kop Surat)
-                              const Text(
-                                'Kop Surat Perusahaan *',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
-                                  color: Color(0xFF0F172A),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              DropdownButtonFormField<String>(
-                                initialValue: _selectedPerusahaanKode,
-                                decoration: InputDecoration(
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 10,
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                items: _perusahaanOptions.map((p) {
-                                  return DropdownMenuItem(
-                                    value: p['kode'],
-                                    child: Text(
-                                      p['label']!,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  );
-                                }).toList(),
-                                onChanged: (val) {
-                                  if (val != null) {
-                                    setState(
-                                        () => _selectedPerusahaanKode = val);
-                                  }
-                                },
-                              ),
-                              const SizedBox(height: 14),
-
-                              TextFormField(
-                                controller: _keteranganController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Keterangan Penawaran',
-                                  prefixIcon: Icon(Icons.notes_rounded, size: 20),
-                                ),
-                              ),
-                            ],
+                        const Text(
+                          'INFORMASI DOKUMEN',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8,
+                            color: Color(0xFF4F46E5),
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 14),
 
-                        // RINCIAN BARANG PENAWARAN (DYNAMIC MULTI-ROW)
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Rincian Barang (${_items.length} Item)',
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFF0F172A),
+                        // Tanggal Dokumen Penawaran
+                        InkWell(
+                          onTap: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: _selectedDate,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime(2030),
+                            );
+                            if (picked != null) {
+                              setState(() => _selectedDate = picked);
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(10),
+                          child: InputDecorator(
+                            decoration: const InputDecoration(
+                              labelText: 'Tanggal Penawaran *',
+                              suffixIcon: Icon(
+                                Icons.calendar_today_rounded,
+                                size: 18,
+                                color: Color(0xFF4F46E5),
                               ),
                             ),
-                            TextButton.icon(
-                              onPressed: _addItemRow,
-                              icon: const Icon(Icons.add, size: 16),
-                              label: const Text(
-                                'Tambah Baris',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF4F46E5),
+                            child: Text(
+                              DateFormat('dd MMMM yyyy', 'id_ID').format(_selectedDate),
+                              style: const TextStyle(
+                                color: Color(0xFF0F172A),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Perusahaan Penerbit Dokumen
+                        DropdownButtonFormField<String>(
+                          initialValue: _selectedPerusahaanKode,
+                          decoration: const InputDecoration(labelText: 'Perusahaan *'),
+                          items: _perusahaanOptions
+                              .map((p) => DropdownMenuItem(value: p['kode'], child: Text(p['label']!)))
+                              .toList(),
+                          onChanged: (v) {
+                            if (v != null) {
+                              setState(() {
+                                _selectedPerusahaanKode = v;
+                                _applyPerusahaanTtd(v);
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Divisi & Tipe
+                        Row(
+                          children: [
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                initialValue: _selectedDivisi,
+                                decoration: const InputDecoration(labelText: 'Divisi *'),
+                                items: _divisiOptions
+                                    .map((d) => DropdownMenuItem(value: d['kode'], child: Text(d['label']!)))
+                                    .toList(),
+                                onChanged: (v) {
+                                  if (v != null) setState(() => _selectedDivisi = v);
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                initialValue: _selectedTipe,
+                                decoration: const InputDecoration(labelText: 'Tipe *'),
+                                items: _tipeOptions
+                                    .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                                    .toList(),
+                                onChanged: (v) {
+                                  if (v != null) setState(() => _selectedTipe = v);
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Customer Picker
+                        InkWell(
+                          onTap: _selectCustomer,
+                          borderRadius: BorderRadius.circular(10),
+                          child: InputDecorator(
+                            decoration: InputDecoration(
+                              labelText: 'Customer *',
+                              suffixIcon: Icon(
+                                _isCustomerLockedByPermintaan ? Icons.lock_outline_rounded : Icons.search,
+                                size: 18,
+                                color: _isCustomerLockedByPermintaan
+                                    ? const Color(0xFFF59E0B)
+                                    : const Color(0xFF4F46E5),
+                              ),
+                            ),
+                            child: Text(
+                              _selectedCustomer?.nama ?? 'Pilih Customer...',
+                              style: TextStyle(
+                                color: _selectedCustomer != null
+                                    ? const Color(0xFF0F172A)
+                                    : const Color(0xFF94A3B8),
+                                fontWeight: _selectedCustomer != null ? FontWeight.w700 : FontWeight.w400,
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (_isCustomerLockedByPermintaan)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 4, left: 4),
+                            child: Text(
+                              'Customer dikunci sesuai referensi No. Permintaan Harga',
+                              style: TextStyle(fontSize: 10.5, color: Color(0xFFD97706), fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        const SizedBox(height: 12),
+
+                        // UP & TTD
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _upController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Up. (Nama PIC)',
+                                  hintText: 'Contoh: Bpk. Andi',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _ttdController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Tanda Tangan *',
+                                  hintText: 'Nama Penandatangan',
                                 ),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 12),
 
-                        ..._items.asMap().entries.map((entry) {
-                          final index = entry.key;
-                          final item = entry.value;
-
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            child: AppCard(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'Item #${index + 1}',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w900,
-                                          fontSize: 14,
-                                          color: Color(0xFF4F46E5),
-                                        ),
-                                      ),
-                                      if (_items.length > 1)
-                                        IconButton(
-                                          icon: const Icon(
-                                            Icons.delete_outline_rounded,
-                                            size: 20,
-                                            color: Color(0xFFEF4444),
-                                          ),
-                                          tooltip: 'Hapus Baris',
-                                          onPressed: () => _removeItemRow(index),
-                                        ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-
-                                  TextFormField(
-                                    controller: item.namaBarangController,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Nama Barang / Model *',
-                                      prefixIcon: Icon(Icons.checkroom_outlined, size: 20),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: TextFormField(
-                                          controller: item.bahanController,
-                                          decoration: const InputDecoration(
-                                            labelText: 'Bahan',
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: TextFormField(
-                                          controller: item.ukuranController,
-                                          decoration: const InputDecoration(
-                                            labelText: 'Ukuran',
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: TextFormField(
-                                          controller: item.qtyController,
-                                          keyboardType: TextInputType.number,
-                                          decoration: const InputDecoration(
-                                            labelText: 'Qty (pcs)',
-                                          ),
-                                          onChanged: (_) => setState(() {}),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        flex: 2,
-                                        child: TextFormField(
-                                          controller: item.hargaController,
-                                          keyboardType: TextInputType.number,
-                                          decoration: const InputDecoration(
-                                            labelText: 'Harga Satuan (Rp)',
-                                          ),
-                                          onChanged: (_) => setState(() {}),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const Divider(height: 20, color: Color(0xFFF1F5F9)),
-
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      const Text(
-                                        'Subtotal:',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Color(0xFF64748B),
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      Text(
-                                        currencyFormat.format(item.total),
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w900,
-                                          color: Color(0xFF0F172A),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }),
-
-                        // GRAND TOTAL FOOTER CARD
-                        AppCard(
+                        // Switch Status PPN (11%)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color.fromRGBO(15, 23, 42, 0.08)),
+                          ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
-                                'Total Penawaran:',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFF0F172A),
-                                ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Status PPN',
+                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                                  ),
+                                  Text(
+                                    _statusHarga == 1 ? 'Harga sudah termasuk PPN 11%' : 'Harga belum termasuk PPN',
+                                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                currencyFormat.format(grandTotal),
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFF4F46E5),
-                                  letterSpacing: -0.3,
-                                ),
+                              Switch(
+                                value: _statusHarga == 1,
+                                activeThumbColor: const Color(0xFF4F46E5),
+                                onChanged: (v) => setState(() => _statusHarga = v ? 1 : 0),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 12),
 
-                        AppButton(
-                          text: 'Simpan & Buat Penawaran',
-                          isLoading: _isLoading,
-                          onPressed: _submit,
+                        // Masa Berlaku Hari & Catatan
+                        Row(
+                          children: [
+                            SizedBox(
+                              width: 120,
+                              child: TextFormField(
+                                controller: _berlakuHariController,
+                                keyboardType: TextInputType.number,
+                                onChanged: _updateBerlakuHari,
+                                decoration: const InputDecoration(
+                                  labelText: 'Berlaku (Hari)',
+                                  hintText: '14',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _keteranganController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Keterangan Tambahan',
+                                  hintText: 'Opsional...',
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 12),
+
+                        // Note Field
+                        TextFormField(
+                          controller: _noteController,
+                          maxLines: 2,
+                          onChanged: _handleNoteChange,
+                          decoration: const InputDecoration(
+                            labelText: 'Catatan Dokumen (Note)',
+                            hintText: 'Catatan di bagian bawah dokumen penawaran...',
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                ),
+                  const SizedBox(height: 16),
+
+                  // RINCIAN BARANG
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'RINCIAN BARANG',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.8,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: _addItemRow,
+                        icon: const Icon(Icons.add, size: 16, color: Color(0xFF4F46E5)),
+                        label: const Text(
+                          'Tambah Baris',
+                          style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF4F46E5)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  ..._items.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final it = entry.value;
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: AppCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Barang #${idx + 1}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 13.5,
+                                    color: Color(0xFF0F172A),
+                                  ),
+                                ),
+                                Row(
+                                  children: [
+                                    // Tombol Ambil dari No Permintaan Harga
+                                    GestureDetector(
+                                      onTap: () => _showPermintaanHargaPicker(idx),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: it.noPermintaan.isNotEmpty
+                                              ? const Color(0xFFECFDF5)
+                                              : const Color(0xFFEEF2FF),
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(
+                                            color: it.noPermintaan.isNotEmpty
+                                                ? const Color(0xFFA7F3D0)
+                                                : const Color(0xFFC7D2FE),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.link_rounded,
+                                              size: 14,
+                                              color: it.noPermintaan.isNotEmpty
+                                                  ? const Color(0xFF059669)
+                                                  : const Color(0xFF4F46E5),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              it.noPermintaan.isNotEmpty ? it.noPermintaan : 'Pilih No. Minta',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w800,
+                                                color: it.noPermintaan.isNotEmpty
+                                                    ? const Color(0xFF059669)
+                                                    : const Color(0xFF4F46E5),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline, size: 18, color: Color(0xFFEF4444)),
+                                      onPressed: () => _removeItemRow(idx),
+                                      tooltip: 'Hapus Item',
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            const Divider(height: 16),
+
+                            // Nama Barang
+                            TextFormField(
+                              controller: it.namaBarangController,
+                              decoration: const InputDecoration(labelText: 'Nama Barang *'),
+                            ),
+                            const SizedBox(height: 8),
+
+                            // Bahan & Ukuran
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: it.bahanController,
+                                    decoration: const InputDecoration(labelText: 'Bahan'),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: it.ukuranController,
+                                    decoration: const InputDecoration(labelText: 'Ukuran'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+
+                            // Qty & Harga
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: it.qtyController,
+                                    keyboardType: TextInputType.number,
+                                    onChanged: (_) => setState(() {}),
+                                    decoration: const InputDecoration(labelText: 'Qty (Pcs) *'),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: it.hargaController,
+                                    keyboardType: TextInputType.number,
+                                    onChanged: (_) => setState(() {}),
+                                    decoration: const InputDecoration(labelText: 'Harga Satuan (Rp) *'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),

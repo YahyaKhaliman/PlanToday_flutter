@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/theme/app_colors.dart';
-import '../../core/utils/responsive_helper.dart';
 import '../../models/kurir_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/kurir_repository.dart';
@@ -22,19 +20,8 @@ class _KurirMenuScreenState extends ConsumerState<KurirMenuScreen>
 
   List<KurirRencanaItem> _jadwalList = [];
   List<KurirRencanaItem> _rencanaList = [];
+  List<KurirRencanaItem> _selesaiList = [];
   bool _isLoading = false;
-
-  List<KurirRencanaItem> get _selesaiList {
-    final combined = <int, KurirRencanaItem>{};
-    for (final it in [..._jadwalList, ..._rencanaList]) {
-      if (it.status.toUpperCase() == 'SELESAI' ||
-          it.realisasi?.toUpperCase() == 'Y' ||
-          it.status.toLowerCase() == 'delivered') {
-        combined[it.id] = it;
-      }
-    }
-    return combined.values.toList();
-  }
 
   @override
   void initState() {
@@ -59,17 +46,23 @@ class _KurirMenuScreenState extends ConsumerState<KurirMenuScreen>
     final endStr =
         '${now.year}-${(now.month + 1).toString().padLeft(2, '0')}-01';
 
-    final jadwal =
-        await repo.getJadwalKirim(startDate: startStr, endDate: endStr);
-    final rencana =
-        await repo.getRencanaKirim(startDate: startStr, endDate: endStr);
+    try {
+      final results = await Future.wait([
+        repo.getJadwalKirim(startDate: startStr, endDate: endStr),
+        repo.getRencanaKirim(startDate: startStr, endDate: endStr),
+        repo.getSelesaiKirim(startDate: startStr, endDate: endStr),
+      ]);
 
-    if (mounted) {
-      setState(() {
-        _jadwalList = jadwal;
-        _rencanaList = rencana;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _jadwalList = results[0];
+          _rencanaList = results[1];
+          _selesaiList = results[2];
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -79,146 +72,42 @@ class _KurirMenuScreenState extends ConsumerState<KurirMenuScreen>
 
     showDialog(
       context: context,
-      barrierDismissible: true,
-      barrierColor: Colors.black.withValues(alpha: 0.45),
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 340),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: const Color.fromRGBO(15, 23, 42, 0.08)),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color.fromRGBO(15, 23, 42, 0.12),
-                  blurRadius: 28,
-                  offset: Offset(0, 14),
-                ),
-              ],
-            ),
-            padding: const EdgeInsets.all(22),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // modalIndicator
-                Container(
-                  width: 44,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE5E7EB),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 18),
-
-                // modalTitle
-                const Text(
-                  'Konfirmasi',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF0F172A),
-                  ),
-                ),
-
-                // modalSubtitle
-                const Padding(
-                  padding: EdgeInsets.only(top: 10),
-                  child: Text(
-                    'Yakin ingin keluar?',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF64748B),
-                    ),
-                  ),
-                ),
-
-                // modalUserName
-                if (userName.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(
-                      userName,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF0F172A),
-                        letterSpacing: 0.6,
-                      ),
-                    ),
-                  ),
-
-                // modalActionRow
-                Padding(
-                  padding: const EdgeInsets.only(top: 18),
-                  child: Row(
-                    children: [
-                      // btnCancel
-                      Expanded(
-                        child: Material(
-                          color: const Color(0xFFEEF2F7),
-                          borderRadius: BorderRadius.circular(12),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: () => Navigator.pop(ctx),
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 12),
-                              child: Center(
-                                child: Text(
-                                  'Batal',
-                                  style: TextStyle(
-                                    color: Color(0xFF64748B),
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      // btnLogoutConfirm
-                      Expanded(
-                        child: Material(
-                          color: const Color(0xFFEF4444),
-                          borderRadius: BorderRadius.circular(12),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: () {
-                              Navigator.pop(ctx);
-                              ref.read(authProvider.notifier).logout();
-                            },
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 12),
-                              child: Center(
-                                child: Text(
-                                  'Keluar',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Konfirmasi Logout',
+          style:
+              TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
         ),
+        content: Text(
+          'Halo $userName, apakah Anda yakin ingin keluar dari aplikasi?',
+          style: const TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await ref.read(authProvider.notifier).logout();
+              if (mounted) {
+                context.go('/login');
+              }
+            },
+            child: const Text('Ya, Logout',
+                style: TextStyle(fontWeight: FontWeight.w800)),
+          ),
+        ],
       ),
     );
   }
@@ -226,448 +115,375 @@ class _KurirMenuScreenState extends ConsumerState<KurirMenuScreen>
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
-    final initials = (user?.nama ?? 'K')
-        .split(' ')
-        .take(2)
-        .map((e) => e.isNotEmpty ? e[0] : '')
-        .join('')
-        .toUpperCase();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FF),
       body: SafeArea(
-        child: ResponsiveContainer(
-          maxWidth: 1000,
-          child: Column(
-            children: [
-              // 1. HERO PROFILE CARD ALA REACT NATIVE
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                child: Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: const Color.fromRGBO(15, 23, 42, 0.08),
-                    ),
-                    boxShadow: AppShadows.softCard,
-                  ),
-                  child: Column(
-                    children: [
-                      // Header Row: Back Button + Brand Logo Centered
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () {
-                              if (context.canPop()) {
-                                context.pop();
-                              } else {
-                                context.go('/');
-                              }
-                            },
-                            child: Container(
-                              width: 38,
-                              height: 38,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isDesktop = constraints.maxWidth >= 900;
+            final isTablet =
+                constraints.maxWidth >= 600 && constraints.maxWidth < 900;
+            final horizontalPadding =
+                isDesktop ? 32.0 : (isTablet ? 24.0 : 16.0);
+            final maxContainerWidth =
+                isDesktop ? 1040.0 : (isTablet ? 760.0 : double.infinity);
+
+            return Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxContainerWidth),
+                child: Column(
+                  children: [
+                    // 1. TOP HEADER & PROFIL KURIR
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        horizontalPadding,
+                        12,
+                        horizontalPadding,
+                        0,
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: const Color.fromRGBO(15, 23, 42, 0.08),
+                          ),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color.fromRGBO(15, 23, 42, 0.03),
+                              blurRadius: 8,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
                               decoration: BoxDecoration(
-                                color: const Color(0xFFF8FAFC),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: const Color.fromRGBO(15, 23, 42, 0.06),
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFF4F46E5),
+                                    Color(0xFF00B4D8),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
                                 ),
+                                borderRadius: BorderRadius.circular(14),
                               ),
                               alignment: Alignment.center,
                               child: const Icon(
-                                Icons.chevron_left_rounded,
+                                Icons.local_shipping_rounded,
+                                color: Colors.white,
                                 size: 24,
-                                color: Color(0xFF4F46E5),
                               ),
                             ),
-                          ),
-                          ShaderMask(
-                            shaderCallback: (bounds) => const LinearGradient(
-                              colors: [Color(0xFF4F46E5), Color(0xFF00B4D8)],
-                              begin: Alignment.centerLeft,
-                              end: Alignment.centerRight,
-                            ).createShader(bounds),
-                            child: const Text(
-                              'PlanToday',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: -0.4,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                          // Tombol Reload Kanan
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: _fetchData,
-                            child: Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF8FAFC),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: const Color.fromRGBO(15, 23, 42, 0.06),
-                                ),
-                              ),
-                              alignment: Alignment.center,
-                              child: _isLoading
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Color(0xFF4F46E5),
-                                      ),
-                                    )
-                                  : const Icon(
-                                      Icons.refresh_rounded,
-                                      size: 18,
-                                      color: Color(0xFF4F46E5),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    (user?.nama ?? 'KURIR').toUpperCase(),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 15,
+                                      color: Color(0xFF0F172A),
                                     ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Profile Row
-                      Row(
-                        children: [
-                          Container(
-                            width: 50,
-                            height: 50,
-                            decoration: const BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Color(0xFF4F46E5), Color(0xFF00B4D8)],
-                              ),
-                              shape: BoxShape.circle,
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              initials.isEmpty ? 'K' : initials,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 18,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  (user?.nama ?? 'KURIR').toUpperCase(),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 16,
-                                    color: Color(0xFF0F172A),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${user?.cabang ?? 'Cabang'} • Divisi Logistik',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: _confirmLogout,
+                              icon: const Icon(Icons.logout_rounded,
+                                  color: Color(0xFFEF4444)),
+                              tooltip: 'Keluar',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // 2. SEGMENTED TAB BAR
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: horizontalPadding,
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE2E8F0).withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: TabBar(
+                          controller: _tabController,
+                          indicator: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color.fromRGBO(15, 23, 42, 0.06),
+                                blurRadius: 4,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          indicatorSize: TabBarIndicatorSize.tab,
+                          dividerColor: Colors.transparent,
+                          labelColor: const Color(0xFF4F46E5),
+                          unselectedLabelColor: const Color(0xFF64748B),
+                          labelStyle: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                          ),
+                          tabs: [
+                            Tab(text: 'Jadwal (${_jadwalList.length})'),
+                            Tab(text: 'Rencana (${_rencanaList.length})'),
+                            Tab(text: 'Selesai (${_selesaiList.length})'),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // 3. TAB VIEW (Adaptif Grid di Tablet/Desktop)
+                    Expanded(
+                      child: _isLoading
+                          ? const Center(
+                              child: CircularProgressIndicator(
+                                  color: Color(0xFF4F46E5)),
+                            )
+                          : TabBarView(
+                              controller: _tabController,
+                              children: [
+                                _buildAdaptiveList(
+                                  items: _jadwalList,
+                                  emptyMessage:
+                                      'Belum ada jadwal pengiriman saat ini.',
+                                  isDesktop: isDesktop,
+                                  isTablet: isTablet,
+                                  horizontalPadding: horizontalPadding,
                                 ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF4F46E5)
-                                            .withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: const Text(
-                                        'KURIR',
-                                        style: TextStyle(
-                                          fontSize: 10.5,
-                                          fontWeight: FontWeight.w900,
-                                          color: Color(0xFF4F46E5),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      '•  ${user?.cabang ?? "-"}',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: Color(0xFF64748B),
-                                      ),
-                                    ),
-                                  ],
+                                _buildAdaptiveList(
+                                  items: _rencanaList,
+                                  emptyMessage:
+                                      'Belum ada rencana pengiriman terjadwal.',
+                                  isDesktop: isDesktop,
+                                  isTablet: isTablet,
+                                  horizontalPadding: horizontalPadding,
+                                ),
+                                _buildAdaptiveList(
+                                  items: _selesaiList,
+                                  emptyMessage:
+                                      'Belum ada pengiriman yang diselesaikan.',
+                                  isDesktop: isDesktop,
+                                  isTablet: isTablet,
+                                  horizontalPadding: horizontalPadding,
                                 ),
                               ],
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Quick Actions: Ganti Password & Keluar
-                      Row(
-                        children: [
-                          Expanded(
-                            child: SizedBox(
-                              height: 40,
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [Color(0xFF4F46E5), Color(0xFF00B4D8)],
-                                  ),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    onTap: () => context.push('/ganti-password'),
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: const Center(
-                                      child: Text(
-                                        'Ganti Password',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 12.5,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          SizedBox(
-                            height: 40,
-                            child: OutlinedButton(
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(
-                                  color: Color.fromRGBO(239, 68, 68, 0.35),
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              onPressed: _confirmLogout,
-                              child: const Text(
-                                'Keluar',
-                                style: TextStyle(
-                                  color: Color(0xFFEF4444),
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 12.5,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-
-              // 2. TAB CONTROLLER ALA SHADCN PILL
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  padding: const EdgeInsets.all(4),
-                  child: TabBar(
-                    controller: _tabController,
-                    indicator: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color.fromRGBO(15, 23, 42, 0.06),
-                          blurRadius: 4,
-                          offset: Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    labelColor: const Color(0xFF4F46E5),
-                    unselectedLabelColor: const Color(0xFF64748B),
-                    labelStyle: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 12,
-                    ),
-                    tabs: [
-                      Tab(text: 'Jadwal (${_jadwalList.length})'),
-                      Tab(text: 'Rencana (${_rencanaList.length})'),
-                      Tab(text: 'Selesai (${_selesaiList.length})'),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-
-              // 3. TAB CONTENT LIST
-              Expanded(
-                child: _isLoading
-                    ? const Center(
-                        child: CircularProgressIndicator(color: Color(0xFF4F46E5)),
-                      )
-                    : TabBarView(
-                        controller: _tabController,
-                        children: [
-                          _buildList(
-                            _jadwalList,
-                            'Belum ada jadwal pengiriman.',
-                          ),
-                          _buildList(
-                            _rencanaList,
-                            'Belum ada rencana pengiriman.',
-                          ),
-                          _buildList(
-                            _selesaiList,
-                            'Belum ada pengiriman yang diselesaikan.',
-                          ),
-                        ],
-                      ),
-              ),
-            ],
-          ),
+            );
+          },
         ),
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         backgroundColor: const Color(0xFF4F46E5),
+        elevation: 4,
         onPressed: () async {
           final refresh = await context.push<bool>('/kurir/tambah');
           if (refresh == true) _fetchData();
         },
-        child: const Icon(Icons.add, color: Colors.white),
+        icon: const Icon(Icons.add_rounded, color: Colors.white),
+        label: const Text(
+          '+ Kiriman Baru',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w800,
+            fontSize: 13,
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildList(List<KurirRencanaItem> items, String emptyMessage) {
+  Widget _buildAdaptiveList({
+    required List<KurirRencanaItem> items,
+    required String emptyMessage,
+    required bool isDesktop,
+    required bool isTablet,
+    required double horizontalPadding,
+  }) {
     if (items.isEmpty) {
       return Center(
-        child: Text(
-          emptyMessage,
-          style: const TextStyle(
-            color: Color(0xFF64748B),
-            fontWeight: FontWeight.w600,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            emptyMessage,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
           ),
         ),
       );
     }
 
+    final crossAxisCount = (isDesktop || isTablet) ? 2 : 1;
+
     return RefreshIndicator(
       color: const Color(0xFF4F46E5),
       onRefresh: _fetchData,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        itemCount: items.length,
-        separatorBuilder: (ctx, i) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          final item = items[index];
-          final isDelivered = item.status == 'SELESAI' || item.realisasi == 'Y';
-
-          return AppCard(
-            onTap: () async {
-              if (!isDelivered) {
-                final refresh = await context.push<bool>(
-                  '/kurir/proses',
-                  extra: item,
-                );
-                if (refresh == true) _fetchData();
-              }
-            },
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      item.kodePengiriman,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF4F46E5),
-                        letterSpacing: -0.2,
-                      ),
-                    ),
-                    AppBadge(
-                      label: isDelivered ? 'Terkirim' : 'Menunggu',
-                      variant: isDelivered
-                          ? BadgeVariant.success
-                          : BadgeVariant.warning,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                if (item.receiver.isNotEmpty)
-                  Text(
-                    'Penerima: ${item.receiver}',
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                if (item.sender.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    'Pengirim: ${item.sender}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF64748B),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-                const Divider(height: 18, color: Color(0xFFF1F5F9)),
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.schedule_rounded,
-                      size: 14,
-                      color: Color(0xFF64748B),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${item.tanggalPlan} ${item.jamPlan}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF64748B),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-                if (item.note.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Catatan: ${item.note}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontStyle: FontStyle.italic,
-                      color: Color(0xFF475569),
-                    ),
-                  ),
-                ],
-              ],
+      child: crossAxisCount == 1
+          ? ListView.separated(
+              padding: EdgeInsets.fromLTRB(
+                  horizontalPadding, 6, horizontalPadding, 80),
+              itemCount: items.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 12),
+              itemBuilder: (context, index) =>
+                  _buildKurirCard(items[index]),
+            )
+          : GridView.builder(
+              padding: EdgeInsets.fromLTRB(
+                  horizontalPadding, 6, horizontalPadding, 80),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 14,
+                mainAxisSpacing: 14,
+                mainAxisExtent: 180,
+              ),
+              itemCount: items.length,
+              itemBuilder: (context, index) =>
+                  _buildKurirCard(items[index]),
             ),
+    );
+  }
+
+  Widget _buildKurirCard(KurirRencanaItem item) {
+    final isDelivered =
+        item.status.toUpperCase() == 'SELESAI' || item.realisasi == 'Y';
+
+    return AppCard(
+      onTap: () async {
+        if (!isDelivered) {
+          final refresh = await context.push<bool>(
+            '/kurir/proses',
+            extra: item,
           );
-        },
+          if (refresh == true) _fetchData();
+        }
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    item.kodePengiriman,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF4F46E5),
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                  AppBadge(
+                    label: isDelivered ? 'Terkirim' : 'Menunggu',
+                    variant: isDelivered
+                        ? BadgeVariant.success
+                        : BadgeVariant.warning,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (item.receiver.isNotEmpty)
+                Text(
+                  'Penerima: ${item.receiver}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF0F172A),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              if (item.sender.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  'Pengirim: ${item.sender}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF64748B),
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+              if (item.note.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  item.note,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontStyle: FontStyle.italic,
+                    color: Color(0xFF64748B),
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${item.tanggalPlan} ${item.jamPlan}',
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF94A3B8),
+                ),
+              ),
+              if (!isDelivered)
+                const Text(
+                  'Proses Kirim →',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF4F46E5),
+                  ),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }

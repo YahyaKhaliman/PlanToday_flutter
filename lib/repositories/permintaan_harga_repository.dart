@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/network/api_client.dart';
@@ -158,20 +159,85 @@ class PermintaanHargaRepository {
     }
   }
 
-  Future<String?> uploadImage(String nomor, File file) async {
+  Future<String?> uploadImage(
+    String nomor,
+    File? file, {
+    int slot = 1,
+    Uint8List? fileBytes,
+    String? fileName,
+  }) async {
     try {
-      final formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(
+      final encodedNomor = Uri.encodeComponent(nomor);
+      final MultipartFile multipartFile;
+      if (fileBytes != null) {
+        multipartFile = MultipartFile.fromBytes(
+          fileBytes,
+          filename: fileName ?? 'mh_${nomor}_$slot.jpg',
+        );
+      } else if (file != null) {
+        multipartFile = await MultipartFile.fromFile(
           file.path,
-          filename: file.path.split(Platform.pathSeparator).last,
-        ),
-      });
+          filename: file.path.split(RegExp(r'[/\\]')).last,
+        );
+      } else {
+        return null;
+      }
+
+      final formData = FormData.fromMap({'file': multipartFile});
       final response = await _api.dio.post(
-        '/permintaan-harga/$nomor/image',
+        '/permintaan-harga/$encodedNomor/gambar/$slot',
         data: formData,
       );
       return response.data?['data']?['url']?.toString() ??
           response.data?['data']?.toString();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<bool> deleteImage(String nomor, {int slot = 1}) async {
+    try {
+      final encodedNomor = Uri.encodeComponent(nomor);
+      final response = await _api.dio.delete(
+        '/permintaan-harga/$encodedNomor/gambar/$slot',
+      );
+      return response.data != null && response.data['success'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getPraOrderList(String keyword) async {
+    try {
+      final response = await _api.dio.get(
+        '/permintaan-harga/pra-order',
+        queryParameters: {
+          if (keyword.trim().isNotEmpty) 'q': keyword.trim(),
+          'limit': 30,
+        },
+      );
+      final data = response.data;
+      if (data != null && data['data'] is List) {
+        return (data['data'] as List)
+            .map((item) => item as Map<String, dynamic>)
+            .toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>?> getPraOrderDetail(String nomor) async {
+    try {
+      final encodedNomor = Uri.encodeComponent(nomor);
+      final response = await _api.dio.get(
+        '/permintaan-harga/pra-order/$encodedNomor',
+      );
+      if (response.data != null && response.data['data'] is Map) {
+        return response.data['data'] as Map<String, dynamic>;
+      }
+      return null;
     } catch (_) {
       return null;
     }
@@ -203,6 +269,127 @@ class PermintaanHargaRepository {
       return null;
     } catch (_) {
       return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> calculateSpanduk(
+      Map<String, dynamic> payload) async {
+    try {
+      final response = await _api.dio.post(
+        '/permintaan-harga/kalkulasi/spanduk/calculate',
+        data: payload,
+      );
+      if (response.data != null && response.data['data'] is Map) {
+        return response.data['data'] as Map<String, dynamic>;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> calculateMmt(
+      Map<String, dynamic> payload) async {
+    try {
+      final response = await _api.dio.post(
+        '/permintaan-harga/kalkulasi/mmt/calculate',
+        data: payload,
+      );
+      if (response.data != null && response.data['data'] is Map) {
+        return response.data['data'] as Map<String, dynamic>;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> calculateGarmen(
+      Map<String, dynamic> payload) async {
+    try {
+      final response = await _api.dio.post(
+        '/permintaan-harga/kalkulasi/garmen/calculate',
+        data: payload,
+      );
+      if (response.data != null && response.data['data'] is Map) {
+        return response.data['data'] as Map<String, dynamic>;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getJenisKainLookup(
+      [String kodeModel = 'KH-0001']) async {
+    try {
+      final response = await _api.dio.get(
+        '/lookups/jenis-kain-minta-harga',
+        queryParameters: {'kode': kodeModel},
+      );
+      final data = response.data;
+      if (data != null && data['data'] is List) {
+        return (data['data'] as List)
+            .map((item) => item as Map<String, dynamic>)
+            .toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getTambahanLookup(
+      [Map<String, dynamic>? params]) async {
+    try {
+      final response = await _api.dio.get(
+        '/lookups/tambahan',
+        queryParameters: params,
+      );
+      final data = response.data;
+      if (data != null && data['data'] is List) {
+        return (data['data'] as List)
+            .map((item) => item as Map<String, dynamic>)
+            .toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getCetakLookup(
+      [Map<String, dynamic>? params]) async {
+    try {
+      final response = await _api.dio.get(
+        '/lookups/cetak',
+        queryParameters: params,
+      );
+      final data = response.data;
+      if (data != null && data['data'] is List) {
+        return (data['data'] as List)
+            .map((item) => item as Map<String, dynamic>)
+            .toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getOngkirOptions() async {
+    try {
+      final response =
+          await _api.dio.get('/permintaan-harga/kalkulasi/ongkir/options');
+      final data = response.data;
+      if (data != null && data['data'] is List) {
+        return (data['data'] as List)
+            .map((item) => item as Map<String, dynamic>)
+            .toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
     }
   }
 }

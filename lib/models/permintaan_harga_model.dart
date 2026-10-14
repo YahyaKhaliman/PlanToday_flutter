@@ -63,10 +63,27 @@ class PermintaanHargaDetail {
   final String finishing;
   final String sublim;
   final String warna;
+  final String proNomor;
   final String gambarUrl;
+  final String gambar1Url;
+  final String gambar2Url;
+  final String workshop;
+  final String dateOrder;
+  final String createdAtFmt;
   final String keterangan;
   final String userCreate;
+  final String nomorCreate;
   final String salesNama;
+  final String status;
+  final String nomorKalkulasi;
+  final String dateKalkulasi;
+  final String ketKalkulasi;
+  final String userKalkulasi;
+  final double kalRpSales;
+  final double kalRpSistem;
+  final double kalPpn;
+  final Map<String, dynamic>? kalkulasiDetail;
+  final Map<String, dynamic>? rawJson;
 
   const PermintaanHargaDetail({
     required this.nomor,
@@ -89,13 +106,48 @@ class PermintaanHargaDetail {
     this.finishing = '',
     this.sublim = '',
     this.warna = '',
+    this.proNomor = '',
     this.gambarUrl = '',
+    this.gambar1Url = '',
+    this.gambar2Url = '',
+    this.workshop = '',
+    this.dateOrder = '',
+    this.createdAtFmt = '',
     this.keterangan = '',
     this.userCreate = '',
+    this.nomorCreate = '',
     this.salesNama = '',
+    this.status = '',
+    this.nomorKalkulasi = '',
+    this.dateKalkulasi = '',
+    this.ketKalkulasi = '',
+    this.userKalkulasi = '',
+    this.kalRpSales = 0.0,
+    this.kalRpSistem = 0.0,
+    this.kalPpn = 0.0,
+    this.kalkulasiDetail,
+    this.rawJson,
   });
 
+  bool get isSalesKalkulasi {
+    final kalNo = (nomorKalkulasi.isNotEmpty
+            ? nomorKalkulasi
+            : (kalkulasiDetail?['hdr']?['kal_nomor']?.toString() ?? ''))
+        .toUpperCase();
+    if (kalNo.startsWith('KALS')) return true;
+
+    final kalMh = kalkulasiDetail?['hdr']?['kal_mh_nomor']?.toString() ?? '';
+    if (kalMh.isNotEmpty && kalMh == nomor) return true;
+
+    return false;
+  }
+
   factory PermintaanHargaDetail.fromJson(Map<String, dynamic> json) {
+    Map<String, dynamic>? kalDetail;
+    if (json['kalkulasi_detail'] is Map<String, dynamic>) {
+      kalDetail = json['kalkulasi_detail'] as Map<String, dynamic>;
+    }
+
     return PermintaanHargaDetail(
       nomor: json['mh_nomor']?.toString() ?? json['nomor']?.toString() ?? '',
       tanggal: json['mh_tanggal']?.toString() ?? json['tanggal']?.toString() ?? '',
@@ -117,10 +169,42 @@ class PermintaanHargaDetail {
       finishing: json['mh_finishing']?.toString() ?? '',
       sublim: json['mh_sublim']?.toString() ?? '',
       warna: json['mh_warna']?.toString() ?? '',
+      proNomor: json['mh_pro_nomor']?.toString() ?? json['pro_nomor']?.toString() ?? '',
       gambarUrl: json['mh_gambar']?.toString() ?? '',
+      gambar1Url: json['gambar_1_url']?.toString() ??
+          json['gambar1_url']?.toString() ??
+          json['img1']?.toString() ??
+          json['image1']?.toString() ??
+          json['mh_gambar1']?.toString() ??
+          json['gambar1']?.toString() ??
+          '',
+      gambar2Url: json['gambar_2_url']?.toString() ??
+          json['gambar2_url']?.toString() ??
+          json['img2']?.toString() ??
+          json['image2']?.toString() ??
+          json['mh_gambar2']?.toString() ??
+          json['gambar2']?.toString() ??
+          '',
+      workshop: json['mh_workshop']?.toString() ?? '',
+      dateOrder: json['mh_dateorder']?.toString() ?? '',
+      createdAtFmt: json['created_at_fmt']?.toString() ??
+          json['date_create']?.toString() ??
+          '',
       keterangan: json['mh_ket']?.toString() ?? '',
       userCreate: json['user_create']?.toString() ?? '',
+      nomorCreate: json['nomor_create']?.toString() ?? '',
       salesNama: json['sales_nama']?.toString() ?? '',
+      status: json['status']?.toString() ?? json['mh_status']?.toString() ?? '',
+      nomorKalkulasi: json['mh_nomor_kalkulasi']?.toString() ?? '',
+      dateKalkulasi: json['mh_date_kalkulasi']?.toString() ?? '',
+      ketKalkulasi: json['mh_ket_kalkulasi']?.toString() ?? '',
+      userKalkulasi: json['user_kalkulasi']?.toString() ?? json['mh_apv_usr']?.toString() ?? '',
+      kalRpSales: (json['kal_rpsales'] as num?)?.toDouble() ?? 0.0,
+      kalRpSistem: (json['kal_rpsistem'] as num?)?.toDouble() ?? 0.0,
+      kalPpn: (json['kal_ppn'] as num?)?.toDouble() ?? 0.0,
+      kalkulasiDetail: kalDetail,
+      rawJson: json,
     );
   }
 }
+
