@@ -150,7 +150,7 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
       sales: targetSales,
       startDate: startStr,
       endDate: endStr,
-      isManager: false,
+      isManager: isManager,
     );
 
     if (mounted) {

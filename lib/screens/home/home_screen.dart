@@ -2353,7 +2353,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         ],
                       ),
                       GestureDetector(
-                        onTap: () => context.push('/potensi'),
+                        onTap: () => context.push('/laporan-potensi'),
                         child: const Row(
                           children: [
                             Text(

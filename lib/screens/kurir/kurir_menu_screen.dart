@@ -42,9 +42,13 @@ class _KurirMenuScreenState extends ConsumerState<KurirMenuScreen>
     final repo = ref.read(kurirRepositoryProvider);
     final now = DateTime.now();
 
-    final startStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
+    final startDate = DateTime(now.year, now.month, 1);
+    final endDate = DateTime(now.year, now.month + 1, 1);
+
+    final startStr =
+        '${startDate.year}-${startDate.month.toString().padLeft(2, '0')}-${startDate.day.toString().padLeft(2, '0')}';
     final endStr =
-        '${now.year}-${(now.month + 1).toString().padLeft(2, '0')}-01';
+        '${endDate.year}-${endDate.month.toString().padLeft(2, '0')}-${endDate.day.toString().padLeft(2, '0')}';
 
     try {
       final results = await Future.wait([
@@ -209,6 +213,14 @@ class _KurirMenuScreenState extends ConsumerState<KurirMenuScreen>
                               ),
                             ),
                             IconButton(
+                              onPressed: _fetchData,
+                              icon: const Icon(
+                                Icons.refresh_rounded,
+                                color: Color(0xFF4F46E5),
+                              ),
+                              tooltip: 'Muat Ulang',
+                            ),
+                            IconButton(
                               onPressed: _confirmLogout,
                               icon: const Icon(Icons.logout_rounded,
                                   color: Color(0xFFEF4444)),
@@ -334,16 +346,23 @@ class _KurirMenuScreenState extends ConsumerState<KurirMenuScreen>
     required double horizontalPadding,
   }) {
     if (items.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            emptyMessage,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF64748B),
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
+      return RefreshIndicator(
+        color: const Color(0xFF4F46E5),
+        onRefresh: _fetchData,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Container(
+            height: 300,
+            alignment: Alignment.center,
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              emptyMessage,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF64748B),
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
             ),
           ),
         ),

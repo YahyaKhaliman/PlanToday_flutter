@@ -861,10 +861,11 @@ class _PermintaanHargaListScreenState
                                         return _PermintaanHargaCard(
                                           item: item,
                                           currencyFormat: currencyFormat,
-                                          onTap: () {
-                                            context.push(
+                                          onTap: () async {
+                                            await context.push(
                                               '/permintaan-harga/${item.nomor}',
                                             );
+                                            _fetchList();
                                           },
                                         );
                                       },
@@ -882,10 +883,11 @@ class _PermintaanHargaListScreenState
                                         return _PermintaanHargaCard(
                                           item: item,
                                           currencyFormat: currencyFormat,
-                                          onTap: () {
-                                            context.push(
+                                          onTap: () async {
+                                            await context.push(
                                               '/permintaan-harga/${item.nomor}',
                                             );
+                                            _fetchList();
                                           },
                                         );
                                       },

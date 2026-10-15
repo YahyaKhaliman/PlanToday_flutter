@@ -853,11 +853,12 @@ class _PenawaranListScreenState extends ConsumerState<PenawaranListScreen> {
                                           formattedDate: _formatItemDate(
                                             item.tanggal,
                                           ),
-                                          onTap: () {
-                                            context.push(
+                                          onTap: () async {
+                                            await context.push(
                                               '/penawaran/${Uri.encodeComponent(item.nomor)}',
                                               extra: item.nomor,
                                             );
+                                            _fetchPenawaran();
                                           },
                                         );
                                       },
@@ -878,11 +879,12 @@ class _PenawaranListScreenState extends ConsumerState<PenawaranListScreen> {
                                           formattedDate: _formatItemDate(
                                             item.tanggal,
                                           ),
-                                          onTap: () {
-                                            context.push(
+                                          onTap: () async {
+                                            await context.push(
                                               '/penawaran/${Uri.encodeComponent(item.nomor)}',
                                               extra: item.nomor,
                                             );
+                                            _fetchPenawaran();
                                           },
                                         );
                                       },
