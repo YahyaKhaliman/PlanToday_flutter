@@ -244,7 +244,7 @@ String _getStatusDescription(String status) {
     case 'WAIT':
       return 'Sudah diproses, menunggu ACC';
     case 'NEGO':
-      return 'Permintaan harga dibawah standar kalkulasi';
+      return 'Permintaan harga dibawah standar kalkulasi sistem';
     case 'DONE':
       return 'Selesai';
     default:

@@ -427,13 +427,14 @@ class _PotensiScreenState extends ConsumerState<PotensiScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'Pilih kandidat penawaran & MAP untuk dijadikan potensi',
+                                  'Pilih kandidat Penawaran / MAP untuk dijadikan potensi',
                                   style: TextStyle(
-                                    fontSize: isDesktop ? 13 : 12,
+                                    fontSize: isDesktop ? 13 : 11.5,
                                     fontWeight: FontWeight.w600,
                                     color: const Color(0xFF64748B),
+                                    height: 1.25,
                                   ),
-                                  maxLines: 1,
+                                  maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ],
@@ -465,6 +466,37 @@ class _PotensiScreenState extends ConsumerState<PotensiScreen> {
                                   fontWeight: FontWeight.w800,
                                   color: Color(0xFF4F46E5),
                                 ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+
+                          // Tombol Refresh Kandidat
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: _fetchKandidat,
+                            child: Container(
+                              width: isDesktop ? 44 : 40,
+                              height: isDesktop ? 44 : 40,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: const Color.fromRGBO(15, 23, 42, 0.08),
+                                ),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color.fromRGBO(15, 23, 42, 0.03),
+                                    blurRadius: 6,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              alignment: Alignment.center,
+                              child: const Icon(
+                                Icons.refresh_rounded,
+                                size: 20,
+                                color: Color(0xFF4F46E5),
                               ),
                             ),
                           ),

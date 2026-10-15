@@ -59,7 +59,7 @@ class PotensiRepository {
           final openCount = totalCount - closeCount - batalCount;
           final totalNominal = list.fold<double>(0.0, (acc, x) => acc + x.harga);
           final closeNominal = list.where((x) => x.status == 'CLOSE').fold<double>(0.0, (acc, x) => acc + x.harga);
-          final openNominal = list.where((x) => x.status == 'OPEN').fold<double>(0.0, (acc, x) => acc + x.harga);
+          final openNominal = list.where((x) => x.status == 'POTENSI' || x.status == 'OPEN').fold<double>(0.0, (acc, x) => acc + x.harga);
           final batalNominal = list.where((x) => x.status == 'BATAL').fold<double>(0.0, (acc, x) => acc + x.harga);
           final closingRatePct = totalCount > 0 ? (closeCount / totalCount) * 100 : 0.0;
           kpi = PotensiKpiSummary(

@@ -27,13 +27,13 @@ class DraftDetailItem {
       : namaBarangController = TextEditingController(),
         bahanController = TextEditingController(),
         ukuranController = TextEditingController(),
-        panjangController = TextEditingController(text: '0'),
-        lebarController = TextEditingController(text: '0'),
-        qtyController = TextEditingController(text: '1'),
-        hargaController = TextEditingController(text: '0');
+        panjangController = TextEditingController(),
+        lebarController = TextEditingController(),
+        qtyController = TextEditingController(),
+        hargaController = TextEditingController();
 
   double get total {
-    final q = double.tryParse(qtyController.text) ?? 0.0;
+    final q = double.tryParse(qtyController.text.trim()) ?? 0.0;
     final h = double.tryParse(
             hargaController.text.replaceAll(RegExp(r'[^0-9]'), '')) ??
         0.0;
@@ -63,9 +63,9 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
   final _formKey = GlobalKey<FormState>();
 
   DateTime _selectedDate = DateTime.now();
-  String _selectedDivisi = '1';
-  String _selectedTipe = 'Medium';
-  String _selectedPerusahaanKode = 'KP';
+  String? _selectedDivisi;
+  String? _selectedTipe;
+  String? _selectedPerusahaanKode;
 
   CustomerModel? _selectedCustomer;
   bool _isCustomerLockedByPermintaan = false;
@@ -124,8 +124,25 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
     _selectedSalesKode = user?.salesKode ?? user?.kode ?? '';
     _selectedSalesNama = user?.nama ?? '';
 
-    _applyPerusahaanTtd('KP');
-    _addItemRow();
+    _items.add(DraftDetailItem());
+  }
+
+  static String _formatTanggalIndonesia(DateTime date) {
+    const months = [
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember',
+    ];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 
   void _applyPerusahaanTtd(String pKode) {
@@ -469,6 +486,21 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
   }
 
   Future<void> _submit() async {
+    if (_selectedPerusahaanKode == null || _selectedPerusahaanKode!.isEmpty) {
+      AppToast.error(context, 'Perusahaan wajib dipilih');
+      return;
+    }
+
+    if (_selectedDivisi == null || _selectedDivisi!.isEmpty) {
+      AppToast.error(context, 'Divisi wajib dipilih');
+      return;
+    }
+
+    if (_selectedTipe == null || _selectedTipe!.isEmpty) {
+      AppToast.error(context, 'Tipe penawaran wajib dipilih');
+      return;
+    }
+
     if (_selectedCustomer == null) {
       AppToast.error(context, 'Customer wajib dipilih terlebih dahulu');
       return;
@@ -671,7 +703,7 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
                               ),
                             ),
                             child: Text(
-                              DateFormat('dd MMMM yyyy', 'id_ID').format(_selectedDate),
+                              _formatTanggalIndonesia(_selectedDate),
                               style: const TextStyle(
                                 color: Color(0xFF0F172A),
                                 fontWeight: FontWeight.w700,
@@ -684,17 +716,18 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
                         // Perusahaan Penerbit Dokumen
                         DropdownButtonFormField<String>(
                           initialValue: _selectedPerusahaanKode,
+                          hint: const Text('Pilih Perusahaan...'),
                           decoration: const InputDecoration(labelText: 'Perusahaan *'),
                           items: _perusahaanOptions
                               .map((p) => DropdownMenuItem(value: p['kode'], child: Text(p['label']!)))
                               .toList(),
                           onChanged: (v) {
-                            if (v != null) {
-                              setState(() {
-                                _selectedPerusahaanKode = v;
+                            setState(() {
+                              _selectedPerusahaanKode = v;
+                              if (v != null) {
                                 _applyPerusahaanTtd(v);
-                              });
-                            }
+                              }
+                            });
                           },
                         ),
                         const SizedBox(height: 12),
@@ -705,12 +738,13 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
                             Expanded(
                               child: DropdownButtonFormField<String>(
                                 initialValue: _selectedDivisi,
+                                hint: const Text('Pilih Divisi...'),
                                 decoration: const InputDecoration(labelText: 'Divisi *'),
                                 items: _divisiOptions
                                     .map((d) => DropdownMenuItem(value: d['kode'], child: Text(d['label']!)))
                                     .toList(),
                                 onChanged: (v) {
-                                  if (v != null) setState(() => _selectedDivisi = v);
+                                  setState(() => _selectedDivisi = v);
                                 },
                               ),
                             ),
@@ -718,12 +752,13 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
                             Expanded(
                               child: DropdownButtonFormField<String>(
                                 initialValue: _selectedTipe,
+                                hint: const Text('Pilih Tipe...'),
                                 decoration: const InputDecoration(labelText: 'Tipe *'),
                                 items: _tipeOptions
                                     .map((t) => DropdownMenuItem(value: t, child: Text(t)))
                                     .toList(),
                                 onChanged: (v) {
-                                  if (v != null) setState(() => _selectedTipe = v);
+                                  setState(() => _selectedTipe = v);
                                 },
                               ),
                             ),
@@ -767,25 +802,35 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
                           ),
                         const SizedBox(height: 12),
 
-                        // UP & TTD
+                        // UP
+                        TextFormField(
+                          controller: _upController,
+                          decoration: const InputDecoration(
+                            labelText: 'Up. (Nama PIC)',
+                            hintText: 'Up (contoh: Bpk. Bambang)',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // TTD & Jabatan TTD
                         Row(
                           children: [
                             Expanded(
                               child: TextFormField(
-                                controller: _upController,
+                                controller: _ttdController,
                                 decoration: const InputDecoration(
-                                  labelText: 'Up. (Nama PIC)',
-                                  hintText: 'Contoh: Bpk. Andi',
+                                  labelText: 'Tanda Tangan *',
+                                  hintText: 'Tanda Tangan',
                                 ),
                               ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: TextFormField(
-                                controller: _ttdController,
+                                controller: _ttdJabatanController,
                                 decoration: const InputDecoration(
-                                  labelText: 'Tanda Tangan *',
-                                  hintText: 'Nama Penandatangan',
+                                  labelText: 'Jabatan Tanda Tangan',
+                                  hintText: 'Jabatan Tanda Tangan',
                                 ),
                               ),
                             ),
@@ -847,8 +892,8 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
                               child: TextFormField(
                                 controller: _keteranganController,
                                 decoration: const InputDecoration(
-                                  labelText: 'Keterangan Tambahan',
-                                  hintText: 'Opsional...',
+                                  labelText: 'Keterangan',
+                                  hintText: 'Keterangan',
                                 ),
                               ),
                             ),
@@ -863,7 +908,7 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
                           onChanged: _handleNoteChange,
                           decoration: const InputDecoration(
                             labelText: 'Catatan Dokumen (Note)',
-                            hintText: 'Catatan di bagian bawah dokumen penawaran...',
+                            hintText: 'Surat penawaran berlaku ... hari',
                           ),
                         ),
                       ],
@@ -974,7 +1019,10 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
                             // Nama Barang
                             TextFormField(
                               controller: it.namaBarangController,
-                              decoration: const InputDecoration(labelText: 'Nama Barang *'),
+                              decoration: const InputDecoration(
+                                labelText: 'Nama Barang *',
+                                hintText: 'Nama Barang...',
+                              ),
                             ),
                             const SizedBox(height: 8),
 
@@ -984,14 +1032,48 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
                                 Expanded(
                                   child: TextFormField(
                                     controller: it.bahanController,
-                                    decoration: const InputDecoration(labelText: 'Bahan'),
+                                    decoration: const InputDecoration(
+                                      labelText: 'Bahan',
+                                      hintText: 'Bahan...',
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: TextFormField(
                                     controller: it.ukuranController,
-                                    decoration: const InputDecoration(labelText: 'Ukuran'),
+                                    decoration: const InputDecoration(
+                                      labelText: 'Ukuran',
+                                      hintText: 'Contoh: L=40, XL=10',
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+
+                            // Panjang & Lebar
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: it.panjangController,
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    decoration: const InputDecoration(
+                                      labelText: 'Panjang (M)',
+                                      hintText: '0.00',
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: it.lebarController,
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    decoration: const InputDecoration(
+                                      labelText: 'Lebar (M)',
+                                      hintText: '0.00',
+                                    ),
                                   ),
                                 ),
                               ],
@@ -1006,7 +1088,10 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
                                     controller: it.qtyController,
                                     keyboardType: TextInputType.number,
                                     onChanged: (_) => setState(() {}),
-                                    decoration: const InputDecoration(labelText: 'Qty (Pcs) *'),
+                                    decoration: const InputDecoration(
+                                      labelText: 'Qty (Pcs) *',
+                                      hintText: '0',
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -1015,7 +1100,10 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
                                     controller: it.hargaController,
                                     keyboardType: TextInputType.number,
                                     onChanged: (_) => setState(() {}),
-                                    decoration: const InputDecoration(labelText: 'Harga Satuan (Rp) *'),
+                                    decoration: const InputDecoration(
+                                      labelText: 'Harga Satuan (Rp) *',
+                                      hintText: '0',
+                                    ),
                                   ),
                                 ),
                               ],

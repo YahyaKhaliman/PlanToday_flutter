@@ -8,7 +8,6 @@ import '../../models/potensi_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/penawaran_repository.dart';
 import '../../repositories/potensi_repository.dart';
-import '../../widgets/app_date_range_picker_modal.dart';
 import 'modal_batal_potensi.dart';
 
 const _kShortMonths = [
@@ -26,6 +25,21 @@ const _kShortMonths = [
   'Des',
 ];
 
+const _kFullMonths = [
+  'Januari',
+  'Februari',
+  'Maret',
+  'April',
+  'Mei',
+  'Juni',
+  'Juli',
+  'Agustus',
+  'September',
+  'Oktober',
+  'November',
+  'Desember',
+];
+
 class LaporanPotensiScreen extends ConsumerStatefulWidget {
   const LaporanPotensiScreen({super.key});
 
@@ -36,6 +50,11 @@ class LaporanPotensiScreen extends ConsumerStatefulWidget {
 
 class _LaporanPotensiScreenState extends ConsumerState<LaporanPotensiScreen> {
   final _searchController = TextEditingController();
+
+  int _fromMonth = DateTime.now().month;
+  int _fromYear = DateTime.now().year;
+  int _toMonth = DateTime.now().month;
+  int _toYear = DateTime.now().year;
 
   DateTime _startDate = DateTime(DateTime.now().year, DateTime.now().month, 1);
   DateTime _endDate = DateTime(
@@ -75,8 +94,16 @@ class _LaporanPotensiScreenState extends ConsumerState<LaporanPotensiScreen> {
   String _formatYmd(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-  String _formatDisplayDate(DateTime d) =>
-      '${d.day} ${_kShortMonths[d.month - 1]} ${d.year}';
+  String get _periodeBulanLabel {
+    if (_startDate.year == _endDate.year &&
+        _startDate.month == _endDate.month) {
+      return '${_kFullMonths[_startDate.month - 1].toUpperCase()} ${_startDate.year}';
+    } else if (_startDate.year == _endDate.year) {
+      return '${_kShortMonths[_startDate.month - 1].toUpperCase()} - ${_kShortMonths[_endDate.month - 1].toUpperCase()} ${_startDate.year}';
+    } else {
+      return '${_kShortMonths[_startDate.month - 1].toUpperCase()} ${_startDate.year} - ${_kShortMonths[_endDate.month - 1].toUpperCase()} ${_endDate.year}';
+    }
+  }
 
   String _formatItemDate(String? ymd) {
     if (ymd == null || ymd.isEmpty) return '-';
@@ -138,20 +165,167 @@ class _LaporanPotensiScreenState extends ConsumerState<LaporanPotensiScreen> {
     }
   }
 
-  Future<void> _selectDateRange() async {
-    final picked = await showAppDateRangePicker(
-      context,
-      initialStartDate: _startDate,
-      initialEndDate: _endDate,
-    );
+  String _formatMonthYear(int m, int y) {
+    if (m < 1 || m > 12) return '$m/$y';
+    return '${_kShortMonths[m - 1]} $y';
+  }
 
-    if (picked != null) {
-      setState(() {
-        _startDate = picked.start;
-        _endDate = picked.end;
-      });
-      _fetchData();
-    }
+  void _applyPeriodRange(int fy, int fm, int ty, int tm) {
+    final a = fy * 12 + fm;
+    final b = ty * 12 + tm;
+
+    final startYear = a <= b ? fy : ty;
+    final startMonth = a <= b ? fm : tm;
+    final endYear = a <= b ? ty : fy;
+    final endMonth = a <= b ? tm : fm;
+
+    setState(() {
+      _fromYear = startYear;
+      _fromMonth = startMonth;
+      _toYear = endYear;
+      _toMonth = endMonth;
+      _startDate = DateTime(startYear, startMonth, 1);
+      _endDate = DateTime(endYear, endMonth + 1, 0);
+    });
+
+    _fetchData();
+  }
+
+  void _showMonthYearPicker({required bool isStart}) {
+    int tempMonth = isStart ? _fromMonth : _toMonth;
+    int tempYear = isStart ? _fromYear : _toYear;
+    final currentYear = DateTime.now().year;
+    final years = List.generate(5, (i) => currentYear - 2 + i);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFCBD5E1),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      isStart ? 'Pilih Periode Awal' : 'Pilih Periode Akhir',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Color(0xFF64748B)),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const Divider(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<int>(
+                        initialValue: tempMonth,
+                        decoration: const InputDecoration(labelText: 'Bulan'),
+                        items: List.generate(12, (i) {
+                          return DropdownMenuItem(
+                            value: i + 1,
+                            child: Text(
+                              _kFullMonths[i],
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          );
+                        }),
+                        onChanged: (val) {
+                          if (val != null) setModalState(() => tempMonth = val);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: DropdownButtonFormField<int>(
+                        initialValue: tempYear,
+                        decoration: const InputDecoration(labelText: 'Tahun'),
+                        items: years.map((y) {
+                          return DropdownMenuItem(
+                            value: y,
+                            child: Text(
+                              y.toString(),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) setModalState(() => tempYear = val);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 46,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF4F46E5),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      if (isStart) {
+                        _applyPeriodRange(
+                          tempYear,
+                          tempMonth,
+                          _toYear,
+                          _toMonth,
+                        );
+                      } else {
+                        _applyPeriodRange(
+                          _fromYear,
+                          _fromMonth,
+                          tempYear,
+                          tempMonth,
+                        );
+                      }
+                    },
+                    child: const Text(
+                      'Terapkan',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _showSalesPicker() {
@@ -424,30 +598,57 @@ class _LaporanPotensiScreenState extends ConsumerState<LaporanPotensiScreen> {
                           Container(
                             height: 40,
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [AppColors.primary, AppColors.accent],
-                              ),
+                              color: const Color(0xFFEEF2FF),
                               borderRadius: BorderRadius.circular(12),
-                              boxShadow: AppShadows.button,
+                              border: Border.all(
+                                color: const Color(0xFFC7D2FE),
+                              ),
                             ),
-                            child: ElevatedButton.icon(
+                            child: TextButton.icon(
                               onPressed: () => context.push('/potensi'),
+                              icon: const Icon(
+                                Icons.add_circle_outline_rounded,
+                                size: 16,
+                                color: Color(0xFF4F46E5),
+                              ),
                               label: const Text(
                                 'Potensi',
                                 style: TextStyle(
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.w800,
-                                  color: Colors.white,
+                                  color: Color(0xFF4F46E5),
                                 ),
                               ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.transparent,
-                                shadowColor: Colors.transparent,
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 8,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+
+                          // Tombol Refresh Laporan
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: _fetchData,
+                            child: Container(
+                              width: isDesktop ? 44 : 40,
+                              height: isDesktop ? 44 : 40,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: const Color.fromRGBO(15, 23, 42, 0.08),
                                 ),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color.fromRGBO(15, 23, 42, 0.03),
+                                    blurRadius: 6,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              alignment: Alignment.center,
+                              child: const Icon(
+                                Icons.refresh_rounded,
+                                size: 20,
+                                color: Color(0xFF4F46E5),
                               ),
                             ),
                           ),
@@ -478,9 +679,9 @@ class _LaporanPotensiScreenState extends ConsumerState<LaporanPotensiScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
-                                  'TOTAL POTENSI OMSET (AKTIF)',
-                                  style: TextStyle(
+                                Text(
+                                  'TOTAL POTENSI OMSET ($_periodeBulanLabel)',
+                                  style: const TextStyle(
                                     color: Colors.white70,
                                     fontSize: 11,
                                     fontWeight: FontWeight.w800,
@@ -667,74 +868,112 @@ class _LaporanPotensiScreenState extends ConsumerState<LaporanPotensiScreen> {
                           ),
                           const SizedBox(height: 8),
 
-                          // Row 2: Date Range Selector Full Width (Sesuai Standar Menu Lain)
-                          InkWell(
-                            onTap: _selectDateRange,
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: const Color.fromRGBO(
-                                    15,
-                                    23,
-                                    42,
-                                    0.08,
-                                  ),
+                          // Row 2: Rentang Periode Awal & Periode Akhir (Sesuai Menu Achievement)
+                          Row(
+                            children: [
+                              // Periode Awal
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Periode Awal',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      onTap: () => _showMonthYearPicker(isStart: true),
+                                      child: Container(
+                                        height: 42,
+                                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: const Color.fromRGBO(15, 23, 42, 0.08),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              _formatMonthYear(_fromMonth, _fromYear),
+                                              style: const TextStyle(
+                                                fontSize: 12.5,
+                                                fontWeight: FontWeight.w800,
+                                                color: Color(0xFF0F172A),
+                                              ),
+                                            ),
+                                            const Icon(
+                                              Icons.calendar_month_rounded,
+                                              size: 16,
+                                              color: Color(0xFF4F46E5),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.calendar_month_rounded,
-                                    size: 18,
-                                    color: Color(0xFF4F46E5),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      _formatDisplayDate(_startDate),
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                        fontSize: 12.5,
-                                        fontWeight: FontWeight.w800,
-                                        color: Color(0xFF0F172A),
+                              const SizedBox(width: 10),
+
+                              // Periode Akhir
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Periode Akhir',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF64748B),
                                       ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                  ),
-                                  const Padding(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                    ),
-                                    child: Icon(
-                                      Icons.arrow_forward_rounded,
-                                      size: 14,
-                                      color: Color(0xFF94A3B8),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: Text(
-                                      _formatDisplayDate(_endDate),
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                        fontSize: 12.5,
-                                        fontWeight: FontWeight.w800,
-                                        color: Color(0xFF0F172A),
+                                    const SizedBox(height: 4),
+                                    GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      onTap: () => _showMonthYearPicker(isStart: false),
+                                      child: Container(
+                                        height: 42,
+                                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: const Color.fromRGBO(15, 23, 42, 0.08),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              _formatMonthYear(_toMonth, _toYear),
+                                              style: const TextStyle(
+                                                fontSize: 12.5,
+                                                fontWeight: FontWeight.w800,
+                                                color: Color(0xFF0F172A),
+                                              ),
+                                            ),
+                                            const Icon(
+                                              Icons.calendar_month_rounded,
+                                              size: 16,
+                                              color: Color(0xFF4F46E5),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
+                            ],
                           ),
                         ],
                       ),
@@ -974,15 +1213,32 @@ class _LaporanPotensiScreenState extends ConsumerState<LaporanPotensiScreen> {
                   if (item.nomorSumber != null &&
                       item.nomorSumber!.isNotEmpty) ...[
                     const SizedBox(width: 8),
-                    Text(
-                      '• Ref: ${item.nomorSumber}',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF94A3B8),
-                        fontWeight: FontWeight.w600,
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        final refNo = item.nomorSumber!.trim();
+                        final upper = refNo.toUpperCase();
+                        if (upper.startsWith('PEN')) {
+                          context.push(
+                            '/penawaran/${Uri.encodeComponent(refNo)}',
+                            extra: refNo,
+                          );
+                        } else if (upper.startsWith('MAP') ||
+                            upper.startsWith('MSPK')) {
+                          context.push('/tracking-map');
+                        }
+                      },
+                      child: Text(
+                        '• Ref: ${item.nomorSumber}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF4F46E5),
+                          fontWeight: FontWeight.w700,
+                          decoration: TextDecoration.underline,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ],

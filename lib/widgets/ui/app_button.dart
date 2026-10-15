@@ -33,7 +33,7 @@ class AppButton extends StatelessWidget {
   Widget build(BuildContext context) {
     if (variant == ButtonVariant.gradient) {
       return Container(
-        width: width ?? double.infinity,
+        width: width,
         height: height,
         decoration: BoxDecoration(
           gradient: const LinearGradient(

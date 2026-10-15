@@ -68,17 +68,20 @@ class VisitRepository {
     bool isManager = false,
   }) async {
     try {
+      if (!isManager && sales.trim().isEmpty) {
+        return [];
+      }
+      if (startDate.trim().isEmpty || endDate.trim().isEmpty) {
+        return [];
+      }
+
       final queryParams = <String, dynamic>{
-        'user': sales,
+        'user': sales.trim(),
+        'cabang': cabang.isNotEmpty ? cabang : 'PUSAT',
         'tanggal_awal': startDate,
         'tanggal_akhir': endDate,
+        'is_manager': isManager ? 'true' : 'false',
       };
-      if (isManager) {
-        queryParams['is_manager'] = 'true';
-      }
-      if (cabang.isNotEmpty) {
-        queryParams['cabang'] = cabang;
-      }
 
       final response = await _api.dio.get(
         ApiConfig.rekapVisitPlan,
