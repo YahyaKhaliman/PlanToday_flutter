@@ -568,6 +568,19 @@ class _PermintaanHargaFormScreenState
     if (d.finishing.isNotEmpty) _finishingController.text = d.finishing;
     if (d.sublim.isNotEmpty) _mhSublim = d.sublim;
     if (d.warna.isNotEmpty) _garmenWarna = d.warna.toLowerCase();
+    if (_selectedDivisi == '4') {
+      final rawUpper = rawKet.toUpperCase();
+      if (rawUpper.contains('KH-0002') || rawUpper.contains('2 WARNA')) {
+        _garmenKodeModel = 'KH-0002';
+      } else if (rawUpper.contains('KH-0001') || rawUpper.contains('1 WARNA')) {
+        _garmenKodeModel = 'KH-0001';
+      }
+      if (rawUpper.contains('PREMIUM') || rawUpper.contains('P04')) {
+        _garmenWorkshop = 'PREMIUM';
+      } else if (rawUpper.contains('MEDIUM') || rawUpper.contains('P01')) {
+        _garmenWorkshop = 'MEDIUM';
+      }
+    }
     if (d.proNomor.isNotEmpty) _praOrderNomor = d.proNomor;
 
     _hargaKalkulasi = (d.hargaKalkulasi > 0 ? d.hargaKalkulasi : d.kalRpSistem)
@@ -4597,10 +4610,14 @@ class _PermintaanHargaFormScreenState
             const SizedBox(height: 10),
             _buildMmtStrataAccordion(),
           ],
-        ] else if (_selectedDivisi == '4' && _garmenCalcResult != null) ...[
-          _buildGarmenKalkulasiResultCard(),
-          const SizedBox(height: 10),
-          _buildGarmenStrataAccordion(),
+        ] else if (_selectedDivisi == '4') ...[
+          _buildGarmenEngineAdjustmentCard(),
+          const SizedBox(height: 12),
+          if (_garmenCalcResult != null) ...[
+            _buildGarmenKalkulasiResultCard(),
+            const SizedBox(height: 10),
+            _buildGarmenStrataAccordion(),
+          ],
         ] else ...[
           // Default Card Rekomendasi Sistem (Gradient) jika belum dihitung secara detail
           Container(
@@ -5581,6 +5598,421 @@ class _PermintaanHargaFormScreenState
           ),
         ],
       ],
+    );
+  }
+
+  // Engine Adjustment Card untuk Garmen di Step 2 (Selaras dengan React Native)
+  Widget _buildGarmenEngineAdjustmentCard() {
+    final qtyOrder = _toNumCurrency(_qtyController.text);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.view_in_ar_rounded, size: 18, color: Color(0xFF7C3AED)),
+              SizedBox(width: 8),
+              Text(
+                'Penyesuaian Spesifikasi & Cetak Garmen',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Model & Workshop
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Model Kaos',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildSelectablePill(
+                            '1 Warna',
+                            _garmenKodeModel == 'KH-0001',
+                            () {
+                              setState(() => _garmenKodeModel = 'KH-0001');
+                              _executeHitungGarmen();
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: _buildSelectablePill(
+                            '2 Warna',
+                            _garmenKodeModel == 'KH-0002',
+                            () {
+                              setState(() => _garmenKodeModel = 'KH-0002');
+                              _executeHitungGarmen();
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Workshop',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildSelectablePill(
+                            'Medium',
+                            _garmenWorkshop == 'MEDIUM',
+                            () {
+                              setState(() => _garmenWorkshop = 'MEDIUM');
+                              _executeHitungGarmen();
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: _buildSelectablePill(
+                            'Premium',
+                            _garmenWorkshop == 'PREMIUM',
+                            () {
+                              setState(() => _garmenWorkshop = 'PREMIUM');
+                              _executeHitungGarmen();
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Kategori Warna
+          const Text(
+            'Kategori Warna',
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF475569),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Expanded(
+                child: _buildSelectablePill(
+                  'Muda',
+                  _garmenWarna == 'muda',
+                  () {
+                    setState(() => _garmenWarna = 'muda');
+                    _executeHitungGarmen();
+                  },
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: _buildSelectablePill(
+                  'Sedang',
+                  _garmenWarna == 'sedang',
+                  () {
+                    setState(() => _garmenWarna = 'sedang');
+                    _executeHitungGarmen();
+                  },
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: _buildSelectablePill(
+                  'Tua',
+                  _garmenWarna == 'tua',
+                  () {
+                    setState(() => _garmenWarna = 'tua');
+                    _executeHitungGarmen();
+                  },
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: _buildSelectablePill(
+                  'Khusus',
+                  _garmenWarna == 'khusus',
+                  () {
+                    setState(() => _garmenWarna = 'khusus');
+                    _executeHitungGarmen();
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // 1. OPSI TAMBAHAN (AKSESORIS)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Tambahan Biaya Aksesoris',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF475569),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: _showGarmenTambahanPickerModal,
+                icon: const Icon(Icons.add, size: 14),
+                label: const Text(
+                  '+ Tambah Aksesoris',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
+          ),
+          InkWell(
+            onTap: _showGarmenTambahanPickerModal,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFCBD5E1)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _garmenSelectedTambahan.isNotEmpty
+                        ? '${_garmenSelectedTambahan.length} Tambahan Dipilih'
+                        : 'Pilih Tambahan (Opsional)...',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: _garmenSelectedTambahan.isNotEmpty
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                      color: _garmenSelectedTambahan.isNotEmpty
+                          ? const Color(0xFF0F172A)
+                          : const Color(0xFF94A3B8),
+                    ),
+                  ),
+                  const Icon(Icons.arrow_drop_down, color: Color(0xFF64748B)),
+                ],
+              ),
+            ),
+          ),
+          if (_garmenSelectedTambahan.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Column(
+              children: _garmenSelectedTambahan.map((sItem) {
+                final tarif = (sItem['tarif'] as num?)?.toInt() ?? 0;
+                final sub = tarif * qtyOrder;
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF5F3FF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFDDD6FE)),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              sItem['ket'] ?? '',
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF5B21B6),
+                              ),
+                            ),
+                            Text(
+                              'Rp ${_formatNumberDisplay(tarif)}/pcs x $qtyOrder pcs',
+                              style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        'Rp ${_formatNumberDisplay(sub)}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF7C3AED),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 16, color: Color(0xFFEF4444)),
+                        onPressed: () {
+                          setState(() {
+                            _garmenSelectedTambahan.remove(sItem);
+                          });
+                          _executeHitungGarmen();
+                        },
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+          const SizedBox(height: 12),
+
+          // 2. OPSI CETAK (SABLON / DTF / BORDIR / SUBLIM)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Cetak (Sablon / DTF / Bordir / Sublim)',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF475569),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: _showGarmenCetakPickerModal,
+                icon: const Icon(Icons.add, size: 14),
+                label: const Text(
+                  '+ Tambah Cetak',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
+          ),
+          InkWell(
+            onTap: _showGarmenCetakPickerModal,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFCBD5E1)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _garmenSelectedCetak.isNotEmpty
+                        ? '${_garmenSelectedCetak.length} Item Cetak Dipilih'
+                        : 'Pilih Sablon / DTF / Bordir / Sublim...',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: _garmenSelectedCetak.isNotEmpty
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                      color: _garmenSelectedCetak.isNotEmpty
+                          ? const Color(0xFF0F172A)
+                          : const Color(0xFF94A3B8),
+                    ),
+                  ),
+                  const Icon(Icons.arrow_drop_down, color: Color(0xFF64748B)),
+                ],
+              ),
+            ),
+          ),
+          if (_garmenSelectedCetak.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Column(
+              children: _garmenSelectedCetak.map((cItem) {
+                final biaya = (cItem['biaya'] as num?)?.toInt() ?? 0;
+                final sub = biaya * qtyOrder;
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFAF5FF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFE9D5FF)),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${cItem['jenis']} - ${cItem['ket']}',
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF6B21A8),
+                              ),
+                            ),
+                            Text(
+                              'Rp ${_formatNumberDisplay(biaya)}/pcs x $qtyOrder pcs',
+                              style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        'Rp ${_formatNumberDisplay(sub)}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF7C3AED),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 16, color: Color(0xFFEF4444)),
+                        onPressed: () {
+                          setState(() {
+                            _garmenSelectedCetak.remove(cItem);
+                          });
+                          _executeHitungGarmen();
+                        },
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -8790,6 +9222,9 @@ class _PermintaanHargaFormScreenState
                           });
                         });
                         Navigator.pop(ctx);
+                        if (_currentStep == 2) {
+                          _executeHitungGarmen();
+                        }
                       },
                     );
                   },
@@ -9293,6 +9728,9 @@ class _PermintaanHargaFormScreenState
                                           });
                                         });
                                         Navigator.pop(ctx);
+                                        if (_currentStep == 2) {
+                                          _executeHitungGarmen();
+                                        }
                                         AppToast.success(
                                           context,
                                           '$label berhasil ditambahkan (+Rp ${_formatNumberDisplay(biayaPerPcs.toInt())}/pcs)',
@@ -9462,6 +9900,9 @@ class _PermintaanHargaFormScreenState
                                         });
                                       });
                                       Navigator.pop(ctx);
+                                      if (_currentStep == 2) {
+                                        _executeHitungGarmen();
+                                      }
                                       AppToast.success(
                                         context,
                                         '$ket ditambahkan (+Rp ${_formatNumberDisplay(biaya)}/pcs)',
