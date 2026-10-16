@@ -192,7 +192,7 @@ class _PermintaanHargaFormScreenState
   // MMT (Divisi 5)
   String _mmtKategori = 'VYNIL'; // 'VYNIL' | 'HI-RES' | 'STICKER'
   String _mmtBahanKode = '260';
-  final String _mmtToppingKode = '';
+  String _mmtToppingKode = '';
   final _mmtToppingQtyController = TextEditingController(text: '1');
   bool _mmtIsNetto = false;
   final _mmtAlasanNettoController = TextEditingController();
@@ -473,17 +473,23 @@ class _PermintaanHargaFormScreenState
       _alasanPengajuanController.text = matchAlasan.group(1)?.trim() ?? '';
     }
 
-    // Ekstrak Netto jika ada
+    // Ekstrak Netto jika ada (dukung format [NETTO: ...] dan Netto - Alasan: ...)
     final matchNetto = RegExp(
-      r'\[NETTO:\s*([^\]]+)\]',
-      caseSensitive: false,
-    ).firstMatch(rawKet);
+          r'\[NETTO:\s*([^\]]+)\]',
+          caseSensitive: false,
+        ).firstMatch(rawKet) ??
+        RegExp(
+          r'Netto\s*-\s*Alasan:\s*([^);]+)',
+          caseSensitive: false,
+        ).firstMatch(rawKet);
     if (matchNetto != null && matchNetto.groupCount >= 1) {
       _mmtIsNetto = true;
       _mmtAlasanNettoController.text = matchNetto.group(1)?.trim() ?? '';
+    } else if (rawKet.toUpperCase().contains('NETTO')) {
+      _mmtIsNetto = true;
     }
 
-    // Deteksi Selongsong
+    // Deteksi Selongsong MMT
     final upperKet = rawKet.toUpperCase();
     if (upperKet.contains('SELONGSONG (V & H)') ||
         (upperKet.contains('SELONGSONG') &&
@@ -497,6 +503,64 @@ class _PermintaanHargaFormScreenState
     } else if (upperKet.contains('SELONGSONG H') ||
         upperKet.contains('SELONGSONG HORIZONTAL')) {
       _mmtSelongsongHoriz = true;
+    }
+
+    // Deteksi Spesifikasi & Topping MMT jika divisi 5
+    if (_selectedDivisi == '5') {
+      final matchSpec = RegExp(
+        r'MMT\s+([A-Za-z0-9\-]+)\s+([A-Za-z0-9]+)',
+        caseSensitive: false,
+      ).firstMatch(rawKet);
+      if (matchSpec != null) {
+        final kat = matchSpec.group(1)?.toUpperCase() ?? '';
+        final bKode = matchSpec.group(2)?.toUpperCase() ?? '';
+        if (kat == 'VYNIL' || kat == 'HI-RES' || kat == 'STICKER') {
+          _mmtKategori = kat;
+        }
+        if (bKode.isNotEmpty) {
+          _mmtBahanKode = bKode;
+        }
+      } else if (d.kain.isNotEmpty) {
+        final upperKain = d.kain.toUpperCase();
+        if (upperKain.contains('HI-RES') || upperKain.contains('BACKLITE')) {
+          _mmtKategori = 'HI-RES';
+        } else if (upperKain.contains('STICKER') ||
+            upperKain.contains('GRAFTAC') ||
+            upperKain.contains('RITRAMA') ||
+            upperKain.contains('ORAJET') ||
+            upperKain.contains('TRANSPARAN')) {
+          _mmtKategori = 'STICKER';
+        } else {
+          _mmtKategori = 'VYNIL';
+        }
+        for (final b in _currentMmtBahanOptions) {
+          if (upperKain.contains(b['kode']!.toUpperCase()) ||
+              upperKain.contains(b['nama']!.toUpperCase())) {
+            _mmtBahanKode = b['kode']!;
+            break;
+          }
+        }
+      }
+
+      final matchTop = RegExp(
+        r'\+\s*Top:\s*([^+\n\r;]+)',
+        caseSensitive: false,
+      ).firstMatch(rawKet);
+      if (matchTop != null) {
+        final topName = matchTop.group(1)?.trim() ?? '';
+        final toppingList = _masterOptions?['topping'] as List<dynamic>?;
+        if (toppingList != null) {
+          for (final t in toppingList) {
+            if ((t['nama'] ?? '').toString().toLowerCase() ==
+                    topName.toLowerCase() ||
+                (t['kode'] ?? '').toString().toLowerCase() ==
+                    topName.toLowerCase()) {
+              _mmtToppingKode = t['kode'].toString();
+              break;
+            }
+          }
+        }
+      }
     }
 
     if (d.ukuran.isNotEmpty) _ukuranController.text = d.ukuran;
@@ -595,6 +659,27 @@ class _PermintaanHargaFormScreenState
               if (matched.isNotEmpty) {
                 _spandukFinishingIds.clear();
                 _spandukFinishingIds.addAll(matched);
+              }
+            }
+          } else if (_selectedDivisi == '5') {
+            final rawKet = widget.initialDetail?.ketKalkulasi ?? '';
+            final matchTop = RegExp(
+              r'\+\s*Top:\s*([^+\n\r;]+)',
+              caseSensitive: false,
+            ).firstMatch(rawKet);
+            if (matchTop != null) {
+              final topName = matchTop.group(1)?.trim() ?? '';
+              final toppingList = opts['topping'] as List<dynamic>?;
+              if (toppingList != null) {
+                for (final t in toppingList) {
+                  if ((t['nama'] ?? '').toString().toLowerCase() ==
+                          topName.toLowerCase() ||
+                      (t['kode'] ?? '').toString().toLowerCase() ==
+                          topName.toLowerCase()) {
+                    _mmtToppingKode = t['kode'].toString();
+                    break;
+                  }
+                }
               }
             }
           }
@@ -1646,7 +1731,10 @@ class _PermintaanHargaFormScreenState
     String finalSubmitKain = _selectedDivisi == '1'
         ? _spandukJenisKain
         : (_selectedDivisi == '5'
-              ? '$_mmtKategori $_mmtBahanKode'
+              ? (_currentMmtBahanOptions.firstWhere(
+                  (b) => b['kode'] == _mmtBahanKode,
+                  orElse: () => {'nama': '$_mmtKategori $_mmtBahanKode'},
+                )['nama'] ?? '$_mmtKategori $_mmtBahanKode')
               : _garmenJenisKain);
 
     final payload = <String, dynamic>{
@@ -3672,58 +3760,62 @@ class _PermintaanHargaFormScreenState
           ),
           const SizedBox(height: 6),
           Row(
-            children: [
-              Expanded(
-                child: _buildSelectablePill(
-                  'VYNIL',
-                  _mmtKategori == 'VYNIL',
-                  () => setState(() => _mmtKategori = 'VYNIL'),
+            children: _availableMmtKategori.map((kat) {
+              final isSel = _mmtKategori == kat;
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: _buildSelectablePill(
+                    kat,
+                    isSel,
+                    () => _selectMmtKategori(kat),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: _buildSelectablePill(
-                  'HI-RES',
-                  _mmtKategori == 'HI-RES',
-                  () => setState(() => _mmtKategori = 'HI-RES'),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: _buildSelectablePill(
-                  'STICKER',
-                  _mmtKategori == 'STICKER',
-                  () => setState(() => _mmtKategori = 'STICKER'),
-                ),
-              ),
-            ],
+              );
+            }).toList(),
           ),
           const SizedBox(height: 12),
 
-          // Bahan MMT
+          // Bahan MMT (Chip Buttons seperti React Native)
           const Text(
-            'Bahan MMT *',
+            'Pilihan Bahan MMT *',
             style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 6),
-          DropdownButtonFormField<String>(
-            key: ValueKey('mmt_bahan_${_mmtKategori}_$_mmtBahanKode'),
-            initialValue: _mmtBahanKode,
-            decoration: const InputDecoration(
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
-              ),
-            ),
-            items: _currentMmtBahanOptions.map((b) {
-              return DropdownMenuItem(
-                value: b['kode'],
-                child: Text(b['nama'] ?? ''),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _currentMmtBahanOptions.map((b) {
+              final isSel = _mmtBahanKode == b['kode'];
+              return InkWell(
+                onTap: () {
+                  setState(() => _mmtBahanKode = b['kode']!);
+                  _updateMmtKeteranganKalkulasi();
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isSel ? const Color(0xFF4F46E5) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isSel ? const Color(0xFF4F46E5) : const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  child: Text(
+                    b['nama'] ?? b['kode']!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
+                      color: isSel ? Colors.white : const Color(0xFF334155),
+                    ),
+                  ),
+                ),
               );
             }).toList(),
-            onChanged: (v) {
-              if (v != null) setState(() => _mmtBahanKode = v);
-            },
           ),
           const SizedBox(height: 12),
 
@@ -3741,7 +3833,10 @@ class _PermintaanHargaFormScreenState
                     labelText: 'Panjang (Mtr) *',
                     hintText: '0',
                   ),
-                  onChanged: (_) => setState(() {}),
+                  onChanged: (_) {
+                    setState(() {});
+                    _updateMmtKeteranganKalkulasi();
+                  },
                 ),
               ),
               const SizedBox(width: 10),
@@ -3756,7 +3851,10 @@ class _PermintaanHargaFormScreenState
                     labelText: 'Lebar (Mtr) *',
                     hintText: '0',
                   ),
-                  onChanged: (_) => setState(() {}),
+                  onChanged: (_) {
+                    setState(() {});
+                    _updateMmtKeteranganKalkulasi();
+                  },
                 ),
               ),
             ],
@@ -3774,49 +3872,198 @@ class _PermintaanHargaFormScreenState
             ),
             onChanged: (_) => setState(() {}),
           ),
+          const SizedBox(height: 8),
+
+          // Info Luas Spesifikasi
+          Builder(
+            builder: (context) {
+              final p = _toNumDecimal(_panjangController.text);
+              final l = _toNumDecimal(_lebarController.text);
+              final q = _toNumCurrency(_qtyController.text);
+              final luasPerPcs = p * l;
+              final totalLuas = luasPerPcs * (q > 0 ? q : 1);
+              if (luasPerPcs <= 0) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.straighten_rounded,
+                      size: 14,
+                      color: Color(0xFF64748B),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Luas: ${luasPerPcs.toStringAsFixed(2)} m² • Total: ${totalLuas.toStringAsFixed(2)} m²',
+                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+
+          // Aksesoris Tambahan (Topping) MMT
+          const Text(
+            'Aksesoris Tambahan (Opsional)',
+            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFCBD5E1)),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _mmtToppingKode,
+                isExpanded: true,
+                items: [
+                  const DropdownMenuItem(
+                    value: '',
+                    child: Text(
+                      'Tanpa Aksesoris Tambahan (Standard)',
+                      style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                    ),
+                  ),
+                  ..._availableMmtToppingOptions.map((top) {
+                    final kode = top['kode']?.toString() ?? '';
+                    final nama = top['nama']?.toString() ?? kode;
+                    final hrg = (top['harga'] as num?)?.toDouble() ?? 0.0;
+                    final hrgStr = hrg > 0
+                        ? ' (+Rp ${_formatNumberDisplay(hrg.toInt())})'
+                        : '';
+                    return DropdownMenuItem(
+                      value: kode,
+                      child: Text(
+                        '$nama$hrgStr',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+                onChanged: (v) {
+                  setState(() => _mmtToppingKode = v ?? '');
+                  _updateMmtKeteranganKalkulasi();
+                },
+              ),
+            ),
+          ),
           const SizedBox(height: 12),
 
           // Selongsong MMT
           Row(
             children: [
               Expanded(
-                child: CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                  title: const Text(
-                    'Selongsong Vertikal',
-                    style: TextStyle(fontSize: 12),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: _mmtSelongsongVert
+                        ? const Color(0xFFF0F9FF)
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: _mmtSelongsongVert
+                          ? const Color(0xFF0284C7)
+                          : const Color(0xFFCBD5E1),
+                    ),
                   ),
-                  value: _mmtSelongsongVert,
-                  onChanged: (v) {
-                    setState(() {
-                      _mmtSelongsongVert = v ?? false;
-                      _syncSelongsongKet(
-                        _mmtSelongsongVert,
-                        _mmtSelongsongHoriz,
-                      );
-                    });
-                  },
+                  child: CheckboxListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 0,
+                    ),
+                    dense: true,
+                    title: Text(
+                      'Selongsong Vertikal',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: _mmtSelongsongVert
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        color: _mmtSelongsongVert
+                            ? const Color(0xFF0369A1)
+                            : const Color(0xFF0F172A),
+                      ),
+                    ),
+                    subtitle: Text(
+                      '0,2 x P (${_panjangController.text.isEmpty ? "0" : _panjangController.text} m)',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                    value: _mmtSelongsongVert,
+                    activeColor: const Color(0xFF0284C7),
+                    onChanged: (v) {
+                      setState(() {
+                        _mmtSelongsongVert = v ?? false;
+                        _syncSelongsongKet(
+                          _mmtSelongsongVert,
+                          _mmtSelongsongHoriz,
+                        );
+                      });
+                      _updateMmtKeteranganKalkulasi();
+                    },
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
               Expanded(
-                child: CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                  title: const Text(
-                    'Selongsong Horisontal',
-                    style: TextStyle(fontSize: 12),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: _mmtSelongsongHoriz
+                        ? const Color(0xFFF0F9FF)
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: _mmtSelongsongHoriz
+                          ? const Color(0xFF0284C7)
+                          : const Color(0xFFCBD5E1),
+                    ),
                   ),
-                  value: _mmtSelongsongHoriz,
-                  onChanged: (v) {
-                    setState(() {
-                      _mmtSelongsongHoriz = v ?? false;
-                      _syncSelongsongKet(
-                        _mmtSelongsongVert,
-                        _mmtSelongsongHoriz,
-                      );
-                    });
-                  },
+                  child: CheckboxListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 0,
+                    ),
+                    dense: true,
+                    title: Text(
+                      'Selongsong Horizontal',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: _mmtSelongsongHoriz
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        color: _mmtSelongsongHoriz
+                            ? const Color(0xFF0369A1)
+                            : const Color(0xFF0F172A),
+                      ),
+                    ),
+                    subtitle: Text(
+                      '0,2 x L (${_lebarController.text.isEmpty ? "0" : _lebarController.text} m)',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                    value: _mmtSelongsongHoriz,
+                    activeColor: const Color(0xFF0284C7),
+                    onChanged: (v) {
+                      setState(() {
+                        _mmtSelongsongHoriz = v ?? false;
+                        _syncSelongsongKet(
+                          _mmtSelongsongVert,
+                          _mmtSelongsongHoriz,
+                        );
+                      });
+                      _updateMmtKeteranganKalkulasi();
+                    },
+                  ),
                 ),
               ),
             ],
@@ -3832,7 +4079,15 @@ class _PermintaanHargaFormScreenState
               style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
             ),
             value: _mmtIsNetto,
-            onChanged: (v) => setState(() => _mmtIsNetto = v),
+            onChanged: (v) {
+              setState(() {
+                _mmtIsNetto = v;
+                if (!_mmtIsNetto) {
+                  _mmtAlasanNettoController.clear();
+                }
+              });
+              _updateMmtKeteranganKalkulasi();
+            },
           ),
           if (_mmtIsNetto) ...[
             TextFormField(
@@ -3841,6 +4096,7 @@ class _PermintaanHargaFormScreenState
                 labelText: 'Alasan Penggunaan Harga Netto *',
                 hintText: 'Wajib diisi jika menggunakan netto...',
               ),
+              onChanged: (_) => _updateMmtKeteranganKalkulasi(),
             ),
             const SizedBox(height: 12),
           ],
@@ -4333,10 +4589,14 @@ class _PermintaanHargaFormScreenState
           _buildSpandukKalkulasiResultCard(),
           const SizedBox(height: 10),
           _buildSpandukStrataAccordion(),
-        ] else if (_selectedDivisi == '5' && _mmtResult != null) ...[
-          _buildMmtKalkulasiResultCard(),
-          const SizedBox(height: 10),
-          _buildMmtStrataAccordion(),
+        ] else if (_selectedDivisi == '5') ...[
+          _buildMmtEngineAdjustmentCard(),
+          const SizedBox(height: 12),
+          if (_mmtResult != null) ...[
+            _buildMmtKalkulasiResultCard(),
+            const SizedBox(height: 10),
+            _buildMmtStrataAccordion(),
+          ],
         ] else if (_selectedDivisi == '4' && _garmenCalcResult != null) ...[
           _buildGarmenKalkulasiResultCard(),
           const SizedBox(height: 10),
@@ -4651,6 +4911,399 @@ class _PermintaanHargaFormScreenState
           ),
         ],
       ],
+    );
+  }
+
+  // Engine Adjustment Card untuk MMT di Step 2 (Selaras dengan React Native)
+  Widget _buildMmtEngineAdjustmentCard() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.tune_rounded, size: 18, color: Color(0xFF4F46E5)),
+              SizedBox(width: 8),
+              Text(
+                'Penyesuaian Mesin & Spesifikasi MMT',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Kategori Mesin / Resolusi
+          const Text(
+            'Kategori Mesin / Resolusi',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF475569),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: _availableMmtKategori.map((kat) {
+              final isSel = _mmtKategori == kat;
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: _buildSelectablePill(
+                    kat,
+                    isSel,
+                    () {
+                      _selectMmtKategori(kat);
+                      _executeHitungMmt();
+                    },
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 12),
+
+          // Pilihan Bahan (Chips)
+          const Text(
+            'Pilihan Bahan',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF475569),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: _currentMmtBahanOptions.map((b) {
+              final isSel = _mmtBahanKode == b['kode'];
+              return InkWell(
+                onTap: () {
+                  setState(() => _mmtBahanKode = b['kode']!);
+                  _updateMmtKeteranganKalkulasi();
+                  _executeHitungMmt();
+                },
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isSel ? const Color(0xFF4F46E5) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: isSel ? const Color(0xFF4F46E5) : const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  child: Text(
+                    b['kode']!,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
+                      color: isSel ? Colors.white : const Color(0xFF334155),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 12),
+
+          // Aksesoris Tambahan (Topping)
+          const Text(
+            'Aksesoris Tambahan (Opsional)',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF475569),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFCBD5E1)),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _mmtToppingKode,
+                isExpanded: true,
+                items: [
+                  const DropdownMenuItem(
+                    value: '',
+                    child: Text(
+                      'Tanpa Aksesoris Tambahan (Standard)',
+                      style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+                    ),
+                  ),
+                  ..._availableMmtToppingOptions.map((top) {
+                    final kode = top['kode']?.toString() ?? '';
+                    final nama = top['nama']?.toString() ?? kode;
+                    final hrg = (top['harga'] as num?)?.toDouble() ?? 0.0;
+                    final hrgStr = hrg > 0
+                        ? ' (+Rp ${_formatNumberDisplay(hrg.toInt())})'
+                        : '';
+                    return DropdownMenuItem(
+                      value: kode,
+                      child: Text(
+                        '$nama$hrgStr',
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+                onChanged: (v) {
+                  setState(() => _mmtToppingKode = v ?? '');
+                  _updateMmtKeteranganKalkulasi();
+                  _executeHitungMmt();
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Finishing Selongsong
+          const Text(
+            'Finishing Termasuk Kalkulasi',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF475569),
+            ),
+          ),
+          const SizedBox(height: 6),
+          // Selongsong Vertikal
+          Container(
+            decoration: BoxDecoration(
+              color: _mmtSelongsongVert ? const Color(0xFFF0F9FF) : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: _mmtSelongsongVert ? const Color(0xFF0284C7) : const Color(0xFFE2E8F0),
+              ),
+            ),
+            child: CheckboxListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+              dense: true,
+              title: Text(
+                'Selongsong Vertikal',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: _mmtSelongsongVert ? FontWeight.w700 : FontWeight.w500,
+                  color: _mmtSelongsongVert ? const Color(0xFF0369A1) : const Color(0xFF0F172A),
+                ),
+              ),
+              subtitle: Text(
+                '0,2 x P (${_panjangController.text.isEmpty ? "0" : _panjangController.text} m) x tarif/m²',
+                style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+              ),
+              secondary: (_mmtResult?['selongsong']?['isVertical'] == true &&
+                      (_mmtResult?['selongsong']?['biayaVerticalPerPcs'] ?? 0) > 0)
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE0F2FE),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: const Color(0xFFBAE6FD)),
+                      ),
+                      child: Text(
+                        '+Rp ${_formatNumberDisplay(_mmtResult!['selongsong']['biayaVerticalPerPcs'])}/pcs',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0369A1),
+                        ),
+                      ),
+                    )
+                  : null,
+              value: _mmtSelongsongVert,
+              activeColor: const Color(0xFF0284C7),
+              onChanged: (v) {
+                setState(() {
+                  _mmtSelongsongVert = v ?? false;
+                  _syncSelongsongKet(_mmtSelongsongVert, _mmtSelongsongHoriz);
+                });
+                _updateMmtKeteranganKalkulasi();
+                _executeHitungMmt();
+              },
+            ),
+          ),
+          const SizedBox(height: 6),
+
+          // Selongsong Horizontal
+          Container(
+            decoration: BoxDecoration(
+              color: _mmtSelongsongHoriz ? const Color(0xFFF0F9FF) : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: _mmtSelongsongHoriz ? const Color(0xFF0284C7) : const Color(0xFFE2E8F0),
+              ),
+            ),
+            child: CheckboxListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+              dense: true,
+              title: Text(
+                'Selongsong Horizontal',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: _mmtSelongsongHoriz ? FontWeight.w700 : FontWeight.w500,
+                  color: _mmtSelongsongHoriz ? const Color(0xFF0369A1) : const Color(0xFF0F172A),
+                ),
+              ),
+              subtitle: Text(
+                '0,2 x L (${_lebarController.text.isEmpty ? "0" : _lebarController.text} m) x tarif/m²',
+                style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+              ),
+              secondary: (_mmtResult?['selongsong']?['isHorizontal'] == true &&
+                      (_mmtResult?['selongsong']?['biayaHorizontalPerPcs'] ?? 0) > 0)
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE0F2FE),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: const Color(0xFFBAE6FD)),
+                      ),
+                      child: Text(
+                        '+Rp ${_formatNumberDisplay(_mmtResult!['selongsong']['biayaHorizontalPerPcs'])}/pcs',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0369A1),
+                        ),
+                      ),
+                    )
+                  : null,
+              value: _mmtSelongsongHoriz,
+              activeColor: const Color(0xFF0284C7),
+              onChanged: (v) {
+                setState(() {
+                  _mmtSelongsongHoriz = v ?? false;
+                  _syncSelongsongKet(_mmtSelongsongVert, _mmtSelongsongHoriz);
+                });
+                _updateMmtKeteranganKalkulasi();
+                _executeHitungMmt();
+              },
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Checklist Harga Netto MMT
+          Container(
+            decoration: BoxDecoration(
+              color: _mmtIsNetto ? const Color(0xFFFAF5FF) : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: _mmtIsNetto ? const Color(0xFFA855F7) : const Color(0xFFE2E8F0),
+              ),
+            ),
+            child: CheckboxListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+              dense: true,
+              title: Text(
+                'Harga Netto',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: _mmtIsNetto ? FontWeight.w700 : FontWeight.w500,
+                  color: _mmtIsNetto ? const Color(0xFF7E22CE) : const Color(0xFF0F172A),
+                ),
+              ),
+              subtitle: Text(
+                _mmtIsNetto
+                    ? 'Menggunakan tarif Netto (flat rate)'
+                    : 'Menggunakan tarif berstrata kuantiti',
+                style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+              ),
+              secondary: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _mmtIsNetto ? const Color(0xFFF3E8FF) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: _mmtIsNetto ? const Color(0xFFE9D5FF) : const Color(0xFFE2E8F0),
+                  ),
+                ),
+                child: Text(
+                  _mmtIsNetto ? 'NETTO' : 'REGULER',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                    color: _mmtIsNetto ? const Color(0xFF7E22CE) : const Color(0xFF64748B),
+                  ),
+                ),
+              ),
+              value: _mmtIsNetto,
+              activeColor: const Color(0xFF9333EA),
+              onChanged: (v) {
+                setState(() {
+                  _mmtIsNetto = v ?? false;
+                  if (!_mmtIsNetto) {
+                    _mmtAlasanNettoController.clear();
+                  }
+                });
+                _updateMmtKeteranganKalkulasi();
+                _executeHitungMmt();
+              },
+            ),
+          ),
+          if (_mmtIsNetto) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFAF5FF),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE9D5FF)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: const [
+                      Icon(Icons.edit_note_rounded, size: 16, color: Color(0xFF9333EA)),
+                      SizedBox(width: 4),
+                      Text(
+                        'Alasan Penggunaan Harga Netto *',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF6B21A8),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: _mmtAlasanNettoController,
+                    decoration: const InputDecoration(
+                      hintText: 'Wajib diisi: Berikan alasan penggunaan tarif Netto',
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    ),
+                    style: const TextStyle(fontSize: 12),
+                    onChanged: (_) => _updateMmtKeteranganKalkulasi(),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -7814,7 +8467,41 @@ class _PermintaanHargaFormScreenState
     );
   }
 
+  List<String> get _availableMmtKategori {
+    final rawMmt = _masterOptions?['mmt'] as List<dynamic>?;
+    if (rawMmt != null && rawMmt.isNotEmpty) {
+      final setKategori = <String>{};
+      for (final m in rawMmt) {
+        final kat = m['kategori']?.toString().trim();
+        if (kat != null && kat.isNotEmpty) {
+          setKategori.add(kat);
+        }
+      }
+      if (setKategori.isNotEmpty) return setKategori.toList();
+    }
+    return ['VYNIL', 'HI-RES', 'STICKER'];
+  }
+
+  List<Map<String, dynamic>> get _availableMmtToppingOptions {
+    final raw = _masterOptions?['topping'] as List<dynamic>?;
+    if (raw != null) {
+      return raw.map((item) => Map<String, dynamic>.from(item as Map)).toList();
+    }
+    return [];
+  }
+
   List<Map<String, String>> get _currentMmtBahanOptions {
+    final rawMmt = _masterOptions?['mmt'] as List<dynamic>?;
+    if (rawMmt != null && rawMmt.isNotEmpty) {
+      final filtered = rawMmt.where((m) => m['kategori'] == _mmtKategori).toList();
+      if (filtered.isNotEmpty) {
+        return filtered.map((m) {
+          final kode = m['bahan_kode']?.toString() ?? '';
+          final nama = m['nama_bahan']?.toString() ?? kode;
+          return {'kode': kode, 'nama': nama};
+        }).toList();
+      }
+    }
     if (_mmtKategori == 'VYNIL') {
       return [
         {'kode': '260', 'nama': 'Frontlite 260'},
@@ -7835,7 +8522,55 @@ class _PermintaanHargaFormScreenState
       {'kode': 'GRAFTAC', 'nama': 'Sticker Graftac'},
       {'kode': 'RITRAMA', 'nama': 'Sticker Ritrama'},
       {'kode': 'ORAJET', 'nama': 'Sticker Orajet'},
+      {'kode': 'TRANSPARAN', 'nama': 'Sticker Transparan'},
     ];
+  }
+
+  void _selectMmtKategori(String kat) {
+    setState(() {
+      _mmtKategori = kat;
+      final options = _currentMmtBahanOptions;
+      if (options.isNotEmpty) {
+        _mmtBahanKode = options.first['kode'] ?? '';
+      } else if (kat == 'VYNIL') {
+        _mmtBahanKode = '260';
+      } else if (kat == 'HI-RES') {
+        _mmtBahanKode = '340';
+      } else {
+        _mmtBahanKode = 'GRAFTAC';
+      }
+    });
+    _updateMmtKeteranganKalkulasi();
+  }
+
+  void _updateMmtKeteranganKalkulasi() {
+    if (_selectedDivisi != '5') return;
+    final nettoSpec = _mmtIsNetto
+        ? (_mmtAlasanNettoController.text.trim().isNotEmpty
+            ? ' (Netto - Alasan: ${_mmtAlasanNettoController.text.trim()})'
+            : ' (Netto)')
+        : '';
+    String selText = '';
+    if (_mmtSelongsongVert && _mmtSelongsongHoriz) {
+      selText = ' + Plus Selongsong (V & H)';
+    } else if (_mmtSelongsongVert) {
+      selText = ' + Plus Selongsong Vertikal';
+    } else if (_mmtSelongsongHoriz) {
+      selText = ' + Plus Selongsong Horizontal';
+    }
+    String topText = '';
+    if (_mmtToppingKode.isNotEmpty) {
+      final toppingList = _availableMmtToppingOptions;
+      final found = toppingList.firstWhere(
+        (t) => t['kode']?.toString() == _mmtToppingKode,
+        orElse: () => {'nama': _mmtToppingKode},
+      );
+      final tNama = found['nama']?.toString() ?? _mmtToppingKode;
+      topText = ' + Top: $tNama';
+    }
+    final spec = 'MMT $_mmtKategori $_mmtBahanKode$nettoSpec$topText$selText';
+    _keteranganKalkulasiController.text =
+        _includePpn ? 'INC PPN; $spec' : 'EXC PPN; $spec';
   }
 
   List<Map<String, dynamic>> get _filteredSoHistory {
