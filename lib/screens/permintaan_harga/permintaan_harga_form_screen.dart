@@ -206,7 +206,7 @@ class _PermintaanHargaFormScreenState
   String _garmenKodeModel = 'KH-0001'; // 'KH-0001' | 'KH-0002'
   String _garmenJenisKain = 'PE SINGLE 24';
 
-  String _garmenWarna = 'muda'; // 'muda' | 'sedang' | 'tua' | 'khusus'
+  String _garmenWarna = 'muda'; // 'muda' | 'sedang' | 'tua'
   String _garmenWorkshop = 'MEDIUM'; // 'MEDIUM' | 'PREMIUM'
   String _garmenKategoriKain = 'pe';
   final _ukuranController = TextEditingController();
@@ -474,7 +474,8 @@ class _PermintaanHargaFormScreenState
     }
 
     // Ekstrak Netto jika ada (dukung format [NETTO: ...] dan Netto - Alasan: ...)
-    final matchNetto = RegExp(
+    final matchNetto =
+        RegExp(
           r'\[NETTO:\s*([^\]]+)\]',
           caseSensitive: false,
         ).firstMatch(rawKet) ??
@@ -1745,9 +1746,10 @@ class _PermintaanHargaFormScreenState
         ? _spandukJenisKain
         : (_selectedDivisi == '5'
               ? (_currentMmtBahanOptions.firstWhere(
-                  (b) => b['kode'] == _mmtBahanKode,
-                  orElse: () => {'nama': '$_mmtKategori $_mmtBahanKode'},
-                )['nama'] ?? '$_mmtKategori $_mmtBahanKode')
+                      (b) => b['kode'] == _mmtBahanKode,
+                      orElse: () => {'nama': '$_mmtKategori $_mmtBahanKode'},
+                    )['nama'] ??
+                    '$_mmtKategori $_mmtBahanKode')
               : _garmenJenisKain);
 
     final payload = <String, dynamic>{
@@ -2829,7 +2831,7 @@ class _PermintaanHargaFormScreenState
             children: [
               Expanded(
                 child: _buildSelectablePill(
-                  '1 Warna (KH-0001)',
+                  '1 Warna',
                   _garmenKodeModel == 'KH-0001',
                   () => setState(() => _garmenKodeModel = 'KH-0001'),
                 ),
@@ -2837,7 +2839,7 @@ class _PermintaanHargaFormScreenState
               const SizedBox(width: 8),
               Expanded(
                 child: _buildSelectablePill(
-                  '2 Warna (KH-0002)',
+                  '2 Warna',
                   _garmenKodeModel == 'KH-0002',
                   () => setState(() => _garmenKodeModel = 'KH-0002'),
                 ),
@@ -2948,14 +2950,6 @@ class _PermintaanHargaFormScreenState
                   'Tua',
                   _garmenWarna == 'tua',
                   () => setState(() => _garmenWarna = 'tua'),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: _buildSelectablePill(
-                  'Khusus',
-                  _garmenWarna == 'khusus',
-                  () => setState(() => _garmenWarna = 'khusus'),
                 ),
               ),
             ],
@@ -3217,7 +3211,7 @@ class _PermintaanHargaFormScreenState
                 onPressed: _showGarmenCetakPickerModal,
                 icon: const Icon(Icons.add, size: 14),
                 label: const Text(
-                  '+ Tambah Cetak',
+                  'Tambah Cetak',
                   style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800),
                 ),
               ),
@@ -3812,10 +3806,14 @@ class _PermintaanHargaFormScreenState
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: isSel ? const Color(0xFF4F46E5) : const Color(0xFFF1F5F9),
+                    color: isSel
+                        ? const Color(0xFF4F46E5)
+                        : const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: isSel ? const Color(0xFF4F46E5) : const Color(0xFFE2E8F0),
+                      color: isSel
+                          ? const Color(0xFF4F46E5)
+                          : const Color(0xFFE2E8F0),
                     ),
                   ),
                   child: Text(
@@ -3908,7 +3906,10 @@ class _PermintaanHargaFormScreenState
                     const SizedBox(width: 4),
                     Text(
                       'Luas: ${luasPerPcs.toStringAsFixed(2)} m² • Total: ${totalLuas.toStringAsFixed(2)} m²',
-                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFF64748B),
+                      ),
                     ),
                   ],
                 ),
@@ -4975,14 +4976,10 @@ class _PermintaanHargaFormScreenState
               return Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 3),
-                  child: _buildSelectablePill(
-                    kat,
-                    isSel,
-                    () {
-                      _selectMmtKategori(kat);
-                      _executeHitungMmt();
-                    },
-                  ),
+                  child: _buildSelectablePill(kat, isSel, () {
+                    _selectMmtKategori(kat);
+                    _executeHitungMmt();
+                  }),
                 ),
               );
             }).toList(),
@@ -5017,10 +5014,14 @@ class _PermintaanHargaFormScreenState
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: isSel ? const Color(0xFF4F46E5) : const Color(0xFFF1F5F9),
+                    color: isSel
+                        ? const Color(0xFF4F46E5)
+                        : const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
-                      color: isSel ? const Color(0xFF4F46E5) : const Color(0xFFE2E8F0),
+                      color: isSel
+                          ? const Color(0xFF4F46E5)
+                          : const Color(0xFFE2E8F0),
                     ),
                   ),
                   child: Text(
@@ -5063,7 +5064,10 @@ class _PermintaanHargaFormScreenState
                     value: '',
                     child: Text(
                       'Tanpa Aksesoris Tambahan (Standard)',
-                      style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: Color(0xFF64748B),
+                      ),
                     ),
                   ),
                   ..._availableMmtToppingOptions.map((top) {
@@ -5108,31 +5112,47 @@ class _PermintaanHargaFormScreenState
           // Selongsong Vertikal
           Container(
             decoration: BoxDecoration(
-              color: _mmtSelongsongVert ? const Color(0xFFF0F9FF) : const Color(0xFFF8FAFC),
+              color: _mmtSelongsongVert
+                  ? const Color(0xFFF0F9FF)
+                  : const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: _mmtSelongsongVert ? const Color(0xFF0284C7) : const Color(0xFFE2E8F0),
+                color: _mmtSelongsongVert
+                    ? const Color(0xFF0284C7)
+                    : const Color(0xFFE2E8F0),
               ),
             ),
             child: CheckboxListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 0,
+              ),
               dense: true,
               title: Text(
                 'Selongsong Vertikal',
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: _mmtSelongsongVert ? FontWeight.w700 : FontWeight.w500,
-                  color: _mmtSelongsongVert ? const Color(0xFF0369A1) : const Color(0xFF0F172A),
+                  fontWeight: _mmtSelongsongVert
+                      ? FontWeight.w700
+                      : FontWeight.w500,
+                  color: _mmtSelongsongVert
+                      ? const Color(0xFF0369A1)
+                      : const Color(0xFF0F172A),
                 ),
               ),
               subtitle: Text(
                 '0,2 x P (${_panjangController.text.isEmpty ? "0" : _panjangController.text} m) x tarif/m²',
                 style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
               ),
-              secondary: (_mmtResult?['selongsong']?['isVertical'] == true &&
-                      (_mmtResult?['selongsong']?['biayaVerticalPerPcs'] ?? 0) > 0)
+              secondary:
+                  (_mmtResult?['selongsong']?['isVertical'] == true &&
+                      (_mmtResult?['selongsong']?['biayaVerticalPerPcs'] ?? 0) >
+                          0)
                   ? Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFE0F2FE),
                         borderRadius: BorderRadius.circular(4),
@@ -5165,31 +5185,48 @@ class _PermintaanHargaFormScreenState
           // Selongsong Horizontal
           Container(
             decoration: BoxDecoration(
-              color: _mmtSelongsongHoriz ? const Color(0xFFF0F9FF) : const Color(0xFFF8FAFC),
+              color: _mmtSelongsongHoriz
+                  ? const Color(0xFFF0F9FF)
+                  : const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: _mmtSelongsongHoriz ? const Color(0xFF0284C7) : const Color(0xFFE2E8F0),
+                color: _mmtSelongsongHoriz
+                    ? const Color(0xFF0284C7)
+                    : const Color(0xFFE2E8F0),
               ),
             ),
             child: CheckboxListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 0,
+              ),
               dense: true,
               title: Text(
                 'Selongsong Horizontal',
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: _mmtSelongsongHoriz ? FontWeight.w700 : FontWeight.w500,
-                  color: _mmtSelongsongHoriz ? const Color(0xFF0369A1) : const Color(0xFF0F172A),
+                  fontWeight: _mmtSelongsongHoriz
+                      ? FontWeight.w700
+                      : FontWeight.w500,
+                  color: _mmtSelongsongHoriz
+                      ? const Color(0xFF0369A1)
+                      : const Color(0xFF0F172A),
                 ),
               ),
               subtitle: Text(
                 '0,2 x L (${_lebarController.text.isEmpty ? "0" : _lebarController.text} m) x tarif/m²',
                 style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
               ),
-              secondary: (_mmtResult?['selongsong']?['isHorizontal'] == true &&
-                      (_mmtResult?['selongsong']?['biayaHorizontalPerPcs'] ?? 0) > 0)
+              secondary:
+                  (_mmtResult?['selongsong']?['isHorizontal'] == true &&
+                      (_mmtResult?['selongsong']?['biayaHorizontalPerPcs'] ??
+                              0) >
+                          0)
                   ? Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFE0F2FE),
                         borderRadius: BorderRadius.circular(4),
@@ -5222,21 +5259,30 @@ class _PermintaanHargaFormScreenState
           // Checklist Harga Netto MMT
           Container(
             decoration: BoxDecoration(
-              color: _mmtIsNetto ? const Color(0xFFFAF5FF) : const Color(0xFFF8FAFC),
+              color: _mmtIsNetto
+                  ? const Color(0xFFFAF5FF)
+                  : const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: _mmtIsNetto ? const Color(0xFFA855F7) : const Color(0xFFE2E8F0),
+                color: _mmtIsNetto
+                    ? const Color(0xFFA855F7)
+                    : const Color(0xFFE2E8F0),
               ),
             ),
             child: CheckboxListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 0,
+              ),
               dense: true,
               title: Text(
                 'Harga Netto',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: _mmtIsNetto ? FontWeight.w700 : FontWeight.w500,
-                  color: _mmtIsNetto ? const Color(0xFF7E22CE) : const Color(0xFF0F172A),
+                  color: _mmtIsNetto
+                      ? const Color(0xFF7E22CE)
+                      : const Color(0xFF0F172A),
                 ),
               ),
               subtitle: Text(
@@ -5248,10 +5294,14 @@ class _PermintaanHargaFormScreenState
               secondary: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: _mmtIsNetto ? const Color(0xFFF3E8FF) : const Color(0xFFF1F5F9),
+                  color: _mmtIsNetto
+                      ? const Color(0xFFF3E8FF)
+                      : const Color(0xFFF1F5F9),
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(
-                    color: _mmtIsNetto ? const Color(0xFFE9D5FF) : const Color(0xFFE2E8F0),
+                    color: _mmtIsNetto
+                        ? const Color(0xFFE9D5FF)
+                        : const Color(0xFFE2E8F0),
                   ),
                 ),
                 child: Text(
@@ -5259,7 +5309,9 @@ class _PermintaanHargaFormScreenState
                   style: TextStyle(
                     fontSize: 9.5,
                     fontWeight: FontWeight.w700,
-                    color: _mmtIsNetto ? const Color(0xFF7E22CE) : const Color(0xFF64748B),
+                    color: _mmtIsNetto
+                        ? const Color(0xFF7E22CE)
+                        : const Color(0xFF64748B),
                   ),
                 ),
               ),
@@ -5291,7 +5343,11 @@ class _PermintaanHargaFormScreenState
                 children: [
                   Row(
                     children: const [
-                      Icon(Icons.edit_note_rounded, size: 16, color: Color(0xFF9333EA)),
+                      Icon(
+                        Icons.edit_note_rounded,
+                        size: 16,
+                        color: Color(0xFF9333EA),
+                      ),
                       SizedBox(width: 4),
                       Text(
                         'Alasan Penggunaan Harga Netto *',
@@ -5307,10 +5363,14 @@ class _PermintaanHargaFormScreenState
                   TextFormField(
                     controller: _mmtAlasanNettoController,
                     decoration: const InputDecoration(
-                      hintText: 'Wajib diisi: Berikan alasan penggunaan tarif Netto',
+                      hintText:
+                          'Wajib diisi: Berikan alasan penggunaan tarif Netto',
                       filled: true,
                       fillColor: Colors.white,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
                     ),
                     style: const TextStyle(fontSize: 12),
                     onChanged: (_) => _updateMmtKeteranganKalkulasi(),
@@ -5616,7 +5676,11 @@ class _PermintaanHargaFormScreenState
         children: [
           Row(
             children: const [
-              Icon(Icons.view_in_ar_rounded, size: 18, color: Color(0xFF7C3AED)),
+              Icon(
+                Icons.view_in_ar_rounded,
+                size: 18,
+                color: Color(0xFF7C3AED),
+              ),
               SizedBox(width: 8),
               Text(
                 'Penyesuaian Spesifikasi & Cetak Garmen',
@@ -5733,14 +5797,10 @@ class _PermintaanHargaFormScreenState
           Row(
             children: [
               Expanded(
-                child: _buildSelectablePill(
-                  'Muda',
-                  _garmenWarna == 'muda',
-                  () {
-                    setState(() => _garmenWarna = 'muda');
-                    _executeHitungGarmen();
-                  },
-                ),
+                child: _buildSelectablePill('Muda', _garmenWarna == 'muda', () {
+                  setState(() => _garmenWarna = 'muda');
+                  _executeHitungGarmen();
+                }),
               ),
               const SizedBox(width: 4),
               Expanded(
@@ -5755,25 +5815,10 @@ class _PermintaanHargaFormScreenState
               ),
               const SizedBox(width: 4),
               Expanded(
-                child: _buildSelectablePill(
-                  'Tua',
-                  _garmenWarna == 'tua',
-                  () {
-                    setState(() => _garmenWarna = 'tua');
-                    _executeHitungGarmen();
-                  },
-                ),
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: _buildSelectablePill(
-                  'Khusus',
-                  _garmenWarna == 'khusus',
-                  () {
-                    setState(() => _garmenWarna = 'khusus');
-                    _executeHitungGarmen();
-                  },
-                ),
+                child: _buildSelectablePill('Tua', _garmenWarna == 'tua', () {
+                  setState(() => _garmenWarna = 'tua');
+                  _executeHitungGarmen();
+                }),
               ),
             ],
           ),
@@ -5795,7 +5840,7 @@ class _PermintaanHargaFormScreenState
                 onPressed: _showGarmenTambahanPickerModal,
                 icon: const Icon(Icons.add, size: 14),
                 label: const Text(
-                  '+ Tambah Aksesoris',
+                  'Tambah Aksesoris',
                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
                 ),
               ),
@@ -5841,7 +5886,10 @@ class _PermintaanHargaFormScreenState
                 final sub = tarif * qtyOrder;
                 return Container(
                   margin: const EdgeInsets.only(bottom: 6),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF5F3FF),
                     borderRadius: BorderRadius.circular(8),
@@ -5863,7 +5911,10 @@ class _PermintaanHargaFormScreenState
                             ),
                             Text(
                               'Rp ${_formatNumberDisplay(tarif)}/pcs x $qtyOrder pcs',
-                              style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                              style: const TextStyle(
+                                fontSize: 10.5,
+                                color: Color(0xFF64748B),
+                              ),
                             ),
                           ],
                         ),
@@ -5878,7 +5929,11 @@ class _PermintaanHargaFormScreenState
                       ),
                       const SizedBox(width: 4),
                       IconButton(
-                        icon: const Icon(Icons.close, size: 16, color: Color(0xFFEF4444)),
+                        icon: const Icon(
+                          Icons.close,
+                          size: 16,
+                          color: Color(0xFFEF4444),
+                        ),
                         onPressed: () {
                           setState(() {
                             _garmenSelectedTambahan.remove(sItem);
@@ -5958,7 +6013,10 @@ class _PermintaanHargaFormScreenState
                 final sub = biaya * qtyOrder;
                 return Container(
                   margin: const EdgeInsets.only(bottom: 6),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFAF5FF),
                     borderRadius: BorderRadius.circular(8),
@@ -5980,7 +6038,10 @@ class _PermintaanHargaFormScreenState
                             ),
                             Text(
                               'Rp ${_formatNumberDisplay(biaya)}/pcs x $qtyOrder pcs',
-                              style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                              style: const TextStyle(
+                                fontSize: 10.5,
+                                color: Color(0xFF64748B),
+                              ),
                             ),
                           ],
                         ),
@@ -5995,7 +6056,11 @@ class _PermintaanHargaFormScreenState
                       ),
                       const SizedBox(width: 4),
                       IconButton(
-                        icon: const Icon(Icons.close, size: 16, color: Color(0xFFEF4444)),
+                        icon: const Icon(
+                          Icons.close,
+                          size: 16,
+                          color: Color(0xFFEF4444),
+                        ),
                         onPressed: () {
                           setState(() {
                             _garmenSelectedCetak.remove(cItem);
@@ -7309,9 +7374,7 @@ class _PermintaanHargaFormScreenState
               if (_selectedDivisi == '4') ...[
                 _buildReviewRow(
                   'Model:',
-                  _garmenKodeModel == 'KH-0001'
-                      ? '1 Warna (KH-0001)'
-                      : '2 Warna (KH-0002)',
+                  _garmenKodeModel == 'KH-0001' ? '1 Warna' : '2 Warna',
                   isBold: true,
                 ),
                 _buildReviewRow(
@@ -7695,9 +7758,9 @@ class _PermintaanHargaFormScreenState
                           ),
                         ],
                       ],
-                      ),
-                    );
-                  },
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -8925,7 +8988,9 @@ class _PermintaanHargaFormScreenState
   List<Map<String, String>> get _currentMmtBahanOptions {
     final rawMmt = _masterOptions?['mmt'] as List<dynamic>?;
     if (rawMmt != null && rawMmt.isNotEmpty) {
-      final filtered = rawMmt.where((m) => m['kategori'] == _mmtKategori).toList();
+      final filtered = rawMmt
+          .where((m) => m['kategori'] == _mmtKategori)
+          .toList();
       if (filtered.isNotEmpty) {
         return filtered.map((m) {
           final kode = m['bahan_kode']?.toString() ?? '';
@@ -8979,8 +9044,8 @@ class _PermintaanHargaFormScreenState
     if (_selectedDivisi != '5') return;
     final nettoSpec = _mmtIsNetto
         ? (_mmtAlasanNettoController.text.trim().isNotEmpty
-            ? ' (Netto - Alasan: ${_mmtAlasanNettoController.text.trim()})'
-            : ' (Netto)')
+              ? ' (Netto - Alasan: ${_mmtAlasanNettoController.text.trim()})'
+              : ' (Netto)')
         : '';
     String selText = '';
     if (_mmtSelongsongVert && _mmtSelongsongHoriz) {
@@ -9001,8 +9066,9 @@ class _PermintaanHargaFormScreenState
       topText = ' + Top: $tNama';
     }
     final spec = 'MMT $_mmtKategori $_mmtBahanKode$nettoSpec$topText$selText';
-    _keteranganKalkulasiController.text =
-        _includePpn ? 'INC PPN; $spec' : 'EXC PPN; $spec';
+    _keteranganKalkulasiController.text = _includePpn
+        ? 'INC PPN; $spec'
+        : 'EXC PPN; $spec';
   }
 
   List<Map<String, dynamic>> get _filteredSoHistory {
