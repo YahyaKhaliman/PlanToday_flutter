@@ -175,6 +175,8 @@ class _PermintaanHargaFormScreenState
   // Pra-Order (Opsional)
   String _praOrderNomor = '';
   Map<String, dynamic>? _selectedPraOrderDetail;
+  String? _praOrderKainWarning;
+  String? _praOrderRawKain;
 
   // SPANDUK (Divisi 1)
   String _spandukMetode = 'MANUAL'; // 'MANUAL' | 'MACHINE'
@@ -204,11 +206,11 @@ class _PermintaanHargaFormScreenState
 
   // GARMEN (Divisi 4)
   String _garmenKodeModel = 'KH-0001'; // 'KH-0001' | 'KH-0002'
-  String _garmenJenisKain = 'PE SINGLE 24';
+  String _garmenJenisKain = '';
 
   String _garmenWarna = 'muda'; // 'muda' | 'sedang' | 'tua'
   String _garmenWorkshop = 'MEDIUM'; // 'MEDIUM' | 'PREMIUM'
-  String _garmenKategoriKain = 'pe';
+  String _garmenKategoriKain = 'COTTON';
   final _ukuranController = TextEditingController();
   final _gramasiController = TextEditingController();
   final _finishingController = TextEditingController();
@@ -710,19 +712,137 @@ class _PermintaanHargaFormScreenState
     try {
       final repo = ref.read(permintaanHargaRepositoryProvider);
       final kain = await repo.getJenisKainLookup(_garmenKodeModel);
-      final tambahan = await repo.getTambahanLookup();
-      final cetak = await repo.getCetakLookup();
+      final tambahan = await repo.getTambahanLookup({
+        'jenisKain': _garmenJenisKain,
+        'kodeModel': _garmenKodeModel,
+        'kategori': _garmenKategoriKain,
+      });
+      final cetak = await repo.getCetakLookup({
+        'jenisKain': _garmenJenisKain,
+        'kategori': _garmenKategoriKain,
+      });
       if (mounted) {
         setState(() {
           _garmenKainList = kain;
           _garmenTambahanMaster = tambahan;
           _garmenCetakMaster = cetak;
           _garmenLoadingKain = false;
+
+          // Sinkronkan item cetak terpilih jika ada di master baru
+          for (int i = 0; i < _garmenSelectedCetak.length; i++) {
+            final selected = _garmenSelectedCetak[i];
+            final matched = cetak.firstWhere(
+              (c) =>
+                  (c['mhb_ket'] ?? c['ket'] ?? c['nama'] ?? '') ==
+                      selected['ket'] &&
+                  (c['mhb_jenis'] ?? c['jenis'] ?? '')
+                          .toString()
+                          .toUpperCase() ==
+                      (selected['jenis'] ?? '').toString().toUpperCase(),
+              orElse: () => <String, dynamic>{},
+            );
+            if (matched.isNotEmpty) {
+              final newBiaya =
+                  ((matched['biaya'] ?? matched['mhb_biaya'] ?? 0) as num)
+                      .toInt();
+              _garmenSelectedCetak[i]['biaya'] = newBiaya;
+            }
+          }
         });
       }
     } catch (_) {
       if (mounted) setState(() => _garmenLoadingKain = false);
     }
+  }
+
+  Future<void> _loadGarmenCetakOptions() async {
+    if (_selectedDivisi != '4') return;
+    try {
+      final repo = ref.read(permintaanHargaRepositoryProvider);
+      final cetak = await repo.getCetakLookup({
+        'jenisKain': _garmenJenisKain,
+        'kategori': _garmenKategoriKain,
+      });
+      if (!mounted) return;
+      setState(() {
+        _garmenCetakMaster = cetak;
+
+        // Sinkronkan tarif paten DTF & Bordir dari database kencanaprint.tmintaharga_biaya
+        final dtfItem = cetak.firstWhere(
+          (c) =>
+              (c['mhb_jenis'] ?? c['jenis'] ?? '').toString().toUpperCase() ==
+              'DTF',
+          orElse: () => <String, dynamic>{},
+        );
+        if (dtfItem['mhb_cm'] != null) {
+          _dtfTarifCmController.text = dtfItem['mhb_cm'].toString();
+        } else if (_dtfTarifCmController.text.isEmpty) {
+          _dtfTarifCmController.text = '25';
+        }
+
+        final bordirItem = cetak.firstWhere(
+          (c) =>
+              (c['mhb_jenis'] ?? c['jenis'] ?? '').toString().toUpperCase() ==
+              'BORDIR',
+          orElse: () => <String, dynamic>{},
+        );
+        if (bordirItem['mhb_cm'] != null) {
+          _bordirTarifCmController.text = bordirItem['mhb_cm'].toString();
+        } else if (_bordirTarifCmController.text.isEmpty) {
+          _bordirTarifCmController.text = '90';
+        }
+
+        // Sinkronkan item cetak terpilih jika ada di master baru
+        for (int i = 0; i < _garmenSelectedCetak.length; i++) {
+          final selected = _garmenSelectedCetak[i];
+          final matched = cetak.firstWhere(
+            (c) =>
+                (c['mhb_ket'] ?? c['ket'] ?? c['nama'] ?? '') ==
+                    selected['ket'] &&
+                (c['mhb_jenis'] ?? c['jenis'] ?? '').toString().toUpperCase() ==
+                    (selected['jenis'] ?? '').toString().toUpperCase(),
+            orElse: () => <String, dynamic>{},
+          );
+          if (matched.isNotEmpty) {
+            final newBiaya =
+                ((matched['biaya'] ?? matched['mhb_biaya'] ?? 0) as num)
+                    .toInt();
+            _garmenSelectedCetak[i]['biaya'] = newBiaya;
+          }
+        }
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _loadGarmenTambahanOptions() async {
+    if (_selectedDivisi != '4') return;
+    try {
+      final repo = ref.read(permintaanHargaRepositoryProvider);
+      final data = await repo.getTambahanLookup({
+        'jenisKain': _garmenJenisKain,
+        'kodeModel': _garmenKodeModel,
+        'kategori': _garmenKategoriKain,
+      });
+      if (!mounted) return;
+      setState(() {
+        _garmenTambahanMaster = data;
+        for (int i = 0; i < _garmenSelectedTambahan.length; i++) {
+          final selected = _garmenSelectedTambahan[i];
+          final masterItem = data.firstWhere(
+            (m) =>
+                (m['mht_ket'] ?? m['mht_keterangan'] ?? m['nama'] ?? '') ==
+                selected['ket'],
+            orElse: () => <String, dynamic>{},
+          );
+          if (masterItem.isNotEmpty) {
+            final newTarif =
+                ((masterItem['tarif'] ?? masterItem['biaya'] ?? 0) as num)
+                    .toInt();
+            _garmenSelectedTambahan[i]['tarif'] = newTarif;
+          }
+        }
+      });
+    } catch (_) {}
   }
 
   Future<void> _fetchCustomerHistory(String cusKode) async {
@@ -1118,6 +1238,13 @@ class _PermintaanHargaFormScreenState
       AppToast.error(context, 'Jumlah Order wajib diisi');
       return;
     }
+    if (_garmenJenisKain.trim().isEmpty) {
+      AppToast.error(
+        context,
+        'Silakan pilih jenis kain garmen terlebih dahulu',
+      );
+      return;
+    }
 
     setState(() => _garmenLoadingCalc = true);
     try {
@@ -1125,6 +1252,7 @@ class _PermintaanHargaFormScreenState
       final res = await repo.calculateGarmen({
         'kodeModel': _garmenKodeModel,
         'jenisKain': _garmenJenisKain,
+        'kategori': _garmenKategoriKain,
         'warna': _garmenWarna,
         'qty': numQty,
         'tambahanList': _garmenSelectedTambahan,
@@ -1207,9 +1335,78 @@ class _PermintaanHargaFormScreenState
     } catch (_) {}
     final data = detail ?? fallback;
 
+    final targetDivisi = data['divisi']?.toString() ?? _selectedDivisi;
+
+    // Pastikan master kain garmen sudah dimuat jika divisi tujuan adalah Garmen
+    if (targetDivisi == '4' && _garmenKainList.isEmpty) {
+      try {
+        final kainLookup = await repo.getJenisKainLookup(_garmenKodeModel);
+        if (kainLookup.isNotEmpty) {
+          _garmenKainList = kainLookup;
+        }
+      } catch (_) {}
+    }
+
+    final rawKain = (data['kain']?.toString() ?? '').trim();
+    String? kainWarning;
+    String? rawKainNotMatched;
+    String matchedKainName = '';
+
+    if (rawKain.isNotEmpty) {
+      if (targetDivisi == '4') {
+        final matched = _garmenKainList.firstWhere((item) {
+          final name =
+              (item['mhk_kain'] ?? item['Jeniskain'] ?? item['nama'] ?? '')
+                  .toString()
+                  .trim()
+                  .toUpperCase();
+          return name == rawKain.toUpperCase();
+        }, orElse: () => <String, dynamic>{});
+        if (matched.isNotEmpty) {
+          matchedKainName =
+              (matched['mhk_kain'] ?? matched['Jeniskain'] ?? rawKain)
+                  .toString();
+        } else {
+          rawKainNotMatched = rawKain;
+          kainWarning =
+              'Jenis kain "$rawKain" dari Pra-Order belum terdaftar di master garmen. Silakan pilih kain pengganti di master harga.';
+        }
+      } else if (targetDivisi == '1') {
+        final available = _availableSpandukKain;
+        final matched = available.firstWhere(
+          (k) => k.trim().toUpperCase() == rawKain.toUpperCase(),
+          orElse: () => '',
+        );
+        if (matched.isNotEmpty) {
+          matchedKainName = matched;
+        } else {
+          rawKainNotMatched = rawKain;
+          kainWarning =
+              'Jenis kain "$rawKain" dari Pra-Order belum terdaftar di master Spanduk.';
+        }
+      } else if (targetDivisi == '5') {
+        final bList = _currentMmtBahanOptions;
+        final matched = bList.firstWhere((b) {
+          final kode = (b['kode'] ?? '').toString().trim().toUpperCase();
+          final nama = (b['nama'] ?? '').toString().trim().toUpperCase();
+          final r = rawKain.toUpperCase();
+          return r.contains(kode) || r.contains(nama) || kode == r || nama == r;
+        }, orElse: () => <String, String>{});
+        if (matched.isNotEmpty) {
+          matchedKainName = matched['kode'] ?? rawKain;
+        } else {
+          rawKainNotMatched = rawKain;
+          kainWarning =
+              'Jenis bahan "$rawKain" dari Pra-Order belum terdaftar di master MMT.';
+        }
+      }
+    }
+
     setState(() {
       _praOrderNomor = nomor;
       _selectedPraOrderDetail = data;
+      _praOrderKainWarning = kainWarning;
+      _praOrderRawKain = rawKainNotMatched;
 
       final cusNama =
           data['cusNama']?.toString() ??
@@ -1224,10 +1421,9 @@ class _PermintaanHargaFormScreenState
       if (cusNama.isNotEmpty) _customerNamaController.text = cusNama;
       if (cusKode.isNotEmpty) _selectedCustomerKode = cusKode;
 
-      final div = data['divisi']?.toString() ?? '';
-      if (div.isNotEmpty) {
-        _selectedDivisi = div;
-        if (div == '4') _loadGarmenLookups();
+      if (targetDivisi.isNotEmpty) {
+        _selectedDivisi = targetDivisi;
+        if (targetDivisi == '4') _loadGarmenLookups();
       }
 
       final namaPekerjaan =
@@ -1245,12 +1441,17 @@ class _PermintaanHargaFormScreenState
           0;
       if (qty > 0) _qtyController.text = qty.toInt().toString();
 
-      final kain = data['kain']?.toString() ?? '';
-      if (kain.isNotEmpty) {
+      if (matchedKainName.isNotEmpty) {
         if (_selectedDivisi == '1') {
-          _spandukJenisKain = kain;
+          _spandukJenisKain = matchedKainName;
         } else if (_selectedDivisi == '4') {
-          _garmenJenisKain = kain;
+          _garmenJenisKain = matchedKainName;
+        } else if (_selectedDivisi == '5') {
+          _mmtBahanKode = matchedKainName;
+        }
+      } else if (rawKainNotMatched != null) {
+        if (_selectedDivisi == '4') {
+          _garmenJenisKain = ''; // Kosongkan agar user wajib memilih di master
         }
       }
 
@@ -1261,6 +1462,14 @@ class _PermintaanHargaFormScreenState
       if (ukuran.isNotEmpty) _ukuranController.text = ukuran;
 
       final List<String> ketParts = [];
+      if (rawKainNotMatched != null) {
+        final divisiLabel = _selectedDivisi == '4'
+            ? 'Garmen'
+            : (_selectedDivisi == '5' ? 'MMT' : 'Spanduk');
+        ketParts.add(
+          '[Kain Pra-Order: $rawKainNotMatched (Belum ada di master $divisiLabel, mohon sesuaikan)]',
+        );
+      }
       final spesifikasi = data['spesifikasi']?.toString() ?? '';
       final keterangan = data['keterangan']?.toString() ?? '';
       final deadline =
@@ -1284,14 +1493,190 @@ class _PermintaanHargaFormScreenState
       _fetchCustomerHistory(_selectedCustomerKode);
     }
     if (mounted) {
-      AppToast.success(context, 'Data Pra-Order $nomor berhasil diterapkan');
+      if (rawKainNotMatched != null) {
+        final divisiLabel = targetDivisi == '4'
+            ? 'Garmen'
+            : (targetDivisi == '5' ? 'MMT' : 'Spanduk');
+        _showPraOrderKainWarningDialog(
+          nomor: nomor,
+          kainPraOrder: rawKainNotMatched,
+          divisiNama: divisiLabel,
+        );
+      } else {
+        AppToast.success(context, 'Data Pra-Order $nomor berhasil diterapkan');
+      }
     }
+  }
+
+  void _showPraOrderKainWarningDialog({
+    required String nomor,
+    required String kainPraOrder,
+    required String divisiNama,
+  }) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+        contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.warning_amber_rounded,
+                color: Color(0xFFD97706),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Kain Belum di Master',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            RichText(
+              text: TextSpan(
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF334155),
+                  height: 1.5,
+                ),
+                children: [
+                  const TextSpan(text: 'Data Pra-Order '),
+                  TextSpan(
+                    text: nomor,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const TextSpan(text: ' berhasil ditarik, namun jenis kain '),
+                  TextSpan(
+                    text: '"$kainPraOrder"',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFFDC2626),
+                    ),
+                  ),
+                  TextSpan(
+                    text: ' belum terdaftar pada master kalkulasi $divisiNama.',
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Icon(
+                        Icons.info_outline,
+                        size: 14,
+                        color: Color(0xFF64748B),
+                      ),
+                      SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Field Jenis Kain dikosongkan agar Anda dapat memilih kain pengganti yang sesuai.',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: Color(0xFF475569),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Icon(
+                        Icons.check_circle_outline,
+                        size: 14,
+                        color: Color(0xFF16A34A),
+                      ),
+                      SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Spesifikasi kain asli sudah otomatis dicatat pada kolom Keterangan.',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: Color(0xFF475569),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text(
+              'Mengerti',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF64748B),
+              ),
+            ),
+          ),
+          if (_selectedDivisi == '4')
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(dialogCtx);
+                _showGarmenKainPickerModal();
+              },
+              icon: const Icon(Icons.check, size: 16),
+              label: const Text('Pilih Kain Garmen'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4F46E5),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   void _clearPraOrder() {
     setState(() {
       _praOrderNomor = '';
       _selectedPraOrderDetail = null;
+      _praOrderKainWarning = null;
+      _praOrderRawKain = null;
     });
     AppToast.info(context, 'Kaitan Pra Order dilepas');
   }
@@ -1319,30 +1704,98 @@ class _PermintaanHargaFormScreenState
     }
   }
 
-  // --- STEP TRANSITION ---
-  void _goToStep2() {
+  // --- VALIDASI SPESIFIKASI STEP 1 ---
+  String? _validateSpesifikasiInput() {
     if (_customerNamaController.text.trim().isEmpty) {
-      AppToast.error(context, 'Customer wajib dipilih terlebih dahulu');
-      return;
+      return 'Customer wajib dipilih terlebih dahulu';
     }
     if (_barangController.text.trim().isEmpty) {
-      AppToast.error(context, 'Nama pekerjaan / barang wajib diisi');
-      return;
+      return 'Nama pekerjaan / barang wajib diisi';
     }
-    final qty = _toNumCurrency(_qtyController.text);
-    if (qty <= 0) {
-      AppToast.error(context, 'Jumlah order (pcs) harus lebih besar dari 0');
-      return;
+    if (_selectedDivisi.trim().isEmpty) {
+      return 'Divisi pekerjaan wajib dipilih';
     }
 
-    if (_isManualSpandukNotAllowed) {
-      final numPanjang = _toNumDecimal(_panjangController.text);
-      final numLebar = _spandukLebar > 0 ? _spandukLebar : 90.0;
-      final totalLuasM2 = numPanjang * (numLebar / 100.0) * qty;
-      AppToast.error(
-        context,
-        'Cetak Spanduk Manual minimal 100 pcs atau total luas 500 m² (saat ini: $qty pcs / ${totalLuasM2.toStringAsFixed(1)} m²). Silakan gunakan metode Cetak Machine.',
-      );
+    final qty = _toNumCurrency(_qtyController.text);
+    if (qty <= 0) {
+      return 'Jumlah order (pcs) harus lebih besar dari 0';
+    }
+
+    // 1. Validasi Spesifik Divisi GARMEN (4)
+    if (_selectedDivisi == '4') {
+      if (_garmenKodeModel.trim().isEmpty) {
+        return 'Model garmen wajib dipilih (1 Warna atau 2 Warna)';
+      }
+      if (_garmenJenisKain.trim().isEmpty) {
+        return 'Silakan pilih jenis kain garmen terlebih dahulu';
+      }
+      if (_garmenWarna.trim().isEmpty) {
+        return 'Kategori warna garmen wajib dipilih (Muda, Sedang, atau Tua)';
+      }
+      if (_garmenWorkshop.trim().isEmpty) {
+        return 'Workshop garmen wajib dipilih (Medium atau Premium)';
+      }
+    }
+
+    // 2. Validasi Spesifik Divisi SPANDUK (1)
+    else if (_selectedDivisi == '1') {
+      if (_spandukMetode.trim().isEmpty) {
+        return 'Metode cetak spanduk wajib dipilih (Manual atau Machine)';
+      }
+      if (_spandukJenisKain.trim().isEmpty) {
+        return 'Jenis kain spanduk wajib dipilih';
+      }
+      final lebarSpanduk = _spandukLebar > 0
+          ? _spandukLebar
+          : _toNumDecimal(_lebarController.text);
+      if (lebarSpanduk <= 0) {
+        return 'Pilihan lebar spanduk wajib dipilih';
+      }
+      if (_toNumDecimal(_panjangController.text) <= 0) {
+        return 'Panjang spanduk (Mtr) wajib diisi lebih besar dari 0';
+      }
+      if (_isManualSpandukNotAllowed) {
+        final numPanjang = _toNumDecimal(_panjangController.text);
+        final numLebar = _spandukLebar > 0 ? _spandukLebar : 90.0;
+        final totalLuasM2 = numPanjang * (numLebar / 100.0) * qty;
+        return 'Cetak Spanduk Manual minimal 100 pcs atau total luas 500 m² (saat ini: $qty pcs / ${totalLuasM2.toStringAsFixed(1)} m²). Silakan gunakan metode Cetak Machine.';
+      }
+    }
+
+    // 3. Validasi Spesifik Divisi MMT (5)
+    else if (_selectedDivisi == '5') {
+      if (_mmtKategori.trim().isEmpty) {
+        return 'Kategori MMT wajib dipilih';
+      }
+      if (_mmtBahanKode.trim().isEmpty) {
+        return 'Pilihan bahan MMT wajib dipilih';
+      }
+      if (_toNumDecimal(_panjangController.text) <= 0) {
+        return 'Panjang MMT (Mtr) wajib diisi lebih besar dari 0';
+      }
+      if (_toNumDecimal(_lebarController.text) <= 0) {
+        return 'Lebar MMT (Mtr) wajib diisi lebih besar dari 0';
+      }
+      if (_mmtIsNetto && _mmtAlasanNettoController.text.trim().isEmpty) {
+        return 'Mohon isi alasan penggunaan Harga Netto MMT terlebih dahulu';
+      }
+    }
+
+    // 4. Validasi Pengiriman & Ongkir
+    if (_alokasiOngkir != 'Tanpa Ongkir' &&
+        _namaDaerahKirimController.text.trim().isEmpty) {
+      return 'Kota/daerah tujuan pengiriman wajib diisi jika memilih Dengan Ongkir';
+    }
+
+    return null;
+  }
+
+  // --- STEP TRANSITION ---
+  void _goToStep2() {
+    _formKey.currentState?.validate();
+    final errorMessage = _validateSpesifikasiInput();
+    if (errorMessage != null) {
+      AppToast.error(context, errorMessage);
       return;
     }
 
@@ -2083,7 +2536,15 @@ class _PermintaanHargaFormScreenState
                         ),
                         const SizedBox(height: 8),
                         InkWell(
-                          onTap: () => _showConfirmSubmitDialog(isBypass: true),
+                          onTap: () {
+                            _formKey.currentState?.validate();
+                            final errorMessage = _validateSpesifikasiInput();
+                            if (errorMessage != null) {
+                              AppToast.error(context, errorMessage);
+                              return;
+                            }
+                            _showConfirmSubmitDialog(isBypass: true);
+                          },
                           borderRadius: BorderRadius.circular(10),
                           child: Container(
                             width: double.infinity,
@@ -2229,170 +2690,239 @@ class _PermintaanHargaFormScreenState
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: const Color(0xFFBBF7D0)),
                   ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                  child: Column(
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  _praOrderNomor,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w800,
-                                    color: Color(0xFF15803D),
-                                  ),
-                                ),
-                                if (_selectedPraOrderDetail?['divisiNama'] !=
-                                        null ||
-                                    _selectedPraOrderDetail?['divisi'] !=
-                                        null) ...[
-                                  const SizedBox(width: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 1,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFDCFCE7),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      (_selectedPraOrderDetail?['divisiNama'] ??
-                                              (_selectedPraOrderDetail?['divisi'] ==
-                                                      '4'
-                                                  ? 'GARMEN'
-                                                  : (_selectedPraOrderDetail?['divisi'] ==
-                                                            '5'
-                                                        ? 'MMT'
-                                                        : 'SPANDUK')))
-                                          .toString(),
+                                Row(
+                                  children: [
+                                    Text(
+                                      _praOrderNomor,
                                       style: const TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                        color: Color(0xFF166534),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFF15803D),
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                            if ((_selectedPraOrderDetail?['namaPekerjaan'] ??
-                                    _selectedPraOrderDetail?['nama_pekerjaan'] ??
-                                    _barangController.text)
-                                .toString()
-                                .isNotEmpty) ...[
-                              const SizedBox(height: 2),
-                              Text(
-                                (_selectedPraOrderDetail?['namaPekerjaan'] ??
+                                    if (_selectedPraOrderDetail?['divisiNama'] !=
+                                            null ||
+                                        _selectedPraOrderDetail?['divisi'] !=
+                                            null) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 1,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFDCFCE7),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          (_selectedPraOrderDetail?['divisiNama'] ??
+                                                  (_selectedPraOrderDetail?['divisi'] ==
+                                                          '4'
+                                                      ? 'GARMEN'
+                                                      : (_selectedPraOrderDetail?['divisi'] ==
+                                                                '5'
+                                                            ? 'MMT'
+                                                            : 'SPANDUK')))
+                                              .toString(),
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w700,
+                                            color: Color(0xFF166534),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                if ((_selectedPraOrderDetail?['namaPekerjaan'] ??
                                         _selectedPraOrderDetail?['nama_pekerjaan'] ??
                                         _barangController.text)
-                                    .toString(),
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF0F172A),
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                            if (_customerNamaController.text.isNotEmpty) ...[
-                              const SizedBox(height: 2),
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.person_rounded,
-                                    size: 14,
+                                    .toString()
+                                    .isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    (_selectedPraOrderDetail?['namaPekerjaan'] ??
+                                            _selectedPraOrderDetail?['nama_pekerjaan'] ??
+                                            _barangController.text)
+                                        .toString(),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                                if (_customerNamaController
+                                    .text
+                                    .isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.person_rounded,
+                                        size: 14,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(
+                                          _customerNamaController.text,
+                                          style: const TextStyle(
+                                            fontSize: 11.5,
+                                            color: Color(0xFF334155),
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                                const SizedBox(height: 2),
+                                Text(
+                                  _qtyController.text.isNotEmpty
+                                      ? 'Rencana Order: ${_formatNumberDisplay(_toNumCurrency(_qtyController.text))} pcs'
+                                      : 'Rencana Order: -',
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
                                     color: Color(0xFF64748B),
                                   ),
-                                  const SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      _customerNamaController.text,
-                                      style: const TextStyle(
-                                        fontSize: 11.5,
-                                        color: Color(0xFF334155),
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                            const SizedBox(height: 2),
-                            Text(
-                              _qtyController.text.isNotEmpty
-                                  ? 'Rencana Order: ${_formatNumberDisplay(_toNumCurrency(_qtyController.text))} pcs'
-                                  : 'Rencana Order: -',
-                              style: const TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF64748B),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          InkWell(
-                            onTap: _showPraOrderPickerModal,
-                            borderRadius: BorderRadius.circular(6),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFE0F2FE),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Row(
-                                children: const [
-                                  Icon(
-                                    Icons.sync_rounded,
-                                    size: 15,
-                                    color: Color(0xFF4F46E5),
-                                  ),
-                                  SizedBox(width: 3),
-                                  Text(
-                                    'Ganti',
-                                    style: TextStyle(
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFF4F46E5),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(width: 6),
-                          InkWell(
-                            onTap: _clearPraOrder,
-                            borderRadius: BorderRadius.circular(6),
-                            child: Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFEE2E2),
+                          const SizedBox(width: 8),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              InkWell(
+                                onTap: _showPraOrderPickerModal,
                                 borderRadius: BorderRadius.circular(6),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE0F2FE),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Row(
+                                    children: const [
+                                      Icon(
+                                        Icons.sync_rounded,
+                                        size: 15,
+                                        color: Color(0xFF4F46E5),
+                                      ),
+                                      SizedBox(width: 3),
+                                      Text(
+                                        'Ganti',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF4F46E5),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
-                              child: const Icon(
-                                Icons.close_rounded,
-                                size: 16,
-                                color: Color(0xFFEF4444),
+                              const SizedBox(width: 6),
+                              InkWell(
+                                onTap: _clearPraOrder,
+                                borderRadius: BorderRadius.circular(6),
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFEE2E2),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Icon(
+                                    Icons.close_rounded,
+                                    size: 16,
+                                    color: Color(0xFFEF4444),
+                                  ),
+                                ),
                               ),
-                            ),
+                            ],
                           ),
                         ],
                       ),
+                      if (_praOrderKainWarning != null) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFBEB),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFFDE68A)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.warning_amber_rounded,
+                                size: 16,
+                                color: Color(0xFFD97706),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  'Kain Pra-Order: ${_praOrderRawKain ?? "-"} (Belum ada di master)',
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFFB45309),
+                                  ),
+                                ),
+                              ),
+                              if (_selectedDivisi == '4') ...[
+                                const SizedBox(width: 6),
+                                InkWell(
+                                  onTap: _showGarmenKainPickerModal,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFEF3C7),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: const Color(0xFFF59E0B),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      'Pilih Kain',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFF92400E),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 )
@@ -2678,10 +3208,10 @@ class _PermintaanHargaFormScreenState
               ),
               const SizedBox(height: 12),
 
-              // Rencana Tanggal Order
+              // Tanggal
               RichText(
                 text: const TextSpan(
-                  text: 'Rencana Tanggal Order ',
+                  text: 'Tanggal ',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -2699,47 +3229,33 @@ class _PermintaanHargaFormScreenState
                 ),
               ),
               const SizedBox(height: 6),
-              InkWell(
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: _rencanaOrderDate,
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime(2035),
-                  );
-                  if (picked != null) {
-                    setState(() => _rencanaOrderDate = picked);
-                  }
-                },
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFCBD5E1)),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        DateFormat('dd-MM-yyyy').format(_rencanaOrderDate),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF0F172A),
-                        ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      DateFormat('dd-MM-yyyy').format(_rencanaOrderDate),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF475569),
                       ),
-                      const Icon(
-                        Icons.event_rounded,
-                        size: 18,
-                        color: Color(0xFF64748B),
-                      ),
-                    ],
-                  ),
+                    ),
+                    const Icon(
+                      Icons.lock_outline_rounded,
+                      size: 18,
+                      color: Color(0xFF94A3B8),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 12),
@@ -2877,7 +3393,16 @@ class _PermintaanHargaFormScreenState
               decoration: BoxDecoration(
                 color: const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFCBD5E1)),
+                border: Border.all(
+                  color:
+                      (_praOrderKainWarning != null && _garmenJenisKain.isEmpty)
+                      ? const Color(0xFFF59E0B)
+                      : const Color(0xFFCBD5E1),
+                  width:
+                      (_praOrderKainWarning != null && _garmenJenisKain.isEmpty)
+                      ? 1.5
+                      : 1.0,
+                ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2904,6 +3429,29 @@ class _PermintaanHargaFormScreenState
               ),
             ),
           ),
+          if (_praOrderKainWarning != null && _garmenJenisKain.isEmpty) ...[
+            const SizedBox(height: 5),
+            Row(
+              children: [
+                const Icon(
+                  Icons.error_outline_rounded,
+                  size: 13,
+                  color: Color(0xFFD97706),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    'Kain pra-order "$_praOrderRawKain" belum ada di master. Wajib pilih jenis kain.',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFD97706),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 12),
 
           // Kategori Warna
@@ -3167,7 +3715,7 @@ class _PermintaanHargaFormScreenState
                 onPressed: _showGarmenTambahanPickerModal,
                 icon: const Icon(Icons.add, size: 14),
                 label: const Text(
-                  '+ Tambah Aksesoris',
+                  'Tambah Aksesoris',
                   style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800),
                 ),
               ),
@@ -3222,10 +3770,11 @@ class _PermintaanHargaFormScreenState
             Wrap(
               spacing: 6,
               children: _garmenSelectedCetak.map((c) {
+                final ukDesc = getSablonUkuranDesc(c['ket'] ?? '');
                 return Chip(
                   backgroundColor: const Color(0xFFEFF6FF),
                   label: Text(
-                    '${c['jenis']}: ${c['ket']} (Rp ${_formatNumberDisplay(c['biaya'])})',
+                    '${c['jenis']}: ${c['ket']} (Rp ${_formatNumberDisplay(c['biaya'])}${ukDesc.isNotEmpty ? ' • $ukDesc' : ''})',
                     style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -4719,7 +5268,7 @@ class _PermintaanHargaFormScreenState
           _buildResultItemRow(
             'Ongkir (${_currentOngkirResult.alokasi}):',
             _currentOngkirResult.isFreeCharge
-                ? 'GRATIS'
+                ? 'Rp. 0'
                 : '+Rp ${_formatNumberDisplay(_currentOngkirResult.ongkirPerPcs)} /Pcs',
             valueColor: _currentOngkirResult.isFreeCharge
                 ? const Color(0xFF15803D)
@@ -5448,7 +5997,7 @@ class _PermintaanHargaFormScreenState
           _buildResultItemRow(
             'Ongkir (${_currentOngkirResult.alokasi}):',
             _currentOngkirResult.isFreeCharge
-                ? 'GRATIS'
+                ? 'Rp. 0'
                 : '+Rp ${_formatNumberDisplay(_currentOngkirResult.ongkirPerPcs)} /Pcs',
             valueColor: _currentOngkirResult.isFreeCharge
                 ? const Color(0xFF15803D)
@@ -6011,6 +6560,7 @@ class _PermintaanHargaFormScreenState
               children: _garmenSelectedCetak.map((cItem) {
                 final biaya = (cItem['biaya'] as num?)?.toInt() ?? 0;
                 final sub = biaya * qtyOrder;
+                final ukDesc = getSablonUkuranDesc(cItem['ket'] ?? '');
                 return Container(
                   margin: const EdgeInsets.only(bottom: 6),
                   padding: const EdgeInsets.symmetric(
@@ -6037,7 +6587,7 @@ class _PermintaanHargaFormScreenState
                               ),
                             ),
                             Text(
-                              'Rp ${_formatNumberDisplay(biaya)}/pcs x $qtyOrder pcs',
+                              'Rp ${_formatNumberDisplay(biaya)}/pcs x $qtyOrder pcs${ukDesc.isNotEmpty ? ' • Ukuran: $ukDesc' : ''}',
                               style: const TextStyle(
                                 fontSize: 10.5,
                                 color: Color(0xFF64748B),
@@ -6096,8 +6646,7 @@ class _PermintaanHargaFormScreenState
     );
     final hargaBahanSatuan = activeTier != null
         ? (activeTier['up'] ??
-              activeTier['jual'] ??
-              activeTier['hargaJual'] ??
+              activeTier['hargaUp'] ??
               0)
         : ((res['hpp'] ?? 0) + (res['strataAktif']?['marginRp'] ?? 0));
 
@@ -6151,7 +6700,7 @@ class _PermintaanHargaFormScreenState
           _buildResultItemRow(
             'Ongkir (${_currentOngkirResult.alokasi}):',
             _currentOngkirResult.isFreeCharge
-                ? 'GRATIS'
+                ? 'Rp. 0'
                 : '+Rp ${_formatNumberDisplay(_currentOngkirResult.ongkirPerPcs)} /Pcs',
             valueColor: _currentOngkirResult.isFreeCharge
                 ? const Color(0xFF15803D)
@@ -6228,16 +6777,16 @@ class _PermintaanHargaFormScreenState
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
-                  children: const [
-                    Icon(
+                  children: [
+                    const Icon(
                       Icons.table_chart_rounded,
                       size: 16,
                       color: Color(0xFF4F46E5),
                     ),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Text(
-                      'Tabel Referensi Strata Garmen',
-                      style: TextStyle(
+                      'Tabel Harga Bahan ($_garmenJenisKain | ${_garmenKodeModel == 'KH-0001' ? '1 Warna' : '2 Warna'} | ${_garmenWarna.toUpperCase()})',
+                      style: const TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w700,
                         color: Color(0xFF0F172A),
@@ -6288,7 +6837,7 @@ class _PermintaanHargaFormScreenState
                       Expanded(
                         flex: 1,
                         child: Text(
-                          'Harga / Pcs',
+                          'Harga UP / Pcs',
                           textAlign: TextAlign.right,
                           style: TextStyle(
                             fontSize: 11,
@@ -6315,7 +6864,7 @@ class _PermintaanHargaFormScreenState
                           tier['label']?.toString() ??
                           '${_formatNumberDisplay(qmin)} - ${qmax >= 999999 ? "≥ 1000" : _formatNumberDisplay(qmax)} pcs';
                       final hargaTier =
-                          (tier['up'] ?? tier['jual'] ?? tier['hargaJual'] ?? 0)
+                          (tier['up'] ?? tier['hargaUp'] ?? 0)
                               as num;
 
                       return Container(
@@ -6672,7 +7221,7 @@ class _PermintaanHargaFormScreenState
     final isFreeOngkir =
         _alokasiOngkir == 'Tanpa Ongkir' || _currentOngkirResult.isFreeCharge;
     final ongkirDisplay = isFreeOngkir
-        ? 'GRATIS'
+        ? 'Rp. 0'
         : 'Rp ${_formatNumberDisplay(_currentOngkirResult.totalOngkir)} (+Rp ${_formatNumberDisplay(_currentOngkirResult.ongkirPerPcs)}/pcs)';
 
     final keteranganTeks = _keteranganController.text.trim();
@@ -6754,223 +7303,209 @@ class _PermintaanHargaFormScreenState
           const Divider(height: 1, color: Color(0xFFDBEAFE)),
           const SizedBox(height: 8),
 
-          // Baris 1: Customer & Nama Pekerjaan
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'CUSTOMER',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF64748B),
+          if (_selectedDivisi == '4') ...[
+            // ========================================================
+            // TAMPILAN KHUSUS GARMEN (SIMPEL, COMPACT & ANTI-MENUMPUK DI MOBILE)
+            // ========================================================
+            // 1. Identitas Customer, Nama Pekerjaan & Badge Qty
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _customerNamaController.text.trim().isNotEmpty
+                            ? _customerNamaController.text.trim()
+                            : '-',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0F172A),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      _customerNamaController.text.trim().isNotEmpty
-                          ? _customerNamaController.text.trim()
-                          : '-',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1E293B),
+                      const SizedBox(height: 1.5),
+                      Text(
+                        _barangController.text.trim().isNotEmpty
+                            ? _barangController.text.trim()
+                            : 'Garmen',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF475569),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'NAMA PEKERJAAN',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      _barangController.text.trim().isNotEmpty
-                          ? _barangController.text.trim()
-                          : '-',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1E293B),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-
-          // Baris 2: Divisi & Rencana Tgl Order
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'DIVISI',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      divisiLabel,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1E293B),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'RENCANA TGL ORDER',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      DateFormat('dd-MM-yyyy').format(_rencanaOrderDate),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1E293B),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-
-          // Baris 3: Spesifikasi Bahan & Dimensi Ukuran
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      labelBahan.toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      specBahan,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1E293B),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      labelUkuran.toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      specUkuran,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1E293B),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-
-          // Baris 4: Kuantitas Order & Finishing & Sublim/Workshop
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'JUMLAH ORDER',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      '${_formatNumberDisplay(_toNumCurrency(_qtyController.text))} Pcs',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF2FF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFC7D2FE)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.inventory_2_outlined,
+                        size: 13,
                         color: Color(0xFF4F46E5),
                       ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${_formatNumberDisplay(_toNumCurrency(_qtyController.text))} Pcs',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF4F46E5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // 2. Chips Spesifikasi Garmen (Mengalir Alami dengan Wrap - Anti Menumpuk di Layar Sempit)
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                _buildSpecChip(
+                  icon: Icons.texture_rounded,
+                  label: _garmenJenisKain.isNotEmpty
+                      ? _garmenJenisKain
+                      : 'Kain Belum Dipilih',
+                  bgColor: Colors.white,
+                  borderColor: const Color(0xFFCBD5E1),
+                  textColor: const Color(0xFF0F172A),
+                ),
+                _buildSpecChip(
+                  icon: Icons.checkroom_rounded,
+                  label:
+                      '${_garmenKodeModel == 'KH-0001' ? '1 Warna' : '2 Warna'} • $_garmenWarna',
+                  bgColor: Colors.white,
+                  borderColor: const Color(0xFFCBD5E1),
+                  textColor: const Color(0xFF334155),
+                ),
+                if (_garmenWorkshop.trim().isNotEmpty)
+                  _buildSpecChip(
+                    icon: Icons.storefront_rounded,
+                    label: _garmenWorkshop.trim(),
+                    bgColor: const Color(0xFFFEF3C7),
+                    borderColor: const Color(0xFFFDE68A),
+                    textColor: const Color(0xFF92400E),
+                  ),
+                if (finishingText.isNotEmpty)
+                  _buildSpecChip(
+                    icon: Icons.cut_rounded,
+                    label: finishingText,
+                    bgColor: const Color(0xFFF3E8FF),
+                    borderColor: const Color(0xFFE9D5FF),
+                    textColor: const Color(0xFF6B21A8),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // 3. Info Pengiriman, Estimasi Ongkir & Tanggal Order (Single Clean Row)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.local_shipping_outlined,
+                    size: 14,
+                    color: isFreeOngkir
+                        ? const Color(0xFF15803D)
+                        : const Color(0xFF64748B),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '$alokasiTeks • $ongkirDisplay',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: isFreeOngkir
+                            ? const Color(0xFF15803D)
+                            : const Color(0xFF0F172A),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    DateFormat('dd/MM/yy').format(_rencanaOrderDate),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF94A3B8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // 4. Keterangan (jika ada)
+            if (keteranganTeks.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFFFDE68A)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.info_outline_rounded,
+                      size: 13,
+                      color: Color(0xFFB45309),
+                    ),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        keteranganTeks,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic,
+                          color: Color(0xFF78350F),
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
-              if (finishingText.isNotEmpty) ...[
-                const SizedBox(width: 8),
+            ],
+          ] else ...[
+            // Baris 1: Customer & Nama Pekerjaan
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'FINISHING',
+                        'CUSTOMER',
                         style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w600,
@@ -6979,7 +7514,38 @@ class _PermintaanHargaFormScreenState
                       ),
                       const SizedBox(height: 1),
                       Text(
-                        finishingText,
+                        _customerNamaController.text.trim().isNotEmpty
+                            ? _customerNamaController.text.trim()
+                            : '-',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1E293B),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'NAMA PEKERJAAN',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        _barangController.text.trim().isNotEmpty
+                            ? _barangController.text.trim()
+                            : '-',
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -6992,14 +7558,76 @@ class _PermintaanHargaFormScreenState
                   ),
                 ),
               ],
-              if (sublimText.isNotEmpty) ...[
+            ),
+            const SizedBox(height: 6),
+
+            // Baris 2: Divisi & Rencana Tgl Order
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'DIVISI',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        divisiLabel,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1E293B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      const Text(
+                        'TANGGAL',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      const SizedBox(height: 1),
                       Text(
-                        _selectedDivisi == '4' ? 'WORKSHOP' : 'SUBLIM',
+                        DateFormat('dd-MM-yyyy').format(_rencanaOrderDate),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1E293B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+
+            // Baris 3: Spesifikasi Bahan & Dimensi Ukuran
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        labelBahan.toUpperCase(),
                         style: const TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w600,
@@ -7008,7 +7636,7 @@ class _PermintaanHargaFormScreenState
                       ),
                       const SizedBox(height: 1),
                       Text(
-                        sublimText,
+                        specBahan,
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -7020,105 +7648,256 @@ class _PermintaanHargaFormScreenState
                     ],
                   ),
                 ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 6),
-
-          // Baris 5: Pengiriman & Estimasi Ongkir
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'PENGIRIMAN',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF64748B),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        labelUkuran.toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF64748B),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      alokasiTeks,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1E293B),
+                      const SizedBox(height: 1),
+                      Text(
+                        specUkuran,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1E293B),
+                        ),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'ESTIMASI ONGKIR',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      ongkirDisplay,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: isFreeOngkir
-                            ? const Color(0xFF15803D)
-                            : const Color(0xFF0284C7),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          // Baris 6: Keterangan Tambahan
-          if (keteranganTeks.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.only(top: 6),
-              decoration: const BoxDecoration(
-                border: Border(top: BorderSide(color: Color(0xFFDBEAFE))),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'KETERANGAN',
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF64748B),
-                    ),
+                    ],
                   ),
-                  const SizedBox(height: 1),
-                  Text(
-                    keteranganTeks,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontStyle: FontStyle.italic,
-                      color: Color(0xFF475569),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+
+            // Baris 4: Kuantitas Order & Finishing & Sublim/Workshop
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'JUMLAH ORDER',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        '${_formatNumberDisplay(_toNumCurrency(_qtyController.text))} Pcs',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF4F46E5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (finishingText.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'FINISHING',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          finishingText,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1E293B),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
                   ),
                 ],
-              ),
+                if (sublimText.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _selectedDivisi == '4' ? 'WORKSHOP' : 'SUBLIM',
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          sublimText,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1E293B),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
             ),
+            const SizedBox(height: 6),
+
+            // Baris 5: Pengiriman & Estimasi Ongkir
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'PENGIRIMAN',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        alokasiTeks,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1E293B),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'ESTIMASI ONGKIR',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        ongkirDisplay,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: isFreeOngkir
+                              ? const Color(0xFF15803D)
+                              : const Color(0xFF0284C7),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            // Baris 6: Keterangan Tambahan
+            if (keteranganTeks.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.only(top: 6),
+                decoration: const BoxDecoration(
+                  border: Border(top: BorderSide(color: Color(0xFFDBEAFE))),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'KETERANGAN',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      keteranganTeks,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontStyle: FontStyle.italic,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSpecChip({
+    required IconData icon,
+    required String label,
+    required Color bgColor,
+    required Color borderColor,
+    required Color textColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: textColor),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                color: textColor,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
     );
@@ -7355,7 +8134,7 @@ class _PermintaanHargaFormScreenState
               ),
               _buildReviewRow('Divisi:', divisiLabel),
               _buildReviewRow(
-                'Rencana Tgl Order:',
+                'Tanggal:',
                 DateFormat('dd-MM-yyyy').format(_rencanaOrderDate),
                 isBold: true,
               ),
@@ -9214,6 +9993,7 @@ class _PermintaanHargaFormScreenState
                                   onTap: () {
                                     setState(() {
                                       _garmenJenisKain = name;
+                                      _praOrderKainWarning = null;
                                       _garmenKategoriKain = ktg.isNotEmpty
                                           ? ktg
                                           : 'pe';
@@ -9225,7 +10005,12 @@ class _PermintaanHargaFormScreenState
                                         _gramasiController.text = autoGramasi;
                                       }
                                     });
+                                    _loadGarmenCetakOptions();
+                                    _loadGarmenTambahanOptions();
                                     Navigator.pop(ctx);
+                                    if (_currentStep == 2) {
+                                      _executeHitungGarmen();
+                                    }
                                   },
                                 );
                               },
@@ -9304,6 +10089,9 @@ class _PermintaanHargaFormScreenState
   }
 
   void _showGarmenCetakPickerModal() {
+    if (_garmenCetakMaster.isEmpty) {
+      _loadGarmenCetakOptions();
+    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -9338,23 +10126,12 @@ class _PermintaanHargaFormScreenState
                 (masterItem['mhb_min'] as num?)?.toDouble() ??
                 (activeCategory == 'DTF' ? 1000.0 : 2500.0);
 
-            // Perhitungan DTF / Bordir
+            // Perhitungan DTF / Bordir (Kunci paten dari database kencanaprint.tmintaharga_biaya)
             final pj = _toNumDecimal(_dtfBordirPanjangController.text);
             final lb = _toNumDecimal(_dtfBordirLebarController.text);
             final luas = pj * lb;
 
-            final currentTarifStr = activeCategory == 'DTF'
-                ? _dtfTarifCmController.text
-                : _bordirTarifCmController.text;
-            final rawTarif = currentTarifStr.isNotEmpty
-                ? _toNumDecimal(currentTarifStr)
-                : defaultTarif;
-            final isTarifUnderDefault =
-                currentTarifStr.isNotEmpty && rawTarif < defaultTarif;
-            final effectiveTarif = rawTarif < defaultTarif
-                ? defaultTarif
-                : rawTarif;
-
+            final effectiveTarif = defaultTarif;
             final biayaMurni = luas * effectiveTarif;
             final isMinApplied = luas > 0 && biayaMurni < minTarif;
             final biayaPerPcs = luas > 0
@@ -9471,32 +10248,17 @@ class _PermintaanHargaFormScreenState
                               setModalState(() => activeCategory = cat);
                             },
                           ),
-                          _buildCetakTabItem('DTF', 'DTF', activeCategory, (
-                            cat,
-                          ) {
-                            if (_dtfTarifCmController.text.isEmpty ||
-                                _toNumDecimal(_dtfTarifCmController.text) <
-                                    defaultTarif) {
-                              _dtfTarifCmController.text = defaultTarif
-                                  .toInt()
-                                  .toString();
-                            }
-                            setModalState(() => activeCategory = cat);
-                          }),
+                          _buildCetakTabItem(
+                            'DTF',
+                            'DTF',
+                            activeCategory,
+                            (cat) => setModalState(() => activeCategory = cat),
+                          ),
                           _buildCetakTabItem(
                             'Bordir',
                             'BORDIR',
                             activeCategory,
-                            (cat) {
-                              if (_bordirTarifCmController.text.isEmpty ||
-                                  _toNumDecimal(_bordirTarifCmController.text) <
-                                      defaultTarif) {
-                                _bordirTarifCmController.text = defaultTarif
-                                    .toInt()
-                                    .toString();
-                              }
-                              setModalState(() => activeCategory = cat);
-                            },
+                            (cat) => setModalState(() => activeCategory = cat),
                           ),
                         ],
                       ),
@@ -9510,89 +10272,76 @@ class _PermintaanHargaFormScreenState
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              // Box Tarif per cm2
+                              // Info Tarif per cm2 (Terkunci Otomatis dari Database kencanaprint.tmintaharga_biaya)
                               Container(
-                                padding: const EdgeInsets.all(12),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 11,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: isTarifUnderDefault
-                                      ? const Color(0xFFFFF1F2)
-                                      : const Color(0xFFF8FAFC),
+                                  color: const Color(0xFFF0FDF4),
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
-                                    color: isTarifUnderDefault
-                                        ? const Color(0xFFFCA5A5)
-                                        : const Color(0xFFE2E8F0),
+                                    color: const Color(0xFFBBF7D0),
                                   ),
                                 ),
                                 child: Row(
                                   children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(7),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFDCFCE7),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(
+                                        Icons.lock_rounded,
+                                        size: 18,
+                                        color: Color(0xFF16A34A),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          const Text(
-                                            'Tarif / cm²',
-                                            style: TextStyle(
-                                              fontSize: 12.5,
-                                              fontWeight: FontWeight.w700,
-                                            ),
+                                          Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Text(
+                                                'Tarif $activeCategory Terkunci:',
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Color(0xFF166534),
+                                                ),
+                                              ),
+                                              Text(
+                                                'Rp ${_formatNumberDisplay(defaultTarif.toInt())} / cm²',
+                                                style: const TextStyle(
+                                                  fontSize: 13.5,
+                                                  fontWeight: FontWeight.w900,
+                                                  color: Color(0xFF15803D),
+                                                ),
+                                              ),
+                                            ],
                                           ),
+                                          const SizedBox(height: 2),
                                           Text(
-                                            'Minimal: Rp ${defaultTarif.toInt()} /cm²',
+                                            'Min. Biaya: Rp ${_formatNumberDisplay(minTarif.toInt())} / pcs • Sumber: Master Biaya (tmintaharga_biaya)',
                                             style: const TextStyle(
                                               fontSize: 10.5,
-                                              color: Color(0xFF64748B),
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFF166534),
                                             ),
                                           ),
                                         ],
                                       ),
                                     ),
-                                    SizedBox(
-                                      width: 120,
-                                      height: 38,
-                                      child: TextFormField(
-                                        controller: activeCategory == 'DTF'
-                                            ? _dtfTarifCmController
-                                            : _bordirTarifCmController,
-                                        keyboardType: TextInputType.number,
-                                        textAlign: TextAlign.right,
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                        decoration: InputDecoration(
-                                          prefixText: 'Rp ',
-                                          prefixStyle: const TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w700,
-                                            color: Color(0xFF64748B),
-                                          ),
-                                          contentPadding:
-                                              const EdgeInsets.symmetric(
-                                                horizontal: 8,
-                                                vertical: 8,
-                                              ),
-                                          hintText: defaultTarif
-                                              .toInt()
-                                              .toString(),
-                                        ),
-                                        onChanged: (_) => setModalState(() {}),
-                                      ),
-                                    ),
                                   ],
                                 ),
                               ),
-                              if (isTarifUnderDefault) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Tarif tidak boleh di bawah standar minimal (Rp ${defaultTarif.toInt()} /cm²)',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Color(0xFFE11D48),
-                                  ),
-                                ),
-                              ],
                               const SizedBox(height: 12),
 
                               // Input Dimensi (Panjang x Lebar cm)
@@ -9829,7 +10578,7 @@ class _PermintaanHargaFormScreenState
                         Row(
                           children: [
                             _buildSubCategoryChip(
-                              'Semua Sablon',
+                              'Semua',
                               'ALL',
                               sablonSubCategory,
                               (s) => setModalState(() => sablonSubCategory = s),

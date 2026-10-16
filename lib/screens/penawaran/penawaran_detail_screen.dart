@@ -647,13 +647,19 @@ class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Informasi Header',
-            style: TextStyle(
-              fontSize: 14,
-              color: Color(0xFF0F172A),
-              fontWeight: FontWeight.w800,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Informasi Header',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF0F172A),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              _buildApprovalBadge(header.isApproved),
+            ],
           ),
           const SizedBox(height: 10),
 
@@ -749,6 +755,132 @@ class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
     );
   }
 
+  // Badge Approval Dokumen Penawaran (Konsisten dengan List Screen)
+  Widget _buildApprovalBadge(bool isApproved) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 8,
+        vertical: 3.5,
+      ),
+      decoration: BoxDecoration(
+        color: isApproved
+            ? const Color(0xFFECFDF5)
+            : const Color(0xFFFFF7ED),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(
+          color: isApproved
+              ? const Color(0xFFA7F3D0)
+              : const Color(0xFFFED7AA),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isApproved
+                ? Icons.verified_rounded
+                : Icons.schedule_rounded,
+            size: 13,
+            color: isApproved
+                ? const Color(0xFF059669)
+                : const Color(0xFFD97706),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            isApproved ? 'Sudah Diapprove' : 'Belum Diapprove',
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              color: isApproved
+                  ? const Color(0xFF059669)
+                  : const Color(0xFFC2410C),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Badge Status Item/Barang Penawaran (Konsisten dengan modul status & tracking)
+  Widget _buildItemStatusBadge(String status) {
+    final st = status.trim().toUpperCase();
+    if (st.isEmpty || st == '-') {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: const Text(
+          '-',
+          style: TextStyle(
+            color: Color(0xFF64748B),
+            fontSize: 10.5,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      );
+    }
+
+    Color bgColor;
+    Color borderColor;
+    Color textColor;
+
+    switch (st) {
+      case 'CLOSE':
+      case 'ACC':
+      case 'CONFIRM':
+      case 'SELESAI':
+        bgColor = const Color(0xFFECFDF5);
+        borderColor = const Color(0xFFA7F3D0);
+        textColor = const Color(0xFF059669);
+        break;
+      case 'BATAL':
+      case 'CANCEL':
+      case 'TOLAK':
+        bgColor = const Color(0xFFFEF2F2);
+        borderColor = const Color(0xFFFECACA);
+        textColor = const Color(0xFFDC2626);
+        break;
+      case 'WAIT':
+      case 'PENDING':
+        bgColor = const Color(0xFFFFF7ED);
+        borderColor = const Color(0xFFFED7AA);
+        textColor = const Color(0xFFC2410C);
+        break;
+      case 'PARSIAL':
+        bgColor = const Color(0xFFEFF6FF);
+        borderColor = const Color(0xFFBFDBFE);
+        textColor = const Color(0xFF2563EB);
+        break;
+      case 'OPEN':
+      default:
+        bgColor = const Color(0xFFFFFBEB);
+        borderColor = const Color(0xFFFDE68A);
+        textColor = const Color(0xFFD97706);
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: borderColor),
+      ),
+      child: Text(
+        st,
+        style: TextStyle(
+          color: textColor,
+          fontSize: 10.5,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.2,
+        ),
+      ),
+    );
+  }
+
   // --- WIDGET KARTU ITEM RINCIAN BARANG ---
   Widget _buildDetailItemCard({
     required PenawaranDetailItem item,
@@ -787,14 +919,7 @@ class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
                 ),
               ),
               const SizedBox(width: 10),
-              Text(
-                item.status.isNotEmpty ? item.status : '-',
-                style: const TextStyle(
-                  color: Color(0xFF64748B),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
+              _buildItemStatusBadge(item.status),
             ],
           ),
 
@@ -889,10 +1014,26 @@ class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
                 ? log.approvalState
                 : '-';
 
-            Color stateColor = const Color(0xFF64748B);
-            if (stateLabel == 'ACC') stateColor = const Color(0xFF16A34A);
-            if (stateLabel == 'WAIT') stateColor = const Color(0xFFD97706);
-            if (stateLabel == 'TOLAK') stateColor = const Color(0xFFDC2626);
+            Color stateBgColor;
+            Color stateBorderColor;
+            Color stateColor;
+            if (stateLabel == 'ACC') {
+              stateBgColor = const Color(0xFFECFDF5);
+              stateBorderColor = const Color(0xFFA7F3D0);
+              stateColor = const Color(0xFF059669);
+            } else if (stateLabel == 'WAIT') {
+              stateBgColor = const Color(0xFFFFF7ED);
+              stateBorderColor = const Color(0xFFFED7AA);
+              stateColor = const Color(0xFFD97706);
+            } else if (stateLabel == 'TOLAK') {
+              stateBgColor = const Color(0xFFFEF2F2);
+              stateBorderColor = const Color(0xFFFECACA);
+              stateColor = const Color(0xFFDC2626);
+            } else {
+              stateBgColor = const Color(0xFFF1F5F9);
+              stateBorderColor = const Color(0xFFE2E8F0);
+              stateColor = const Color(0xFF64748B);
+            }
 
             return Container(
               margin: EdgeInsets.only(top: idx == 0 ? 0 : 8),
@@ -926,13 +1067,13 @@ class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 10,
-                            vertical: 4,
+                            vertical: 3.5,
                           ),
                           decoration: BoxDecoration(
-                            color: stateColor.withValues(alpha: 0.1),
+                            color: stateBgColor,
                             borderRadius: BorderRadius.circular(999),
                             border: Border.all(
-                              color: const Color.fromRGBO(15, 23, 42, 0.06),
+                              color: stateBorderColor,
                             ),
                           ),
                           child: Text(
@@ -1030,10 +1171,10 @@ class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
                       ? Container(
                           height: 44,
                           decoration: BoxDecoration(
-                            color: const Color.fromRGBO(5, 150, 105, 0.12),
+                            color: const Color(0xFFECFDF5),
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                              color: const Color.fromRGBO(5, 150, 105, 0.25),
+                              color: const Color(0xFFA7F3D0),
                             ),
                           ),
                           alignment: Alignment.center,
@@ -1041,7 +1182,7 @@ class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
-                                Icons.verified,
+                                Icons.verified_rounded,
                                 size: 16,
                                 color: Color(0xFF059669),
                               ),

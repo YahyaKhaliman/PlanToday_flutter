@@ -506,6 +506,27 @@ class _PenawaranStatusScreenState extends ConsumerState<PenawaranStatusScreen> {
                                               text: currentStatus.isNotEmpty
                                                   ? currentStatus
                                                   : 'Pilih Status...',
+                                              textColor: currentStatus == 'CLOSE'
+                                                  ? const Color(0xFF059669)
+                                                  : currentStatus == 'BATAL'
+                                                      ? const Color(0xFFDC2626)
+                                                      : currentStatus == 'OPEN'
+                                                          ? const Color(0xFFD97706)
+                                                          : null,
+                                              bgColor: currentStatus == 'CLOSE'
+                                                  ? const Color(0xFFECFDF5)
+                                                  : currentStatus == 'BATAL'
+                                                      ? const Color(0xFFFEF2F2)
+                                                      : currentStatus == 'OPEN'
+                                                          ? const Color(0xFFFFFBEB)
+                                                          : null,
+                                              borderColor: currentStatus == 'CLOSE'
+                                                  ? const Color(0xFFA7F3D0)
+                                                  : currentStatus == 'BATAL'
+                                                      ? const Color(0xFFFECACA)
+                                                      : currentStatus == 'OPEN'
+                                                          ? const Color(0xFFFDE68A)
+                                                          : null,
                                               isDisabled:
                                                   isLocked || _isSubmitting,
                                               onTap: () {
@@ -755,6 +776,9 @@ class _PenawaranStatusScreenState extends ConsumerState<PenawaranStatusScreen> {
     required String text,
     required bool isDisabled,
     required VoidCallback onTap,
+    Color? textColor,
+    Color? bgColor,
+    Color? borderColor,
   }) {
     return InkWell(
       onTap: isDisabled ? null : onTap,
@@ -765,10 +789,10 @@ class _PenawaranStatusScreenState extends ConsumerState<PenawaranStatusScreen> {
         decoration: BoxDecoration(
           color: isDisabled
               ? const Color(0xFFF1F5F9).withValues(alpha: 0.6)
-              : const Color(0xFFF1F5F9),
+              : (bgColor ?? const Color(0xFFF1F5F9)),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: const Color.fromRGBO(15, 23, 42, 0.08),
+            color: borderColor ?? const Color.fromRGBO(15, 23, 42, 0.08),
           ),
         ),
         child: Row(
@@ -782,7 +806,7 @@ class _PenawaranStatusScreenState extends ConsumerState<PenawaranStatusScreen> {
                   fontWeight: FontWeight.w700,
                   color: isDisabled
                       ? const Color(0xFF94A3B8)
-                      : const Color(0xFF0F172A),
+                      : (textColor ?? const Color(0xFF0F172A)),
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
