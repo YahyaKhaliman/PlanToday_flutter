@@ -68,6 +68,23 @@ class PenawaranHeader {
   final String note;
   final double nominal;
   final String approvalState;
+  final String rekening;
+  final double dpPer;
+  final String bank;
+  final String bankAtasnama;
+  final String bankCabang;
+  final String perushEmail;
+  final String perushTelp;
+  final String perushFax;
+  final String perushAlamatnpwp;
+  final String tambahan;
+  final String sample;
+  final int cetakTotal;
+  final String marketing;
+  final String marketingTelp;
+  final String mx;
+  final double panjang;
+  final double lebar;
 
   const PenawaranHeader({
     required this.nomor,
@@ -92,6 +109,23 @@ class PenawaranHeader {
     this.note = '',
     this.nominal = 0.0,
     this.approvalState = '',
+    this.rekening = '',
+    this.dpPer = 0.0,
+    this.bank = '',
+    this.bankAtasnama = '',
+    this.bankCabang = '',
+    this.perushEmail = '',
+    this.perushTelp = '',
+    this.perushFax = '',
+    this.perushAlamatnpwp = '',
+    this.tambahan = '',
+    this.sample = '',
+    this.cetakTotal = 1,
+    this.marketing = '',
+    this.marketingTelp = '',
+    this.mx = '',
+    this.panjang = 0.0,
+    this.lebar = 0.0,
   });
 
   bool get isApproved =>
@@ -122,6 +156,23 @@ class PenawaranHeader {
       note: json['note']?.toString() ?? '',
       nominal: (json['nominal'] as num?)?.toDouble() ?? 0.0,
       approvalState: json['approval_state']?.toString() ?? '',
+      rekening: json['rekening']?.toString() ?? json['pen_rekening']?.toString() ?? '',
+      dpPer: (json['dp_per'] as num?)?.toDouble() ?? (json['pen_dpper'] as num?)?.toDouble() ?? 0.0,
+      bank: json['bank']?.toString() ?? json['perushd_bank']?.toString() ?? '',
+      bankAtasnama: json['bank_atasnama']?.toString() ?? json['perushd_atasnama']?.toString() ?? '',
+      bankCabang: json['bank_cabang']?.toString() ?? json['perushd_cabang']?.toString() ?? '',
+      perushEmail: json['perush_email']?.toString() ?? '',
+      perushTelp: json['perush_telp']?.toString() ?? '',
+      perushFax: json['perush_fax']?.toString() ?? '',
+      perushAlamatnpwp: json['perush_alamatnpwp']?.toString() ?? '',
+      tambahan: json['tambahan']?.toString() ?? json['pen_tambahan']?.toString() ?? '',
+      sample: json['sample']?.toString() ?? json['pen_sample']?.toString() ?? '',
+      cetakTotal: int.tryParse(json['cetak_total']?.toString() ?? json['pen_cetaktotal']?.toString() ?? '1') ?? 1,
+      marketing: json['marketing']?.toString() ?? json['pen_marketing']?.toString() ?? '',
+      marketingTelp: json['marketing_telp']?.toString() ?? json['pen_marketing_telp']?.toString() ?? '',
+      mx: json['mx']?.toString() ?? json['pen_mx']?.toString() ?? '',
+      panjang: (json['panjang'] as num?)?.toDouble() ?? (json['pen_panjang'] as num?)?.toDouble() ?? 0.0,
+      lebar: (json['lebar'] as num?)?.toDouble() ?? (json['pen_lebar'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }

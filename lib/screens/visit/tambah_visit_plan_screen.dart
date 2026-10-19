@@ -107,10 +107,7 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
       setState(() => _isLoading = false);
 
       if (success) {
-        AppToast.success(
-          context,
-          'Rencana kunjungan berhasil tersimpan',
-        );
+        AppToast.success(context, 'Rencana kunjungan berhasil tersimpan');
         context.pop(true);
       } else {
         AppToast.error(context, 'Gagal menyimpan visit plan');
@@ -130,8 +127,11 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final isDesktop = constraints.maxWidth >= 900;
-            final isTablet = constraints.maxWidth >= 600 && constraints.maxWidth < 900;
-            final horizontalPadding = isDesktop ? 32.0 : (isTablet ? 24.0 : 16.0);
+            final isTablet =
+                constraints.maxWidth >= 600 && constraints.maxWidth < 900;
+            final horizontalPadding = isDesktop
+                ? 32.0
+                : (isTablet ? 24.0 : 16.0);
             final cardPadding = isDesktop ? 28.0 : (isTablet ? 24.0 : 20.0);
 
             // Widget Sales (Cabang)
@@ -161,7 +161,11 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
                     alignment: Alignment.centerLeft,
                     child: Row(
                       children: [
-                        const Icon(Icons.person_outline_rounded, size: 18, color: Color(0xFF64748B)),
+                        const Icon(
+                          Icons.person_outline_rounded,
+                          size: 18,
+                          color: Color(0xFF64748B),
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -200,7 +204,9 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
                     onTap: () async {
                       final now = DateTime.now();
                       final todayDate = DateTime(now.year, now.month, now.day);
-                      final firstAllowed = _selectedDate.isBefore(todayDate) ? _selectedDate : todayDate;
+                      final firstAllowed = _selectedDate.isBefore(todayDate)
+                          ? _selectedDate
+                          : todayDate;
 
                       final picked = await showDatePicker(
                         context: context,
@@ -251,13 +257,20 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
               // Di Desktop (>=900px) gunakan maxWidth 860, Tablet 720, Mobile penuh
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxWidth: isDesktop ? 860 : (isTablet ? 720 : double.infinity),
+                  maxWidth: isDesktop
+                      ? 860
+                      : (isTablet ? 720 : double.infinity),
                 ),
                 child: Column(
                   children: [
                     // 1. TOP HEADER (Responsif)
                     Padding(
-                      padding: EdgeInsets.fromLTRB(horizontalPadding, 12, horizontalPadding, 0),
+                      padding: EdgeInsets.fromLTRB(
+                        horizontalPadding,
+                        12,
+                        horizontalPadding,
+                        0,
+                      ),
                       child: Row(
                         children: [
                           GestureDetector(
@@ -321,7 +334,10 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
                     // 2. FORM KONTEN (Card Responsif)
                     Expanded(
                       child: SingleChildScrollView(
-                        padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 8),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: horizontalPadding,
+                          vertical: 8,
+                        ),
                         child: Form(
                           key: _formKey,
                           child: Container(
@@ -343,7 +359,8 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
                                 // Di tablet/desktop: Sales dan Tanggal dalam 1 Row
                                 if (isTablet || isDesktop)
                                   Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Expanded(child: buildSalesField()),
                                       const SizedBox(width: 16),
@@ -359,20 +376,30 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
 
                                 // Card Warning Jam 08:00
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 10,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFFEF3C7),
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: const Color(0xFFFDE68A)),
+                                    border: Border.all(
+                                      color: const Color(0xFFFDE68A),
+                                    ),
                                   ),
                                   child: const Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Icon(Icons.warning_amber_rounded, size: 18, color: Color(0xFFD97706)),
+                                      Icon(
+                                        Icons.warning_amber_rounded,
+                                        size: 18,
+                                        color: Color(0xFFD97706),
+                                      ),
                                       SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
-                                          'Rencana kunjungan untuk hari yang sama hanya dapat diinput sebelum jam 08:00 pagi.',
+                                          'Rencana kunjungan untuk hari yang sama hanya dapat diinput sebelum jam 08:00',
                                           style: TextStyle(
                                             color: Color(0xFFD97706),
                                             fontSize: 12,
@@ -404,22 +431,33 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
                                         borderRadius: BorderRadius.circular(12),
                                         child: Container(
                                           height: 48,
-                                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                          ),
                                           decoration: BoxDecoration(
                                             color: const Color(0xFFF1F5F9),
-                                            borderRadius: BorderRadius.circular(12),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
                                             border: Border.all(
-                                              color: const Color.fromRGBO(15, 23, 42, 0.06),
+                                              color: const Color.fromRGBO(
+                                                15,
+                                                23,
+                                                42,
+                                                0.06,
+                                              ),
                                             ),
                                           ),
                                           alignment: Alignment.centerLeft,
                                           child: Text(
-                                            _selectedCustomer?.nama ?? 'Pilih Customer',
+                                            _selectedCustomer?.nama ??
+                                                'Pilih Customer',
                                             style: TextStyle(
                                               color: _selectedCustomer != null
                                                   ? const Color(0xFF0F172A)
                                                   : const Color(0xFF94A3B8),
-                                              fontWeight: _selectedCustomer != null
+                                              fontWeight:
+                                                  _selectedCustomer != null
                                                   ? FontWeight.w700
                                                   : FontWeight.w500,
                                               fontSize: 13,
@@ -435,14 +473,22 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
                                       height: 48,
                                       child: ElevatedButton(
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFFF1F5F9),
-                                          foregroundColor: const Color(0xFF4F46E5),
+                                          backgroundColor: const Color(
+                                            0xFFF1F5F9,
+                                          ),
+                                          foregroundColor: const Color(
+                                            0xFF4F46E5,
+                                          ),
                                           minimumSize: const Size(0, 48),
                                           elevation: 0,
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(12),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
                                           ),
-                                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 20,
+                                          ),
                                         ),
                                         onPressed: _selectCustomer,
                                         child: const Text(
@@ -456,7 +502,8 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
                                     ),
                                   ],
                                 ),
-                                if (_selectedCustomer?.kode != null && _selectedCustomer!.kode.isNotEmpty) ...[
+                                if (_selectedCustomer?.kode != null &&
+                                    _selectedCustomer!.kode.isNotEmpty) ...[
                                   const SizedBox(height: 4),
                                   Text(
                                     'Kode: ${_selectedCustomer!.kode}',
@@ -484,26 +531,36 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
                                   maxLines: 4,
                                   decoration: InputDecoration(
                                     hintText: 'Tulis keperluan kunjungan...',
-                                    hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                                    hintStyle: const TextStyle(
+                                      color: Color(0xFF94A3B8),
+                                      fontSize: 13,
+                                    ),
                                     filled: true,
                                     fillColor: const Color(0xFFF1F5F9),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(color: Color.fromRGBO(15, 23, 42, 0.06)),
+                                      borderSide: const BorderSide(
+                                        color: Color.fromRGBO(15, 23, 42, 0.06),
+                                      ),
                                     ),
                                     enabledBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(color: Color.fromRGBO(15, 23, 42, 0.06)),
+                                      borderSide: const BorderSide(
+                                        color: Color.fromRGBO(15, 23, 42, 0.06),
+                                      ),
                                     ),
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.5),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFF4F46E5),
+                                        width: 1.5,
+                                      ),
                                     ),
                                   ),
                                   validator: (v) =>
                                       (v == null || v.trim().isEmpty)
-                                          ? 'Keperluan kunjungan wajib diisi'
-                                          : null,
+                                      ? 'Keperluan kunjungan wajib diisi'
+                                      : null,
                                 ),
                                 const SizedBox(height: 24),
 
@@ -517,10 +574,15 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
                                           height: 48,
                                           child: TextButton(
                                             style: TextButton.styleFrom(
-                                              foregroundColor: const Color(0xFF64748B),
-                                              backgroundColor: const Color(0xFFF1F5F9),
+                                              foregroundColor: const Color(
+                                                0xFF64748B,
+                                              ),
+                                              backgroundColor: const Color(
+                                                0xFFF1F5F9,
+                                              ),
                                               shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(14),
+                                                borderRadius:
+                                                    BorderRadius.circular(14),
                                               ),
                                             ),
                                             onPressed: _handleBack,
@@ -541,25 +603,35 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
                                           height: 48,
                                           child: ElevatedButton(
                                             style: ElevatedButton.styleFrom(
-                                              backgroundColor: const Color(0xFF4F46E5),
+                                              backgroundColor: const Color(
+                                                0xFF4F46E5,
+                                              ),
                                               foregroundColor: Colors.white,
                                               elevation: 0,
                                               shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(14),
+                                                borderRadius:
+                                                    BorderRadius.circular(14),
                                               ),
                                             ),
-                                            onPressed: _isLoading ? null : _submit,
+                                            onPressed: _isLoading
+                                                ? null
+                                                : _submit,
                                             child: _isLoading
                                                 ? const SizedBox(
                                                     width: 20,
                                                     height: 20,
-                                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                          strokeWidth: 2,
+                                                          color: Colors.white,
+                                                        ),
                                                   )
                                                 : const Text(
                                                     'SIMPAN RENCANA',
                                                     style: TextStyle(
                                                       fontSize: 14,
-                                                      fontWeight: FontWeight.w800,
+                                                      fontWeight:
+                                                          FontWeight.w800,
                                                       letterSpacing: 0.5,
                                                     ),
                                                   ),
@@ -574,11 +646,15 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
                                     height: 48,
                                     child: ElevatedButton(
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF4F46E5),
+                                        backgroundColor: const Color(
+                                          0xFF4F46E5,
+                                        ),
                                         foregroundColor: Colors.white,
                                         elevation: 0,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(14),
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
                                         ),
                                       ),
                                       onPressed: _isLoading ? null : _submit,
@@ -586,7 +662,10 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
                                           ? const SizedBox(
                                               width: 20,
                                               height: 20,
-                                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white,
+                                              ),
                                             )
                                           : const Text(
                                               'SIMPAN RENCANA',
@@ -604,9 +683,13 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
                                     height: 44,
                                     child: TextButton(
                                       style: TextButton.styleFrom(
-                                        foregroundColor: const Color(0xFF64748B),
+                                        foregroundColor: const Color(
+                                          0xFF64748B,
+                                        ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(14),
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
                                         ),
                                       ),
                                       onPressed: _handleBack,

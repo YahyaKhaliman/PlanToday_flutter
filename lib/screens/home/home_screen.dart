@@ -40,14 +40,19 @@ const _kIndonesianMonths = [
   'Desember',
 ];
 
-const _kIndonesianDays = [
-  'Minggu',
-  'Senin',
-  'Selasa',
-  'Rabu',
-  'Kamis',
-  'Jumat',
-  'Sabtu',
+const _kShortMonths = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'Mei',
+  'Jun',
+  'Jul',
+  'Agu',
+  'Sep',
+  'Okt',
+  'Nov',
+  'Des',
 ];
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -513,10 +518,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
   }
 
-  String _formatLongDate(DateTime dt) {
-    final dayName = _kIndonesianDays[dt.weekday % 7];
-    final monthName = _kIndonesianMonths[dt.month - 1];
-    return '$dayName, ${dt.day} $monthName ${dt.year}';
+  String _formatDateShort(DateTime dt) {
+    return '${dt.day} ${_kShortMonths[dt.month - 1]} ${dt.year}';
+  }
+
+  String _formatItemDate(String? ymd) {
+    if (ymd == null || ymd.trim().isEmpty) return '-';
+    final trimmed = ymd.trim();
+    try {
+      if (trimmed.contains('-')) {
+        final clean = trimmed.split('T')[0].split(' ')[0];
+        final parts = clean.split('-').map(int.parse).toList();
+        if (parts.length >= 3) {
+          final day = parts[2];
+          final month = parts[1];
+          final year = parts[0];
+          if (month >= 1 && month <= 12) {
+            return '$day ${_kShortMonths[month - 1]} $year';
+          }
+        }
+      }
+      final dt = DateTime.tryParse(trimmed);
+      if (dt != null) {
+        return '${dt.day} ${_kShortMonths[dt.month - 1]} ${dt.year}';
+      }
+    } catch (_) {}
+    return trimmed;
   }
 
   String _getGreeting() {
@@ -1480,7 +1507,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         ),
                       ),
                       Text(
-                        _formatLongDate(DateTime.now()),
+                        _formatDateShort(DateTime.now()),
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -1745,7 +1772,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                _formatLongDate(_selectedVisitPlanDate),
+                                _formatDateShort(_selectedVisitPlanDate),
                                 style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w800,
@@ -2566,7 +2593,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return _buildStripeModuleCard(
       stripeColor: const Color(0xFFEF4444),
       title: 'Permintaan Harga Terbaru',
-      periodText: '${_kIndonesianMonths[_phMonth - 1]} $_phYear',
+      periodText: '${_kShortMonths[_phMonth - 1]} $_phYear',
       onSelectPeriod: () {
         _showMonthYearPicker(
           target: 'PH',
@@ -2620,7 +2647,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         final phToken = PermintaanHargaStatusHelper.getToken(ph.status);
         return _buildRecentItemBox(
           code: ph.nomor,
-          date: ph.tanggal,
+          date: _formatItemDate(ph.tanggal),
           customer: ph.customer,
           detail: '${ph.nama} (${ph.divisi})',
           status: ph.status,
@@ -2636,7 +2663,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return _buildStripeModuleCard(
       stripeColor: const Color(0xFF3B82F6),
       title: 'Penawaran Terbaru',
-      periodText: '${_kIndonesianMonths[_penawaranMonth - 1]} $_penawaranYear',
+      periodText: '${_kShortMonths[_penawaranMonth - 1]} $_penawaranYear',
       onSelectPeriod: () {
         _showMonthYearPicker(
           target: 'Penawaran',
@@ -2693,7 +2720,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             : 0.0;
         return _buildRecentItemBox(
           code: pen.noPenawaran,
-          date: pen.tanggalPenawaran,
+          date: _formatItemDate(pen.tanggalPenawaran),
           customer: pen.customer,
           detail: '${pen.totalItemMap} dari ${pen.totalItem} item MAP',
           status: pen.statusTracking,
@@ -2711,7 +2738,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return _buildStripeModuleCard(
       stripeColor: const Color(0xFF10B981),
       title: 'SPK Terbaru',
-      periodText: '${_kIndonesianMonths[_spkMonth - 1]} $_spkYear',
+      periodText: '${_kShortMonths[_spkMonth - 1]} $_spkYear',
       onSelectPeriod: () {
         _showMonthYearPicker(
           target: 'SPK',
@@ -2767,7 +2794,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         final progress = ord > 0 ? (real / ord).clamp(0.0, 1.0) : 0.0;
         return _buildRecentItemBox(
           code: spk.noSpk,
-          date: spk.tanggalSpk,
+          date: _formatItemDate(spk.tanggalSpk),
           customer: spk.namaBarang,
           detail: 'Realisasi: ${real.toInt()} / ${ord.toInt()}',
           status: spk.status.isEmpty ? 'OPEN' : spk.status,

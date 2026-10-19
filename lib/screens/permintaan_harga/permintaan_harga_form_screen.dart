@@ -1,3 +1,5 @@
+// ignore_for_file: unnecessary_string_interpolations
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -3664,7 +3666,7 @@ class _PermintaanHargaFormScreenState
               ),
               SizedBox(width: 4),
               Text(
-                '(Opsional)',
+                '(Opsional) Tidak Mempengaruhi Kalkulasi Harga',
                 style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
               ),
             ],
@@ -3712,7 +3714,7 @@ class _PermintaanHargaFormScreenState
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Tambahan Biaya Aksesoris',
+                'Tambahan Aksesoris',
                 style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
               ),
               TextButton.icon(
@@ -3756,7 +3758,7 @@ class _PermintaanHargaFormScreenState
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Biaya Cetak (Sablon/DTF/Bordir)',
+                'Tambahan Cetak',
                 style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
               ),
               TextButton.icon(
@@ -5427,7 +5429,7 @@ class _PermintaanHargaFormScreenState
                       final String label = qmax >= 99999
                           ? '≥ $qmin M'
                           : '$qmin - $qmax M';
-                      final tarif = s['up'] ?? s['harga'] ?? s['tarif'] ?? 0;
+                      final tarif = s['up'] ?? 0;
 
                       return Container(
                         color: isActive
@@ -6265,7 +6267,7 @@ class _PermintaanHargaFormScreenState
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Aksesoris Tambahan',
+                'Tambahan Aksesoris',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -6555,7 +6557,7 @@ class _PermintaanHargaFormScreenState
             ),
           if (cetakPerPcs > 0)
             _buildResultItemRow(
-              'Biaya Cetak:',
+              'Tambahan Cetak:',
               '+Rp ${_formatNumberDisplay(cetakPerPcs)} / Pcs',
               valueColor: const Color(0xFFD97706),
               isBold: true,
@@ -7199,210 +7201,208 @@ class _PermintaanHargaFormScreenState
           const SizedBox(height: 8),
           const Divider(height: 1, color: Color(0xFFDBEAFE)),
           const SizedBox(height: 8),
-            // Baris 1: Customer & Nama Pekerjaan
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _buildSpecInfoCell(
-                    label: 'CUSTOMER',
-                    value: _customerNamaController.text.trim().isNotEmpty
-                        ? _customerNamaController.text.trim()
-                        : '-',
-                  ),
+          // Baris 1: Customer & Nama Pekerjaan
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _buildSpecInfoCell(
+                  label: 'CUSTOMER',
+                  value: _customerNamaController.text.trim().isNotEmpty
+                      ? _customerNamaController.text.trim()
+                      : '-',
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildSpecInfoCell(
-                    label: 'NAMA PEKERJAAN',
-                    value: _barangController.text.trim().isNotEmpty
-                        ? _barangController.text.trim()
-                        : '-',
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-
-            // Baris 2: Divisi & Tanggal Order
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _buildSpecInfoCell(
-                    label: 'DIVISI',
-                    value: divisiLabel,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildSpecInfoCell(
-                    label: 'TANGGAL',
-                    value: DateFormat('dd-MM-yyyy').format(_rencanaOrderDate),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-
-            // Baris 3: Spesifikasi Bahan & Dimensi Ukuran
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _buildSpecInfoCell(
-                    label: labelBahan,
-                    value: specBahan,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildSpecInfoCell(
-                    label: labelUkuran,
-                    value: specUkuran,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-
-            // Baris 4: Kuantitas Order & Opsi Spesifik Divisi / Finishing
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _buildSpecInfoCell(
-                    label: 'JUMLAH ORDER',
-                    value:
-                        '${_formatNumberDisplay(_toNumCurrency(_qtyController.text))} Pcs',
-                    valueColor: const Color(0xFF4F46E5),
-                    valueFontWeight: FontWeight.w800,
-                  ),
-                ),
-                if (extraValue.isNotEmpty) ...[
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _buildSpecInfoCell(
-                      label: extraLabel,
-                      value: extraValue,
-                    ),
-                  ),
-                ],
-                if (finishingText.isNotEmpty) ...[
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _buildSpecInfoCell(
-                      label: 'FINISHING',
-                      value: finishingText,
-                    ),
-                  ),
-                ],
-                if (extraValue.isEmpty && finishingText.isEmpty) ...[
-                  const SizedBox(width: 8),
-                  const Expanded(child: SizedBox()),
-                ],
-              ],
-            ),
-            const SizedBox(height: 6),
-
-            // Baris 5: Pengiriman & Estimasi Ongkir
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _buildSpecInfoCell(
-                    label: 'PENGIRIMAN',
-                    value: alokasiTeks,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildSpecInfoCell(
-                    label: 'ESTIMASI ONGKIR',
-                    value: ongkirDisplay,
-                    valueColor: isFreeOngkir
-                        ? const Color(0xFF15803D)
-                        : const Color(0xFF0284C7),
-                  ),
-                ),
-              ],
-            ),
-
-            // Baris Khusus Divisi Garmen: Tambahan Aksesoris & Cetak Terinput (Terlihat oleh User)
-            if (_selectedDivisi == '4') ...[
-              if (_garmenSelectedTambahan.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: _buildSpecInfoCell(
-                        label: 'AKSESORIS TERINPUT',
-                        value: _garmenSelectedTambahan
-                            .map((e) =>
-                                '${e['ket']} (+Rp ${_formatNumberDisplay(e['tarif'] ?? 0)})')
-                            .join(', '),
-                        valueColor: const Color(0xFF4F46E5),
-                        maxLines: 2,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-              if (_garmenSelectedCetak.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: _buildSpecInfoCell(
-                        label: 'CETAK / SABLON TERINPUT',
-                        value: _garmenSelectedCetak
-                            .map((e) =>
-                                '${e['jenis']} - ${e['ket']} (+Rp ${_formatNumberDisplay(e['biaya'] ?? 0)})')
-                            .join(', '),
-                        valueColor: const Color(0xFF7C3AED),
-                        maxLines: 2,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ],
-
-            // Baris 6: Keterangan Tambahan
-            if (keteranganTeks.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.only(top: 6),
-                decoration: const BoxDecoration(
-                  border: Border(top: BorderSide(color: Color(0xFFDBEAFE))),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'KETERANGAN',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF64748B),
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      keteranganTeks,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontStyle: FontStyle.italic,
-                        color: Color(0xFF475569),
-                      ),
-                    ),
-                  ],
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildSpecInfoCell(
+                  label: 'NAMA PEKERJAAN',
+                  value: _barangController.text.trim().isNotEmpty
+                      ? _barangController.text.trim()
+                      : '-',
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 6),
+
+          // Baris 2: Divisi & Tanggal Order
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _buildSpecInfoCell(label: 'DIVISI', value: divisiLabel),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildSpecInfoCell(
+                  label: 'TANGGAL',
+                  value: DateFormat('dd-MM-yyyy').format(_rencanaOrderDate),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+
+          // Baris 3: Spesifikasi Bahan & Dimensi Ukuran
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _buildSpecInfoCell(label: labelBahan, value: specBahan),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildSpecInfoCell(
+                  label: labelUkuran,
+                  value: specUkuran,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+
+          // Baris 4: Kuantitas Order & Opsi Spesifik Divisi / Finishing
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _buildSpecInfoCell(
+                  label: 'JUMLAH ORDER',
+                  value:
+                      '${_formatNumberDisplay(_toNumCurrency(_qtyController.text))} Pcs',
+                  valueColor: const Color(0xFF4F46E5),
+                  valueFontWeight: FontWeight.w800,
+                ),
+              ),
+              if (extraValue.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildSpecInfoCell(
+                    label: extraLabel,
+                    value: extraValue,
+                  ),
+                ),
+              ],
+              if (finishingText.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildSpecInfoCell(
+                    label: 'FINISHING',
+                    value: finishingText,
+                  ),
+                ),
+              ],
+              if (extraValue.isEmpty && finishingText.isEmpty) ...[
+                const SizedBox(width: 8),
+                const Expanded(child: SizedBox()),
+              ],
+            ],
+          ),
+          const SizedBox(height: 6),
+
+          // Baris 5: Pengiriman & Estimasi Ongkir
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _buildSpecInfoCell(
+                  label: 'PENGIRIMAN',
+                  value: alokasiTeks,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildSpecInfoCell(
+                  label: 'ESTIMASI ONGKIR',
+                  value: ongkirDisplay,
+                  valueColor: isFreeOngkir
+                      ? const Color(0xFF15803D)
+                      : const Color(0xFF0284C7),
+                ),
+              ),
+            ],
+          ),
+
+          // Baris Khusus Divisi Garmen: Tambahan Aksesoris & Cetak Terinput (Terlihat oleh User)
+          if (_selectedDivisi == '4') ...[
+            if (_garmenSelectedTambahan.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _buildSpecInfoCell(
+                      label: 'AKSESORIS TERINPUT',
+                      value: _garmenSelectedTambahan
+                          .map(
+                            (e) =>
+                                '${e['ket']} (+Rp ${_formatNumberDisplay(e['tarif'] ?? 0)})',
+                          )
+                          .join(', '),
+                      valueColor: const Color(0xFF4F46E5),
+                      maxLines: 2,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            if (_garmenSelectedCetak.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _buildSpecInfoCell(
+                      label: 'CETAK / SABLON TERINPUT',
+                      value: _garmenSelectedCetak
+                          .map(
+                            (e) =>
+                                '${e['jenis']} - ${e['ket']} (+Rp ${_formatNumberDisplay(e['biaya'] ?? 0)})',
+                          )
+                          .join(', '),
+                      valueColor: const Color(0xFF7C3AED),
+                      maxLines: 2,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+
+          // Baris 6: Keterangan Tambahan
+          if (keteranganTeks.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.only(top: 6),
+              decoration: const BoxDecoration(
+                border: Border(top: BorderSide(color: Color(0xFFDBEAFE))),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'KETERANGAN',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF64748B),
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    keteranganTeks,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontStyle: FontStyle.italic,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -9691,9 +9691,10 @@ class _PermintaanHargaFormScreenState
           child: Column(
             children: [
               const Text(
-                'Pilih Tambahan Biaya Aksesoris',
+                'Tambahan Aksesoris',
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
               ),
+              Text('${_garmenKategoriKain.toUpperCase()}'),
               const SizedBox(height: 10),
               Expanded(
                 child: ListView.separated(
@@ -9856,7 +9857,7 @@ class _PermintaanHargaFormScreenState
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
-                          'Pilih Biaya Cetak Garmen',
+                          'Tambahan Cetak',
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w900,
@@ -9920,78 +9921,6 @@ class _PermintaanHargaFormScreenState
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              // Info Tarif per cm2 (Terkunci Otomatis dari Database kencanaprint.tmintaharga_biaya)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 11,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF0FDF4),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: const Color(0xFFBBF7D0),
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(7),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFDCFCE7),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: const Icon(
-                                        Icons.lock_rounded,
-                                        size: 18,
-                                        color: Color(0xFF16A34A),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Text(
-                                                'Tarif $activeCategory Terkunci:',
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: Color(0xFF166534),
-                                                ),
-                                              ),
-                                              Text(
-                                                'Rp ${_formatNumberDisplay(defaultTarif.toInt())} / cm²',
-                                                style: const TextStyle(
-                                                  fontSize: 13.5,
-                                                  fontWeight: FontWeight.w900,
-                                                  color: Color(0xFF15803D),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            'Min. Biaya: Rp ${_formatNumberDisplay(minTarif.toInt())} / pcs • Sumber: Master Biaya (tmintaharga_biaya)',
-                                            style: const TextStyle(
-                                              fontSize: 10.5,
-                                              fontWeight: FontWeight.w600,
-                                              color: Color(0xFF166534),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-
                               // Input Dimensi (Panjang x Lebar cm)
                               Row(
                                 children: [

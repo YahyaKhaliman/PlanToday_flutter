@@ -29,7 +29,7 @@ class PenawaranPdfService {
     'Des',
   ];
 
-  /// Format tanggal medium sama persis dengan React Native (contoh: 15 Okt 2026)
+  /// Format tanggal medium (contoh: 15 Okt 2026)
   static String _formatDate(String ymd) {
     if (ymd.isEmpty) return '-';
     try {
@@ -50,13 +50,18 @@ class PenawaranPdfService {
     }
   }
 
-  /// Format angka tanpa prefix simbol "Rp " sama persis dengan formatNumber di React Native
+  /// Format angka tanpa prefix simbol "Rp "
   static String _formatNumber(num value) {
     final fmt = NumberFormat('#,##0', 'id_ID');
     return fmt.format(value);
   }
 
-  /// Resolusi template sama persis dengan resolvePdfTemplateKey di React Native
+  /// Format Rupiah lengkap dengan prefix Rp.
+  static String _fmtRupiah(num value) {
+    return 'Rp. ${_formatNumber(value)}';
+  }
+
+  /// Resolusi template perusahaan
   static PenawaranPdfTemplateKey _resolveTemplate(
     String companyName,
     String companyCode,
@@ -83,33 +88,130 @@ class PenawaranPdfService {
     return PenawaranPdfTemplateKey.kencanaPrint;
   }
 
-  /// Resolusi taxNoteText sama persis dengan prioritas React Native
+  /// Resolusi catatan PPN sama persis dengan Manksi Web
   static String _resolveTaxNote(PenawaranHeader header) {
-    // Prioritas 1: Baca langsung dari header.statusHarga asli (0 = Belum PPN, 1 = Sudah PPN, 2 = Disembunyikan)
     if (header.statusHarga == 1) {
-      return '* Note : Harga sudah termasuk PPN';
+      return '* Note : Harga sudah termasuk PPN 11%';
     }
     if (header.statusHarga == 0) {
-      return '* Note : Harga belum termasuk PPN';
+      return '* Note : Harga belum termasuk PPN 11%';
     }
     if (header.statusHarga == 2) {
       return '';
     }
 
-    // Prioritas 2: Baca jika ada catatan khusus di header note/keterangan asli penawaran
     final textToCheck = '${header.note} ${header.keterangan}'.toUpperCase();
     if (textToCheck.contains('SUDAH TERMASUK PPN') ||
         textToCheck.contains('INC PPN') ||
         textToCheck.contains('INCLUDE PPN')) {
-      return '* Note : Harga sudah termasuk PPN';
+      return '* Note : Harga sudah termasuk PPN 11%';
     }
     if (textToCheck.contains('BELUM TERMASUK PPN') ||
         textToCheck.contains('EXC PPN') ||
         textToCheck.contains('EXCLUDE PPN')) {
-      return '* Note : Harga belum termasuk PPN';
+      return '* Note : Harga belum termasuk PPN 11%';
     }
 
     return '';
+  }
+
+  /// Parse klausul tambahan dari pen_tambahan (id 1 s/d 7)
+  static List<String> _parseTambahan(
+    PenawaranHeader header,
+    PenawaranPdfTemplateKey template,
+  ) {
+    if (header.tambahan.trim().isEmpty) return [];
+    final ids = header.tambahan.split(',').map((s) => s.trim()).toList();
+    final result = <String>[];
+
+    if (ids.isNotEmpty && template == PenawaranPdfTemplateKey.jayaAbadiMulia) {
+      result.add('Keterangan :');
+    }
+
+    for (final id in ids) {
+      switch (id) {
+        case '1':
+          result.add(
+            '- Ukuran kaos ${header.panjang.toInt()} x ${header.lebar.toInt()} cm.',
+          );
+          break;
+        case '2':
+          result.add('- Sablon tidak luntur.');
+          break;
+        case '3':
+          result.add('- Harga Include ongkos kirim (Free Ongkir).');
+          break;
+        case '4':
+          result.add('- Bisa Packing sesuai alokasi.');
+          break;
+        case '5':
+          result.add('- Selalu ada laporan setelah barang diterima.');
+          break;
+        case '6':
+          result.add('- Garansi barang sesuai yang dipesan.');
+          break;
+        case '7':
+          result.add(
+            '- Dikarenakan proses drying, ukuran jadi spanduk/umbul akan mengalami penyusutan ±5 cm.',
+          );
+          break;
+      }
+    }
+    return result;
+  }
+
+  /// Parse rincian sample dari pen_sample
+  static List<String> _parseSample(PenawaranHeader header) {
+    if (header.sample.trim().isEmpty) return [];
+    final ids = header.sample
+        .split(',')
+        .map((s) => int.tryParse(s.trim()))
+        .whereType<int>()
+        .toList();
+    if (ids.isEmpty) return [];
+
+    final div = header.divisi.trim();
+    final result = <String>[];
+
+    if (div == '4') {
+      // Garmen
+      final sampleGarmen = {
+        1: 'Baju Uniform (Kemeja) : Rp 400.000',
+        2: 'Celana : Rp 300.000',
+        3: 'Celemek : Rp 200.000',
+        4: 'Jaket : Rp 500.000',
+        5: 'Jas Almamater : Rp 500.000',
+        6: 'Kaos Krah : Rp 350.000',
+        7: 'Kaos Oblong : Rp 200.000',
+        8: 'Rompi : Rp 500.000',
+        9: 'Wearpack : Rp 900.000',
+      };
+      result.add('- Rincian Biaya Sampel :');
+      for (final id in ids) {
+        if (sampleGarmen.containsKey(id)) {
+          result.add('  ${sampleGarmen[id]}');
+        }
+      }
+    } else if (div == '1') {
+      // Spanduk
+      final sampleSpanduk = {
+        1: 'Pembuatan sampel dikenakan biaya Rp 1.000.000 / desain.',
+        2: 'Jika ACC bisa dijadikan DP.',
+        3: 'Jika ada revisi desain dikenakan biaya ganti film Rp 500.000.',
+      };
+      result.add('- Ketentuan Sample :');
+      for (final id in ids) {
+        if (sampleSpanduk.containsKey(id)) {
+          result.add('  ${sampleSpanduk[id]}');
+        }
+      }
+    } else if (div == '5') {
+      // MMT
+      result.add('- Ketentuan Sample :');
+      result.add('  Harga sesuai pricelist ritailer.');
+    }
+
+    return result;
   }
 
   static Future<void> exportPenawaran({
@@ -166,8 +268,10 @@ class PenawaranPdfService {
     } catch (_) {}
 
     final template = _resolveTemplate(header.perusahaan, header.perusahaanKode);
-    final grandTotal =
-        details.fold<double>(0.0, (acc, curr) => acc + curr.total);
+    final grandTotal = details.fold<double>(
+      0.0,
+      (acc, curr) => acc + curr.total,
+    );
     final upLabel = header.up.trim().isNotEmpty
         ? header.up.trim()
         : (header.customer.isNotEmpty ? header.customer : '-');
@@ -187,12 +291,49 @@ class PenawaranPdfService {
         header.approvalState.toUpperCase() == 'ACC';
 
     final taxNoteText = _resolveTaxNote(header);
-    final note = header.note.trim().isNotEmpty ? header.note.trim() : '-';
+    final note = header.note.trim().isNotEmpty ? header.note.trim() : '';
+
+    // Warna border keliling halaman persis Manksi Web: JA = #002060, KP & MD = #eca100
+    final pageBorderColor = template == PenawaranPdfTemplateKey.jayaAbadiMulia
+        ? const PdfColor.fromInt(0xFF002060)
+        : const PdfColor.fromInt(0xFFECA100);
+
+    final tambahanList = _parseTambahan(header, template);
+    final sampleList = _parseSample(header);
+
+    // Perhitungan DP
+    final dpNominal = header.dpPer > 0
+        ? ((grandTotal > 0 ? grandTotal : header.nominal) * header.dpPer / 100)
+            .roundToDouble()
+        : 0.0;
+
+    // Email perusahaan fallback
+    final companyEmail = header.perushEmail.isNotEmpty
+        ? header.perushEmail
+        : (template == PenawaranPdfTemplateKey.jayaAbadiMulia
+            ? 'm.officer@jayaabadimulia.co.id'
+            : (template == PenawaranPdfTemplateKey.madaniProduction
+                ? 'm.officer@madaniproduction.co.id'
+                : 'solokencana2@gmail.com'));
 
     pdf.addPage(
       pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(28.35), // 10mm persis React Native
+        pageTheme: pw.PageTheme(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(24), // Margin dalam bingkai
+          buildBackground: (context) {
+            // Bingkai luar keliling persis Manksi Web
+            return pw.FullPage(
+              ignoreMargins: true,
+              child: pw.Container(
+                margin: const pw.EdgeInsets.all(12),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: pageBorderColor, width: 1.2),
+                ),
+              ),
+            );
+          },
+        ),
         build: (pw.Context context) {
           return [
             // 1. HEADER (KOP PERUSAHAAN)
@@ -218,22 +359,27 @@ class PenawaranPdfService {
             // 3. PENGANTAR (INTRODUCING TEXT)
             if (template == PenawaranPdfTemplateKey.jayaAbadiMulia) ...[
               pw.Text(
-                'Dengan Hormat,\nPertama kami mengucapkan terima kasih atas kesempatan yang diberikan kepada kami untuk memberikan Surat Penawaran Harga kepada perusahaan yang Bapak/Ibu pimpin.\nKami dari PT. Jaya Abadi Mulia yang bergerak di bidang penyedia material promosi dalam bidang printing dan garment bermaksud untuk memberikan penawaran harga atas beberapa pekerjaan yang tersebut di bawah ini :',
+                'Dengan Hormat,\n'
+                'Pertama kami mengucapkan terima kasih atas kesempatan yang diberikan kepada kami untuk memberikan Surat Penawaran Harga kepada perusahaan yang Bapak / Ibu pimpin.\n'
+                'Kami dari PT. Jaya Abadi Mulia yang bergerak di bidang penyedia material promosi dalam bidang printing dan garment bermaksud untuk memberikan penawaran harga atas beberapa pekerjaan yang tersebut di bawah ini :',
                 style: const pw.TextStyle(fontSize: 8.5, lineSpacing: 1.3),
                 textAlign: pw.TextAlign.justify,
               ),
             ] else if (template == PenawaranPdfTemplateKey.kencanaPrint) ...[
               pw.Text('Dengan Hormat,',
                   style: const pw.TextStyle(fontSize: 8.5)),
-              pw.SizedBox(height: 3),
+              pw.SizedBox(height: 2),
               pw.Text(
-                'Bersama dengan surat ini kami perusahaan yang bergerak di garment, manual printing dan digital printing mengajukan penawaran harga untuk item-item barang tersebut di bawah ini:',
+                'Bersama dengan surat ini kami perusahaan yang bergerak di garmen, manual printing dan digital printing akan mengajukan penawaran harga untuk item-item barang tersebut di bawah ini:',
                 style: const pw.TextStyle(fontSize: 8.5, lineSpacing: 1.3),
                 textAlign: pw.TextAlign.justify,
               ),
             ] else ...[
+              pw.Text('Dengan Hormat,',
+                  style: const pw.TextStyle(fontSize: 8.5)),
+              pw.SizedBox(height: 2),
               pw.Text(
-                'Dengan Hormat,\nBersama dengan surat ini kami perusahaan yang bergerak di garment, manual printing dan digital printing akan mengajukan penawaran harga untuk item-item barang tersebut di bawah ini.',
+                'Bersama dengan surat ini kami perusahaan yang bergerak di garmen, manual printing dan digital printing akan mengajukan penawaran harga untuk item-item barang tersebut di bawah ini:',
                 style: const pw.TextStyle(fontSize: 8.5, lineSpacing: 1.3),
                 textAlign: pw.TextAlign.justify,
               ),
@@ -245,77 +391,212 @@ class PenawaranPdfService {
             _buildGridTable(
               details: details,
               grandTotal: grandTotal > 0 ? grandTotal : header.nominal,
-              isKencana: template == PenawaranPdfTemplateKey.kencanaPrint,
+              cetakTotal: header.cetakTotal,
             ),
 
             // 5. TAX NOTE (Jika ada)
             if (taxNoteText.isNotEmpty) ...[
-              pw.SizedBox(
-                  height: template == PenawaranPdfTemplateKey.kencanaPrint
-                      ? 8
-                      : 6),
+              pw.SizedBox(height: 4),
               pw.Text(
                 taxNoteText,
                 style: pw.TextStyle(
-                  fontSize: 8.5,
+                  fontSize: 8,
                   fontStyle: pw.FontStyle.italic,
                   color: PdfColors.black,
                 ),
               ),
             ],
 
-            pw.SizedBox(height: 8),
+            pw.SizedBox(height: 5),
 
-            // 6. CLOSING PARAGRAPH
-            if (template == PenawaranPdfTemplateKey.jayaAbadiMulia) ...[
-              pw.Text(
-                'Keterangan lebih lanjut bisa menghubungi marketing kami di nomor atau (0271) 722998.\n\nDemikian Surat Penawaran ini kami sampaikan, kabar baik dari Bapak/Ibu sangat kami nantikan. Atas perhatian dan kerja samanya kami ucapkan terima kasih.',
-                style: const pw.TextStyle(fontSize: 8.5, lineSpacing: 1.3),
-                textAlign: pw.TextAlign.justify,
-              ),
-            ] else if (template == PenawaranPdfTemplateKey.kencanaPrint) ...[
-              pw.Text(
-                'Demikian penawaran ini kami ajukan, apabila ada informasi yang perlu diketahui mengenai penawaran ini lebih lanjut maka Bapak/Ibu dapat menghubungi kami. Atas perhatian dan kerja samanya kami ucapkan terima kasih.',
-                style: const pw.TextStyle(fontSize: 8.5, lineSpacing: 1.3),
-                textAlign: pw.TextAlign.justify,
-              ),
-            ] else ...[
-              pw.Text(
-                'Demikian penawaran ini kami ajukan. Atas perhatian dan kerja samanya kami ucapkan terima kasih.',
-                style: const pw.TextStyle(fontSize: 8.5, lineSpacing: 1.3),
-                textAlign: pw.TextAlign.justify,
-              ),
-            ],
-
-            pw.SizedBox(height: 8),
-
-            // 7. NOTE BOX KUNING
-            pw.Text(
-              'Note :',
-              style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold),
-            ),
-            pw.SizedBox(height: 3),
-            pw.Container(
-              width: double.infinity,
-              padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              decoration: const pw.BoxDecoration(
-                color: PdfColor.fromInt(0xFFFFF200), // Kuning persis React Native #fff200
-              ),
-              child: pw.Text(
-                note,
-                style: const pw.TextStyle(fontSize: 8, color: PdfColors.black),
-              ),
-            ),
-
-            pw.SizedBox(height: 10),
-
-            // 8. TANDA TANGAN (HORMAT KAMI DI KANAN DENGAN DIGITAL SIGN PERSIS REACT NATIVE)
+            // 6. BLOK BAWAH: KOLOM KIRI (CATATAN & PEMBAYARAN) + KOLOM KANAN (TANDA TANGAN)
             pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                pw.Expanded(flex: 7, child: pw.Container()),
+                // --- KOLOM KIRI (NOTE SECTION & PAYMENT) ---
                 pw.Expanded(
-                  flex: 3,
+                  flex: 66,
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      // Kalimat Penutup
+                      if (template == PenawaranPdfTemplateKey.jayaAbadiMulia) ...[
+                        pw.Text(
+                          'Keterangan lebih lanjut bisa menghubungi '
+                          '${header.marketing.trim().isNotEmpty ? 'marketing kami ${header.marketing.trim()} di nomor ${header.marketingTelp.trim().isNotEmpty ? header.marketingTelp.trim() : (header.perushTelp.trim().isNotEmpty ? header.perushTelp.trim() : '0271-722998')}.' : 'kami di nomor ${header.perushTelp.trim().isNotEmpty ? header.perushTelp.trim() : '0271-722998'}.'}',
+                          style: const pw.TextStyle(fontSize: 8, lineSpacing: 1.2),
+                        ),
+                        pw.SizedBox(height: 3),
+                        pw.Text(
+                          'Demikian Surat Penawaran ini kami sampaikan, kabar baik dari Bapak/Ibu sangat kami nantikan. Atas perhatian dan kerja samanya kami ucapkan terima kasih.',
+                          style: const pw.TextStyle(fontSize: 8, lineSpacing: 1.2),
+                        ),
+                      ] else ...[
+                        pw.Text(
+                          'Demikian penawaran ini kami ajukan, apabila ada informasi yang perlu diketahui mengenai penawaran ini lebih lanjut maka Bapak/Ibu dapat menghubungi kami. Atas perhatian dan kerja samanya kami ucapkan terima kasih.',
+                          style: const pw.TextStyle(fontSize: 8, lineSpacing: 1.2),
+                        ),
+                      ],
+
+                      // Note Box Kuning
+                      if (note.isNotEmpty) ...[
+                        pw.SizedBox(height: 5),
+                        pw.Container(
+                          width: double.infinity,
+                          padding: const pw.EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 4,
+                          ),
+                          decoration: const pw.BoxDecoration(
+                            color: PdfColor.fromInt(0xFFFFF200), // Kuning Manksi Web
+                          ),
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              if (template != PenawaranPdfTemplateKey.jayaAbadiMulia)
+                                pw.Text(
+                                  'Note :',
+                                  style: pw.TextStyle(
+                                    fontSize: 8,
+                                    fontWeight: pw.FontWeight.bold,
+                                  ),
+                                ),
+                              pw.Text(
+                                note,
+                                style: const pw.TextStyle(
+                                  fontSize: 7.5,
+                                  color: PdfColors.black,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+
+                      // Klausul Finishing Jahit (*Harga include finishing jahit.*)
+                      if (header.mx.toUpperCase() == 'Y') ...[
+                        pw.SizedBox(height: 4),
+                        pw.Container(
+                          width: double.infinity,
+                          padding: const pw.EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 3,
+                          ),
+                          decoration: const pw.BoxDecoration(
+                            color: PdfColor.fromInt(0xFFFFF200),
+                          ),
+                          child: pw.Text(
+                            '*Harga include finishing jahit.*',
+                            style: pw.TextStyle(
+                              fontSize: 7.5,
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+
+                      // Klausul Tambahan
+                      if (tambahanList.isNotEmpty) ...[
+                        pw.SizedBox(height: 4),
+                        ...tambahanList.map(
+                          (t) => pw.Text(
+                            t,
+                            style: const pw.TextStyle(fontSize: 7.5),
+                          ),
+                        ),
+                      ],
+
+                      // Ketentuan Sampel
+                      if (sampleList.isNotEmpty) ...[
+                        pw.SizedBox(height: 4),
+                        ...sampleList.map(
+                          (s) => pw.Text(
+                            s,
+                            style: const pw.TextStyle(fontSize: 7.5),
+                          ),
+                        ),
+                      ],
+
+                      // Tabel Rekening Pembayaran
+                      if (header.rekening.isNotEmpty ||
+                          header.bank.isNotEmpty ||
+                          dpNominal > 0) ...[
+                        pw.SizedBox(height: 6),
+                        pw.Table(
+                          columnWidths: {
+                            0: const pw.FixedColumnWidth(110),
+                            1: const pw.FlexColumnWidth(),
+                          },
+                          children: [
+                            if (header.dpPer > 0)
+                              pw.TableRow(
+                                children: [
+                                  pw.Text(
+                                    template == PenawaranPdfTemplateKey.jayaAbadiMulia
+                                        ? 'Mohon Untuk DP Sebesar'
+                                        : 'DP',
+                                    style: const pw.TextStyle(fontSize: 8),
+                                  ),
+                                  pw.Text(
+                                    template == PenawaranPdfTemplateKey.jayaAbadiMulia
+                                        ? _fmtRupiah(dpNominal)
+                                        : ': ${header.dpPer.toInt()}% = ${_fmtRupiah(dpNominal)}',
+                                    style: const pw.TextStyle(fontSize: 8),
+                                  ),
+                                ],
+                              ),
+                            if (header.rekening.isNotEmpty)
+                              pw.TableRow(
+                                children: [
+                                  pw.Text('Rekening',
+                                      style: const pw.TextStyle(fontSize: 8)),
+                                  pw.Text(': ${header.rekening}',
+                                      style: const pw.TextStyle(fontSize: 8)),
+                                ],
+                              ),
+                            if (header.bank.isNotEmpty)
+                              pw.TableRow(
+                                children: [
+                                  pw.Text('Bank',
+                                      style: const pw.TextStyle(fontSize: 8)),
+                                  pw.Text(': ${header.bank}',
+                                      style: const pw.TextStyle(fontSize: 8)),
+                                ],
+                              ),
+                            if (header.bankAtasnama.isNotEmpty ||
+                                header.bankCabang.isNotEmpty)
+                              pw.TableRow(
+                                children: [
+                                  pw.Text('A.n / Cbg',
+                                      style: const pw.TextStyle(fontSize: 8)),
+                                  pw.Text(
+                                    ': ${header.bankAtasnama} / ${header.bankCabang}',
+                                    style: const pw.TextStyle(fontSize: 8),
+                                  ),
+                                ],
+                              ),
+                          ],
+                        ),
+                        if (header.rekening.isNotEmpty) ...[
+                          pw.SizedBox(height: 2),
+                          pw.Text(
+                            'Bukti Pembayaran mohon di email ke $companyEmail',
+                            style: pw.TextStyle(
+                              fontSize: 7.5,
+                              fontStyle: pw.FontStyle.italic,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ],
+                  ),
+                ),
+
+                pw.SizedBox(width: 14),
+
+                // --- KOLOM KANAN (TANDA TANGAN RESMI & STEMPEL DIGITAL) ---
+                pw.Expanded(
+                  flex: 34,
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.center,
                     children: [
@@ -324,7 +605,7 @@ class PenawaranPdfService {
                         style: const pw.TextStyle(fontSize: 8.5),
                         textAlign: pw.TextAlign.center,
                       ),
-                      pw.SizedBox(height: 4),
+                      pw.SizedBox(height: 3),
                       if (isSigned && signImage != null)
                         pw.Container(
                           height: 52,
@@ -370,23 +651,23 @@ class PenawaranPdfService {
               ],
             ),
 
-            // 9. FOOTER KHUSUS JAYA ABADI MULIA
+            // 7. FOOTER KHUSUS JAYA ABADI MULIA
             if (template == PenawaranPdfTemplateKey.jayaAbadiMulia) ...[
-              pw.SizedBox(height: 35),
+              pw.SizedBox(height: 18),
               pw.Container(
                 decoration: const pw.BoxDecoration(
                   border: pw.Border(
                     top: pw.BorderSide(color: PdfColors.black, width: 1.5),
                   ),
                 ),
-                padding: const pw.EdgeInsets.only(top: 8),
+                padding: const pw.EdgeInsets.only(top: 6),
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text(
                       'PT. Jaya Abadi Mulia',
                       style: pw.TextStyle(
-                        fontSize: 13,
+                        fontSize: 12,
                         fontWeight: pw.FontWeight.bold,
                       ),
                     ),
@@ -394,21 +675,21 @@ class PenawaranPdfService {
                     pw.Text(
                       'Dk. Padokan RT 004 RW 004 Sawahan, Ngemplak Kb. Boyolali Jawa Tengah 57375',
                       style: pw.TextStyle(
-                        fontSize: 8.5,
+                        fontSize: 8,
                         fontStyle: pw.FontStyle.italic,
                       ),
                     ),
                     pw.Text(
                       'Telp  0271-722998 / Fax  0271-722998',
                       style: pw.TextStyle(
-                        fontSize: 8.5,
+                        fontSize: 8,
                         fontStyle: pw.FontStyle.italic,
                       ),
                     ),
                     pw.Text(
-                      'www. jayaabadimulia.com',
+                      'www.jayaabadimulia.com',
                       style: pw.TextStyle(
-                        fontSize: 8.5,
+                        fontSize: 8,
                         fontStyle: pw.FontStyle.italic,
                         fontWeight: pw.FontWeight.bold,
                       ),
@@ -454,7 +735,7 @@ class PenawaranPdfService {
                       child: pw.Image(
                         kopImage,
                         width: 240,
-                        height: 68,
+                        height: 64,
                         fit: pw.BoxFit.contain,
                       ),
                     )
@@ -464,7 +745,7 @@ class PenawaranPdfService {
                         pw.Text(
                           'Kencana Print',
                           style: pw.TextStyle(
-                            fontSize: 32,
+                            fontSize: 28,
                             fontWeight: pw.FontWeight.bold,
                             color: PdfColor.fromInt(0xFFD90429),
                           ),
@@ -472,7 +753,7 @@ class PenawaranPdfService {
                         pw.Text(
                           'Semakin Nyala Semakin Nyata',
                           style: pw.TextStyle(
-                            fontSize: 10,
+                            fontSize: 9,
                             fontStyle: pw.FontStyle.italic,
                             fontWeight: pw.FontWeight.bold,
                           ),
@@ -496,15 +777,15 @@ class PenawaranPdfService {
                   pw.SizedBox(height: 2),
                   pw.Text(
                     '- GARMENT (T-SHIRT, POLO SHIRT, KEMEJA, WEARPACK, Etc).',
-                    style: const pw.TextStyle(fontSize: 7.5),
+                    style: const pw.TextStyle(fontSize: 7),
                   ),
                   pw.Text(
                     '- MANUAL PRINTING (SPANDUK/UMBUL KAIN).',
-                    style: const pw.TextStyle(fontSize: 7.5),
+                    style: const pw.TextStyle(fontSize: 7),
                   ),
                   pw.Text(
                     '- DIGITAL PRINTING (X BANNER, ROLL BANNER, FLEXI, ALBATROS, TENDA, STICKER, Etc).',
-                    style: const pw.TextStyle(fontSize: 7.5),
+                    style: const pw.TextStyle(fontSize: 7),
                   ),
                 ],
               ),
@@ -521,41 +802,43 @@ class PenawaranPdfService {
           ),
           child: pw.Text(
             'CV. Kencana Print',
-            style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
+            style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
           ),
         ),
         pw.SizedBox(height: 2),
         pw.Text('Padokan RT 04 / 04 Sawahan Ngemplak',
-            style: const pw.TextStyle(fontSize: 8.5)),
+            style: const pw.TextStyle(fontSize: 8)),
         pw.Text('Telp  0271-740634  /  Fax  0271-740634',
-            style: const pw.TextStyle(fontSize: 8.5)),
+            style: const pw.TextStyle(fontSize: 8)),
         pw.Text('solokencana2@gmail.com',
-            style: const pw.TextStyle(fontSize: 8.5)),
+            style: const pw.TextStyle(fontSize: 8)),
       ],
     );
   }
 
   // --- TEMPLATE KOP: JAYA ABADI MULIA ---
+  // Sesuai Manksi Web: Logo JA di KIRI ATAS, Tanggal Surakarta di KANAN ATAS
   static pw.Widget _buildJayaAbadiHeader(
     PenawaranHeader header,
     pw.MemoryImage? kopImage,
   ) {
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.end,
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
         if (kopImage != null)
           pw.Container(
-            alignment: pw.Alignment.topRight,
+            alignment: pw.Alignment.topLeft,
             child: pw.Image(
               kopImage,
-              width: 280,
-              height: 65,
+              width: 250,
+              height: 60,
               fit: pw.BoxFit.contain,
             ),
           )
         else
           pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.end,
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.Row(
                 mainAxisSize: pw.MainAxisSize.min,
@@ -563,7 +846,7 @@ class PenawaranPdfService {
                   pw.Text(
                     'PT. ',
                     style: pw.TextStyle(
-                      fontSize: 28,
+                      fontSize: 26,
                       fontWeight: pw.FontWeight.bold,
                       color: PdfColor.fromInt(0xFFD80F16),
                     ),
@@ -571,7 +854,7 @@ class PenawaranPdfService {
                   pw.Text(
                     'Jaya Abadi Mulia',
                     style: pw.TextStyle(
-                      fontSize: 28,
+                      fontSize: 26,
                       fontWeight: pw.FontWeight.bold,
                     ),
                   ),
@@ -580,17 +863,19 @@ class PenawaranPdfService {
               pw.Text(
                 'Your Best Solutions Partner',
                 style: pw.TextStyle(
-                  fontSize: 9,
+                  fontSize: 8.5,
                   fontStyle: pw.FontStyle.italic,
                   color: PdfColor.fromInt(0xFFB11F1F),
                 ),
               ),
             ],
           ),
-        pw.SizedBox(height: 4),
-        pw.Text(
-          'Surakarta, ${_formatDate(header.tanggal)}',
-          style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold),
+        pw.Padding(
+          padding: const pw.EdgeInsets.only(top: 4),
+          child: pw.Text(
+            'Surakarta, ${_formatDate(header.tanggal)}',
+            style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold),
+          ),
         ),
       ],
     );
@@ -598,85 +883,80 @@ class PenawaranPdfService {
 
   // --- TEMPLATE KOP: MADANI PRODUCTION ---
   static pw.Widget _buildMadaniHeader(pw.MemoryImage? kopImage) {
-    return pw.Row(
+    return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        pw.Expanded(
-          flex: 46,
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              if (kopImage != null)
-                pw.Container(
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: PdfColors.grey500, width: 0.6),
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Expanded(
+              flex: 46,
+              child: kopImage != null
+                  ? pw.Container(
+                      alignment: pw.Alignment.topLeft,
+                      child: pw.Image(
+                        kopImage,
+                        width: 230,
+                        height: 58,
+                        fit: pw.BoxFit.contain,
+                      ),
+                    )
+                  : pw.Text(
+                      'PT. MADANI PRODUCTION',
+                      style: pw.TextStyle(
+                        fontSize: 14,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+            ),
+            pw.SizedBox(width: 8),
+            pw.Expanded(
+              flex: 54,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    'OUR SERVICES :',
+                    style: pw.TextStyle(
+                      fontSize: 8.5,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
                   ),
-                  child: pw.Image(
-                    kopImage,
-                    width: 230,
-                    height: 58,
-                    fit: pw.BoxFit.contain,
+                  pw.SizedBox(height: 2),
+                  pw.Text(
+                    '- GARMENT (T-SHIRT, POLO SHIRT, KEMEJA, WEARPACK, Etc).',
+                    style: const pw.TextStyle(fontSize: 7),
                   ),
-                )
-              else
-                pw.Text(
-                  'PT. MADANI PRODUCTION',
-                  style: pw.TextStyle(
-                    fontSize: 14,
-                    fontWeight: pw.FontWeight.bold,
+                  pw.Text(
+                    '- MANUAL PRINTING (SPANDUK/UMBUL KAIN).',
+                    style: const pw.TextStyle(fontSize: 7),
                   ),
-                ),
-              pw.SizedBox(height: 3),
-              pw.Text(
-                'PT.Madani Production',
-                style: pw.TextStyle(
-                  fontSize: 10,
-                  fontWeight: pw.FontWeight.bold,
-                ),
+                  pw.Text(
+                    '- DIGITAL PRINTING (X BANNER, ROLL BANNER, FLEXI, ALBATROS, TENDA, STICKER, Etc).',
+                    style: const pw.TextStyle(fontSize: 7),
+                  ),
+                ],
               ),
-              pw.Text(
-                'Dusun Demen RT 003 RW 001, Kel. Jeron, Kec. Nogosari, Kab. Boyolali, Jawa Tengah',
-                style: const pw.TextStyle(fontSize: 8),
-              ),
-              pw.Text(
-                'Telp  0271-7889327  /  Fax  0271-7889327',
-                style: const pw.TextStyle(fontSize: 8),
-              ),
-              pw.Text(
-                'm.officer@madaniproduction.co.id',
-                style: const pw.TextStyle(fontSize: 8),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
-        pw.SizedBox(width: 8),
-        pw.Expanded(
-          flex: 54,
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Text(
-                'OUR SERVICES :',
-                style: pw.TextStyle(
-                  fontSize: 8.5,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.SizedBox(height: 2),
-              pw.Text(
-                '- GARMENT (T-SHIRT, POLO SHIRT, KEMEJA, WEARPACK, Etc).',
-                style: const pw.TextStyle(fontSize: 7.5),
-              ),
-              pw.Text(
-                '- MANUAL PRINTING (SPANDUK/UMBUL KAIN).',
-                style: const pw.TextStyle(fontSize: 7.5),
-              ),
-              pw.Text(
-                '- DIGITAL PRINTING (X BANNER, ROLL BANNER, FLEXI, ALBATROS, TENDA, STICKER, Etc).',
-                style: const pw.TextStyle(fontSize: 7.5),
-              ),
-            ],
-          ),
+        pw.SizedBox(height: 4),
+        pw.Text(
+          'PT. Madani Production',
+          style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+        ),
+        pw.SizedBox(height: 1),
+        pw.Text(
+          'Dusun Demen RT 003 RW 001, Kel. Jeron, Kec. Nogosari, Kab. Boyolali, Jawa Tengah',
+          style: const pw.TextStyle(fontSize: 8),
+        ),
+        pw.Text(
+          'Telp  0271-7889327  /  Fax  0271-7889327',
+          style: const pw.TextStyle(fontSize: 8),
+        ),
+        pw.Text(
+          'm.officer@madaniproduction.co.id',
+          style: const pw.TextStyle(fontSize: 8),
         ),
       ],
     );
@@ -706,21 +986,21 @@ class PenawaranPdfService {
                 pw.Text(
                   header.customer.isNotEmpty ? header.customer : 'DARI WEB',
                   style: pw.TextStyle(
-                    fontSize: 9.5,
+                    fontSize: 9,
                     fontWeight: pw.FontWeight.bold,
                   ),
                 ),
                 if (header.customerAlamat.isNotEmpty)
                   pw.Text(header.customerAlamat,
-                      style: const pw.TextStyle(fontSize: 8)),
+                      style: const pw.TextStyle(fontSize: 7.5)),
                 if (header.customerKota.isNotEmpty)
                   pw.Text(header.customerKota,
-                      style: const pw.TextStyle(fontSize: 8)),
-                pw.SizedBox(height: 14),
+                      style: const pw.TextStyle(fontSize: 7.5)),
+                pw.SizedBox(height: 6),
                 pw.Text(
                   'Up.   $upLabel',
                   style: pw.TextStyle(
-                    fontSize: 8.5,
+                    fontSize: 8,
                     fontWeight: pw.FontWeight.bold,
                   ),
                 ),
@@ -767,11 +1047,11 @@ class PenawaranPdfService {
         ),
         if (header.customerAlamat.isNotEmpty)
           pw.Text(header.customerAlamat,
-              style: const pw.TextStyle(fontSize: 8)),
+              style: const pw.TextStyle(fontSize: 7.5)),
         if (header.customerKota.isNotEmpty)
           pw.Text(header.customerKota,
-              style: const pw.TextStyle(fontSize: 8)),
-        pw.SizedBox(height: 6),
+              style: const pw.TextStyle(fontSize: 7.5)),
+        pw.SizedBox(height: 4),
         _buildMetaRow('Nomor', header.nomor, labelWidth: 80),
         _buildMetaRow('Perihal', 'Surat Penawaran Harga', labelWidth: 80),
         _buildMetaRow(
@@ -807,21 +1087,21 @@ class PenawaranPdfService {
                 pw.Text(
                   header.customer.isNotEmpty ? header.customer : '-',
                   style: pw.TextStyle(
-                    fontSize: 9.5,
+                    fontSize: 9,
                     fontWeight: pw.FontWeight.bold,
                   ),
                 ),
                 if (header.customerAlamat.isNotEmpty)
                   pw.Text(header.customerAlamat,
-                      style: const pw.TextStyle(fontSize: 8)),
+                      style: const pw.TextStyle(fontSize: 7.5)),
                 if (header.customerKota.isNotEmpty)
                   pw.Text(header.customerKota,
-                      style: const pw.TextStyle(fontSize: 8)),
-                pw.SizedBox(height: 4),
+                      style: const pw.TextStyle(fontSize: 7.5)),
+                pw.SizedBox(height: 6),
                 pw.Text(
                   'Up. $upLabel',
                   style: pw.TextStyle(
-                    fontSize: 8.5,
+                    fontSize: 8,
                     fontWeight: pw.FontWeight.bold,
                   ),
                 ),
@@ -853,114 +1133,135 @@ class PenawaranPdfService {
   static pw.Widget _buildGridTable({
     required List<PenawaranDetailItem> details,
     required double grandTotal,
-    required bool isKencana,
+    required int cetakTotal,
   }) {
-    return pw.Table(
-      border: pw.TableBorder.all(color: PdfColors.black, width: 0.7),
-      columnWidths: {
-        0: const pw.FixedColumnWidth(22), // No
-        1: const pw.FlexColumnWidth(2.8), // Nama
-        2: const pw.FlexColumnWidth(2.0), // Bahan
-        3: const pw.FlexColumnWidth(1.5), // Ukuran
-        4: const pw.FixedColumnWidth(36), // Satuan
-        5: const pw.FixedColumnWidth(30), // Qty
-        6: const pw.FlexColumnWidth(1.6), // Harga
-        7: const pw.FlexColumnWidth(1.8), // Total
-      },
-      children: [
-        // Header Table
-        pw.TableRow(
-          children: [
-            _buildTableCell('No', isHeader: true, align: pw.TextAlign.left),
-            _buildTableCell('Nama', isHeader: true),
-            _buildTableCell('Bahan', isHeader: true),
-            _buildTableCell('Ukuran', isHeader: true),
-            _buildTableCell('Satuan', isHeader: true),
-            _buildTableCell('Qty', isHeader: true, align: pw.TextAlign.right),
-            _buildTableCell('Harga', isHeader: true, align: pw.TextAlign.right),
-            _buildTableCell('Total', isHeader: true, align: pw.TextAlign.right),
-          ],
-        ),
-        // Item Rows
-        if (details.isEmpty)
-          pw.TableRow(
-            children: [
-              _buildTableCell(
-                'Tidak ada detail item.',
-                align: pw.TextAlign.center,
-              ),
-              _buildTableCell(''),
-              _buildTableCell(''),
-              _buildTableCell(''),
-              _buildTableCell(''),
-              _buildTableCell(''),
-              _buildTableCell(''),
-              _buildTableCell(''),
-            ],
-          )
-        else
-          ...details.asMap().entries.map((entry) {
-            final index = entry.key + 1;
-            final item = entry.value;
-            final dimen = item.panjang > 0 || item.lebar > 0
-                ? '${item.panjang.toInt()} x ${item.lebar.toInt()}'
-                : (item.ukuran.isNotEmpty ? item.ukuran : '-');
+    const totalColWidth = 76.0;
 
-            return pw.TableRow(
-              children: [
-                _buildTableCell('$index.', align: pw.TextAlign.right),
-                _buildTableCell(item.namaBarang),
-                _buildTableCell(item.bahan.isNotEmpty ? item.bahan : '-'),
-                _buildTableCell(dimen),
-                _buildTableCell(item.satuan.isNotEmpty ? item.satuan : '-'),
-                _buildTableCell(
-                  _formatNumber(item.qty),
-                  align: pw.TextAlign.right,
-                ),
-                _buildTableCell(
-                  _formatNumber(item.harga),
-                  align: pw.TextAlign.right,
-                ),
-                _buildTableCell(
-                  _formatNumber(item.total),
-                  align: pw.TextAlign.right,
-                ),
-              ],
-            );
-          }),
-        // Grand Total Row
-        pw.TableRow(
+    return pw.Column(
+      children: [
+        pw.Table(
+          border: pw.TableBorder.all(color: PdfColors.black, width: 0.7),
+          columnWidths: const {
+            0: pw.FixedColumnWidth(22), // No
+            1: pw.FlexColumnWidth(3.0), // Nama
+            2: pw.FlexColumnWidth(2.0), // Bahan
+            3: pw.FlexColumnWidth(1.5), // Ukuran
+            4: pw.FixedColumnWidth(34), // Satuan
+            5: pw.FixedColumnWidth(36), // Qty
+            6: pw.FixedColumnWidth(66), // Harga
+            7: pw.FixedColumnWidth(totalColWidth), // Total
+          },
           children: [
-            pw.Container(
-              padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-              alignment: pw.Alignment.centerRight,
-              child: pw.Text(
-                isKencana ? 'TOTAL' : 'Grand Total',
-                style: pw.TextStyle(
-                  fontSize: 8.5,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
+            // Header Table
+            pw.TableRow(
+              children: [
+                _buildTableCell('No', isHeader: true, align: pw.TextAlign.left),
+                _buildTableCell('Nama', isHeader: true),
+                _buildTableCell('Bahan', isHeader: true),
+                _buildTableCell('Ukuran', isHeader: true),
+                _buildTableCell('Satuan', isHeader: true),
+                _buildTableCell('Qty', isHeader: true, align: pw.TextAlign.right),
+                _buildTableCell('Harga', isHeader: true, align: pw.TextAlign.right),
+                _buildTableCell('Total', isHeader: true, align: pw.TextAlign.right),
+              ],
             ),
-            pw.Container(),
-            pw.Container(),
-            pw.Container(),
-            pw.Container(),
-            pw.Container(),
-            pw.Container(),
-            pw.Container(
-              padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-              alignment: pw.Alignment.centerRight,
-              child: pw.Text(
-                _formatNumber(grandTotal),
-                style: pw.TextStyle(
-                  fontSize: 8.5,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-            ),
+            // Item Rows
+            if (details.isEmpty)
+              pw.TableRow(
+                children: [
+                  _buildTableCell(
+                    'Tidak ada detail item.',
+                    align: pw.TextAlign.center,
+                  ),
+                  _buildTableCell(''),
+                  _buildTableCell(''),
+                  _buildTableCell(''),
+                  _buildTableCell(''),
+                  _buildTableCell(''),
+                  _buildTableCell(''),
+                  _buildTableCell(''),
+                ],
+              )
+            else
+              ...details.asMap().entries.map((entry) {
+                final index = entry.key + 1;
+                final item = entry.value;
+                final dimen = item.panjang > 0 || item.lebar > 0
+                    ? '${item.panjang.toInt()} x ${item.lebar.toInt()}'
+                    : (item.ukuran.isNotEmpty ? item.ukuran : '-');
+
+                return pw.TableRow(
+                  children: [
+                    _buildTableCell('$index.', align: pw.TextAlign.right),
+                    _buildTableCell(item.namaBarang),
+                    _buildTableCell(item.bahan.isNotEmpty ? item.bahan : '-'),
+                    _buildTableCell(dimen),
+                    _buildTableCell(item.satuan.isNotEmpty ? item.satuan : '-'),
+                    _buildTableCell(
+                      _formatNumber(item.qty),
+                      align: pw.TextAlign.right,
+                    ),
+                    _buildTableCell(
+                      _formatNumber(item.harga),
+                      align: pw.TextAlign.right,
+                    ),
+                    _buildTableCell(
+                      _formatNumber(item.total),
+                      align: pw.TextAlign.right,
+                    ),
+                  ],
+                );
+              }),
           ],
         ),
+        // Grand Total Row ter-merge dari kolom No sampai Harga (colspan 7 sama persis Manksi Web)
+        if (cetakTotal == 1)
+          pw.Table(
+            border: const pw.TableBorder(
+              left: pw.BorderSide(color: PdfColors.black, width: 0.7),
+              right: pw.BorderSide(color: PdfColors.black, width: 0.7),
+              bottom: pw.BorderSide(color: PdfColors.black, width: 0.7),
+              verticalInside: pw.BorderSide(color: PdfColors.black, width: 0.7),
+            ),
+            columnWidths: const {
+              0: pw.FlexColumnWidth(1.0),
+              1: pw.FixedColumnWidth(totalColWidth),
+            },
+            children: [
+              pw.TableRow(
+                children: [
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 3.5,
+                    ),
+                    alignment: pw.Alignment.centerLeft,
+                    child: pw.Text(
+                      'Grand Total',
+                      style: pw.TextStyle(
+                        fontSize: 8.5,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 3.5,
+                    ),
+                    alignment: pw.Alignment.centerRight,
+                    child: pw.Text(
+                      _formatNumber(grandTotal),
+                      style: pw.TextStyle(
+                        fontSize: 8.5,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
       ],
     );
   }
@@ -980,18 +1281,18 @@ class PenawaranPdfService {
             child: pw.Text(
               label,
               style: pw.TextStyle(
-                fontSize: 8.5,
+                fontSize: 8,
                 fontWeight: labelWidth > 65
                     ? pw.FontWeight.bold
                     : pw.FontWeight.normal,
               ),
             ),
           ),
-          pw.Text(': ', style: const pw.TextStyle(fontSize: 8.5)),
+          pw.Text(': ', style: const pw.TextStyle(fontSize: 8)),
           pw.Expanded(
             child: pw.Text(
               value,
-              style: const pw.TextStyle(fontSize: 8.5),
+              style: const pw.TextStyle(fontSize: 8),
             ),
           ),
         ],
@@ -1015,7 +1316,7 @@ class PenawaranPdfService {
         text,
         textAlign: align,
         style: pw.TextStyle(
-          fontSize: isHeader ? 8.5 : 8,
+          fontSize: isHeader ? 8 : 7.5,
           fontWeight: isHeader ? pw.FontWeight.bold : pw.FontWeight.normal,
         ),
       ),
