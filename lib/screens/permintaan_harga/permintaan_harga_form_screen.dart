@@ -7977,7 +7977,7 @@ class _PermintaanHargaFormScreenState
 
                         // 1. Biaya Produksi / Harga Dasar
                         _buildReviewRow(
-                          '• Tarif Produksi:',
+                          '• Kalkulasi (Non PPN):',
                           'Rp ${_formatNumberDisplay(hargaDasarProduksiPerPcs)} /Pcs',
                           fontSize: 12,
                           letterSpacing: 1,
@@ -8005,7 +8005,7 @@ class _PermintaanHargaFormScreenState
                           '• PPN (11%):',
                           _includePpn
                               ? '+ Rp ${_formatNumberDisplay(ppnPerPcs)} /Pcs'
-                              : 'Rp 0 (Exclude PPN)',
+                              : 'Rp 0 (Exc PPN)',
                           fontSize: 12,
                           valueColor: _includePpn
                               ? const Color(0xFF15803D)
