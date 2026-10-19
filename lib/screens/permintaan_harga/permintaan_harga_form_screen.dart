@@ -213,6 +213,35 @@ class _PermintaanHargaFormScreenState
   String _garmenWarna = 'muda'; // 'muda' | 'sedang' | 'tua'
   String _garmenWorkshop = 'MEDIUM'; // 'MEDIUM' | 'PREMIUM'
   String _garmenKategoriKain = 'COTTON';
+
+  String _deriveGarmenKategoriKain(String jenisKain, [String? explicitKtg]) {
+    final explicit = (explicitKtg ?? '').trim().toUpperCase();
+    if (explicit.isNotEmpty && explicit != 'NULL') {
+      if (explicit.contains('LACOST') || explicit.contains('PIQUE')) {
+        return 'LACOST';
+      }
+      if (explicit.contains('PE') ||
+          explicit.contains('HYGIT') ||
+          explicit.contains('DRYFIT')) {
+        return 'PE';
+      }
+      if (explicit.contains('COTTON') ||
+          explicit.contains('COMBED') ||
+          explicit.contains('CARDED') ||
+          explicit.contains('TC')) {
+        return 'COTTON';
+      }
+    }
+    final jk = jenisKain.trim().toUpperCase();
+    if (jk.contains('LACOST') || jk.contains('PIQUE')) {
+      return 'LACOST';
+    }
+    if (jk.contains('PE') || jk.contains('HYGIT') || jk.contains('DRYFIT')) {
+      return 'PE';
+    }
+    return 'COTTON';
+  }
+
   final _ukuranController = TextEditingController();
   final _gramasiController = TextEditingController();
   final _finishingController = TextEditingController();
@@ -238,6 +267,12 @@ class _PermintaanHargaFormScreenState
   final _dtfBordirLebarController = TextEditingController();
   final _dtfTarifCmController = TextEditingController();
   final _bordirTarifCmController = TextEditingController();
+
+  // State Modal Cetak Garmen (disimpan di State utama agar tidak ter-reset saat resize / keyboard muncul di Web Browser)
+  String _garmenCetakActiveCategory =
+      'SABLON'; // 'SABLON' | 'SUBLIM' | 'DTF' | 'BORDIR'
+  String _garmenCetakSablonSubCategory = 'ALL'; // 'ALL' | 'MEDIUM' | 'RUBBER'
+  String _garmenCetakSearchQuery = '';
 
   // Helper gramasi dan sablon desc
   static String getGramasiByKain(String kainName) {
@@ -449,6 +484,7 @@ class _PermintaanHargaFormScreenState
         _spandukJenisKain = d.kain;
       } else if (_selectedDivisi == '4') {
         _garmenJenisKain = d.kain;
+        _garmenKategoriKain = _deriveGarmenKategoriKain(d.kain);
       }
     }
 
@@ -820,11 +856,18 @@ class _PermintaanHargaFormScreenState
   Future<void> _loadGarmenTambahanOptions() async {
     if (_selectedDivisi != '4') return;
     try {
+      final effectiveKtg = _deriveGarmenKategoriKain(
+        _garmenJenisKain,
+        _garmenKategoriKain,
+      );
+      if (_garmenKategoriKain != effectiveKtg) {
+        _garmenKategoriKain = effectiveKtg;
+      }
       final repo = ref.read(permintaanHargaRepositoryProvider);
       final data = await repo.getTambahanLookup({
         'jenisKain': _garmenJenisKain,
         'kodeModel': _garmenKodeModel,
-        'kategori': _garmenKategoriKain,
+        'kategori': effectiveKtg,
         'qty': _toNumCurrency(_qtyController.text),
       });
       if (!mounted) return;
@@ -1355,6 +1398,7 @@ class _PermintaanHargaFormScreenState
     String? kainWarning;
     String? rawKainNotMatched;
     String matchedKainName = '';
+    String matchedKtg = '';
 
     if (rawKain.isNotEmpty) {
       if (targetDivisi == '4') {
@@ -1370,6 +1414,10 @@ class _PermintaanHargaFormScreenState
           matchedKainName =
               (matched['mhk_kain'] ?? matched['Jeniskain'] ?? rawKain)
                   .toString();
+          matchedKtg =
+              (matched['mhk_ktg'] ?? matched['Kategori'] ?? matched['ktg'])
+                  ?.toString() ??
+              '';
         } else {
           rawKainNotMatched = rawKain;
           kainWarning =
@@ -1450,6 +1498,10 @@ class _PermintaanHargaFormScreenState
           _spandukJenisKain = matchedKainName;
         } else if (_selectedDivisi == '4') {
           _garmenJenisKain = matchedKainName;
+          _garmenKategoriKain = _deriveGarmenKategoriKain(
+            matchedKainName,
+            matchedKtg,
+          );
         } else if (_selectedDivisi == '5') {
           _mmtBahanKode = matchedKainName;
         }
@@ -8796,6 +8848,9 @@ class _PermintaanHargaFormScreenState
       _dtfBordirLebarController.clear();
       _dtfTarifCmController.clear();
       _bordirTarifCmController.clear();
+      _garmenCetakActiveCategory = 'SABLON';
+      _garmenCetakSablonSubCategory = 'ALL';
+      _garmenCetakSearchQuery = '';
 
       // 5. Reset hasil kalkulasi sistem & pengajuan harga
       _hargaKalkulasi = 0;
@@ -9621,14 +9676,6 @@ class _PermintaanHargaFormScreenState
                                             item['nama'] ??
                                             '')
                                         .toString();
-                                final ktg =
-                                    (item['mhk_ktg'] ??
-                                            item['ktg'] ??
-                                            item['mhk_kategori'] ??
-                                            item['kategori'] ??
-                                            '')
-                                        .toString()
-                                        .toLowerCase();
 
                                 return ListTile(
                                   title: Text(
@@ -9639,12 +9686,20 @@ class _PermintaanHargaFormScreenState
                                     ),
                                   ),
                                   onTap: () {
+                                    final derivedKtg =
+                                        _deriveGarmenKategoriKain(
+                                          name,
+                                          (item['mhk_ktg'] ??
+                                                  item['Kategori'] ??
+                                                  item['ktg'] ??
+                                                  item['mhk_kategori'] ??
+                                                  item['kategori'])
+                                              ?.toString(),
+                                        );
                                     setState(() {
                                       _garmenJenisKain = name;
                                       _praOrderKainWarning = null;
-                                      _garmenKategoriKain = ktg.isNotEmpty
-                                          ? ktg
-                                          : 'pe';
+                                      _garmenKategoriKain = derivedKtg;
                                       final autoGramasi = getGramasiByKain(
                                         name,
                                       );
@@ -9675,6 +9730,15 @@ class _PermintaanHargaFormScreenState
   }
 
   void _showGarmenTambahanPickerModal() {
+    final effectiveKtg = _deriveGarmenKategoriKain(
+      _garmenJenisKain,
+      _garmenKategoriKain,
+    );
+    if (_garmenKategoriKain != effectiveKtg) {
+      _garmenKategoriKain = effectiveKtg;
+      _loadGarmenTambahanOptions();
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -9694,7 +9758,15 @@ class _PermintaanHargaFormScreenState
                 'Tambahan Aksesoris',
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
               ),
-              Text('${_garmenKategoriKain.toUpperCase()}'),
+              const SizedBox(height: 4),
+              Text(
+                'Kategori: ${_garmenKategoriKain.toUpperCase()}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1D4ED8),
+                ),
+              ),
               const SizedBox(height: 10),
               Expanded(
                 child: ListView.separated(
@@ -9741,6 +9813,37 @@ class _PermintaanHargaFormScreenState
     if (_garmenCetakMaster.isEmpty) {
       _loadGarmenCetakOptions();
     }
+
+    final isDesktopOrTablet = MediaQuery.of(context).size.width >= 600;
+
+    if (isDesktopOrTablet) {
+      showDialog(
+        context: context,
+        barrierDismissible: true,
+        builder: (ctx) => Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 24,
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520, maxHeight: 680),
+            child: StatefulBuilder(
+              builder: (modalCtx, setModalState) {
+                return _buildGarmenCetakModalContent(
+                  modalCtx,
+                  setModalState,
+                  isDialog: true,
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -9749,570 +9852,569 @@ class _PermintaanHargaFormScreenState
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
-        String activeCategory =
-            'SABLON'; // 'SABLON' | 'SUBLIM' | 'DTF' | 'BORDIR'
-        String sablonSubCategory = 'ALL'; // 'ALL' | 'MEDIUM' | 'RUBBER'
-        String searchQuery = '';
-
         return StatefulBuilder(
-          builder: (context, setModalState) {
-            final isDtfOrBordir =
-                activeCategory == 'DTF' || activeCategory == 'BORDIR';
-
-            // Master item untuk DTF / Bordir
-            final masterItem = _garmenCetakMaster.firstWhere(
-              (c) =>
-                  (c['mhb_jenis'] ?? c['jenis'] ?? '')
-                      .toString()
-                      .toUpperCase() ==
-                  activeCategory,
-              orElse: () => <String, dynamic>{},
-            );
-            final defaultTarif =
-                (masterItem['mhb_cm'] as num?)?.toDouble() ??
-                (activeCategory == 'DTF' ? 25.0 : 90.0);
-            final minTarif =
-                (masterItem['mhb_min'] as num?)?.toDouble() ??
-                (activeCategory == 'DTF' ? 1000.0 : 2500.0);
-
-            // Perhitungan DTF / Bordir (Kunci paten dari database kencanaprint.tmintaharga_biaya)
-            final pj = _toNumDecimal(_dtfBordirPanjangController.text);
-            final lb = _toNumDecimal(_dtfBordirLebarController.text);
-            final luas = pj * lb;
-
-            final effectiveTarif = defaultTarif;
-            final biayaMurni = luas * effectiveTarif;
-            final isMinApplied = luas > 0 && biayaMurni < minTarif;
-            final biayaPerPcs = luas > 0
-                ? (isMinApplied ? minTarif : biayaMurni.roundToDouble())
-                : 0.0;
-            final qtyOrder = _toNumCurrency(_qtyController.text);
-            final totalBiayaOrder = biayaPerPcs * qtyOrder;
-
-            // List item untuk Sablon / Sublim
-            final filteredList = _garmenCetakMaster.where((cItem) {
-              final j = (cItem['mhb_jenis'] ?? cItem['jenis'] ?? '')
-                  .toString()
-                  .toUpperCase();
-              if (j != activeCategory) return false;
-
-              final ket =
-                  (cItem['mhb_ket'] ?? cItem['ket'] ?? cItem['nama'] ?? '')
-                      .toString()
-                      .toUpperCase();
-
-              if (activeCategory == 'SABLON') {
-                if (sablonSubCategory != 'ALL' &&
-                    !ket.contains(sablonSubCategory)) {
-                  return false;
-                }
-
-                if (searchQuery.trim().isEmpty) {
-                  final curKtg = _garmenKategoriKain.toUpperCase();
-                  final isPe =
-                      curKtg.contains('PE') ||
-                      curKtg.contains('HYGIT') ||
-                      curKtg.contains('DRYFIT');
-                  final isLacost = curKtg.contains('LACOST');
-
-                  if (isPe) {
-                    if (!ket.endsWith(' PE')) {
-                      return false;
-                    }
-                  } else if (isLacost) {
-                    if (ket.endsWith(' PE') || ket.endsWith(' COTTON')) {
-                      return false;
-                    }
-                  } else {
-                    if (ket.endsWith(' PE') || ket.endsWith(' LACOST')) {
-                      return false;
-                    }
-                  }
-                }
-              }
-
-              if (searchQuery.trim().isNotEmpty) {
-                return ket.toLowerCase().contains(
-                  searchQuery.toLowerCase().trim(),
-                );
-              }
-
-              return true;
-            }).toList();
-
-            return SafeArea(
-              child: Container(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.85,
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Header
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Tambahan Cetak',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF0F172A),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close, size: 20),
-                          onPressed: () => Navigator.pop(ctx),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Category Tabs
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        children: [
-                          _buildCetakTabItem(
-                            'Sablon',
-                            'SABLON',
-                            activeCategory,
-                            (cat) {
-                              setModalState(() => activeCategory = cat);
-                            },
-                          ),
-                          _buildCetakTabItem(
-                            'Sublim',
-                            'SUBLIM',
-                            activeCategory,
-                            (cat) {
-                              setModalState(() => activeCategory = cat);
-                            },
-                          ),
-                          _buildCetakTabItem(
-                            'DTF',
-                            'DTF',
-                            activeCategory,
-                            (cat) => setModalState(() => activeCategory = cat),
-                          ),
-                          _buildCetakTabItem(
-                            'Bordir',
-                            'BORDIR',
-                            activeCategory,
-                            (cat) => setModalState(() => activeCategory = cat),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // TAMPILAN 1: KALKULATOR UKURAN KHUSUS DTF & BORDIR
-                    if (isDtfOrBordir) ...[
-                      Expanded(
-                        child: SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              // Input Dimensi (Panjang x Lebar cm)
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Panjang (cm) *',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        TextFormField(
-                                          controller:
-                                              _dtfBordirPanjangController,
-                                          keyboardType:
-                                              const TextInputType.numberWithOptions(
-                                                decimal: true,
-                                              ),
-                                          inputFormatters: [
-                                            _decimalInputFormatter,
-                                          ],
-                                          decoration: const InputDecoration(
-                                            hintText: '0',
-                                            suffixText: 'cm',
-                                            contentPadding:
-                                                EdgeInsets.symmetric(
-                                                  horizontal: 10,
-                                                  vertical: 8,
-                                                ),
-                                          ),
-                                          onChanged: (_) =>
-                                              setModalState(() {}),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Lebar (cm) *',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        TextFormField(
-                                          controller: _dtfBordirLebarController,
-                                          keyboardType:
-                                              const TextInputType.numberWithOptions(
-                                                decimal: true,
-                                              ),
-                                          inputFormatters: [
-                                            _decimalInputFormatter,
-                                          ],
-                                          decoration: const InputDecoration(
-                                            hintText: '0',
-                                            suffixText: 'cm',
-                                            contentPadding:
-                                                EdgeInsets.symmetric(
-                                                  horizontal: 10,
-                                                  vertical: 8,
-                                                ),
-                                          ),
-                                          onChanged: (_) =>
-                                              setModalState(() {}),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-
-                              // Ringkasan Kalkulasi DTF / Bordir Box
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFEFF6FF),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: const Color(0xFFBFDBFE),
-                                  ),
-                                ),
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        const Text(
-                                          'Total Luas:',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Color(0xFF1E3A8A),
-                                          ),
-                                        ),
-                                        Text(
-                                          '${luas.toStringAsFixed(1)} cm²',
-                                          style: const TextStyle(
-                                            fontSize: 12.5,
-                                            fontWeight: FontWeight.w800,
-                                            color: Color(0xFF1E3A8A),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        const Text(
-                                          'Biaya Satuan / Pcs:',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Color(0xFF1E3A8A),
-                                          ),
-                                        ),
-                                        Row(
-                                          children: [
-                                            Text(
-                                              'Rp ${_formatNumberDisplay(biayaPerPcs.toInt())} /pcs',
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w900,
-                                                color: Color(0xFF1D4ED8),
-                                              ),
-                                            ),
-                                            if (isMinApplied) ...[
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                '(Min: Rp ${minTarif.toInt()})',
-                                                style: const TextStyle(
-                                                  fontSize: 10,
-                                                  color: Color(0xFFB45309),
-                                                  fontWeight: FontWeight.w700,
-                                                ),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                    const Divider(
-                                      height: 12,
-                                      color: Color(0xFFBFDBFE),
-                                    ),
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          'Total ($qtyOrder pcs):',
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w700,
-                                            color: Color(0xFF1E3A8A),
-                                          ),
-                                        ),
-                                        Text(
-                                          'Rp ${_formatNumberDisplay(totalBiayaOrder.toInt())}',
-                                          style: const TextStyle(
-                                            fontSize: 13.5,
-                                            fontWeight: FontWeight.w900,
-                                            color: Color(0xFF1E3A8A),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-
-                              // Tombol Terapkan DTF / Bordir
-                              ElevatedButton(
-                                onPressed: biayaPerPcs <= 0
-                                    ? null
-                                    : () {
-                                        final label =
-                                            '$activeCategory ${pj}x$lb cm';
-                                        setState(() {
-                                          _garmenSelectedCetak.add({
-                                            'jenis': activeCategory,
-                                            'ket': label,
-                                            'biaya': biayaPerPcs.toInt(),
-                                          });
-                                        });
-                                        Navigator.pop(ctx);
-                                        if (_currentStep == 2) {
-                                          _executeHitungGarmen();
-                                        }
-                                        AppToast.success(
-                                          context,
-                                          '$label berhasil ditambahkan (+Rp ${_formatNumberDisplay(biayaPerPcs.toInt())}/pcs)',
-                                        );
-                                      },
-                                style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  backgroundColor: const Color(0xFF4F46E5),
-                                ),
-                                child: Text(
-                                  'Terapkan Ukuran & Biaya $activeCategory Ini',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ] else ...[
-                      // TAMPILAN 2: LIST SABLON / SUBLIM
-                      if (activeCategory == 'SABLON') ...[
-                        Row(
-                          children: [
-                            _buildSubCategoryChip(
-                              'Semua',
-                              'ALL',
-                              sablonSubCategory,
-                              (s) => setModalState(() => sablonSubCategory = s),
-                            ),
-                            const SizedBox(width: 6),
-                            _buildSubCategoryChip(
-                              'Medium',
-                              'MEDIUM',
-                              sablonSubCategory,
-                              (s) => setModalState(() => sablonSubCategory = s),
-                            ),
-                            const SizedBox(width: 6),
-                            _buildSubCategoryChip(
-                              'Rubber',
-                              'RUBBER',
-                              sablonSubCategory,
-                              (s) => setModalState(() => sablonSubCategory = s),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-
-                      // Search input
-                      Container(
-                        height: 38,
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.search,
-                              size: 16,
-                              color: Color(0xFF64748B),
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: TextField(
-                                onChanged: (v) =>
-                                    setModalState(() => searchQuery = v),
-                                style: const TextStyle(fontSize: 12),
-                                decoration: const InputDecoration(
-                                  hintText: 'Cari jenis / ukuran...',
-                                  hintStyle: TextStyle(
-                                    fontSize: 11.5,
-                                    color: Color(0xFF94A3B8),
-                                  ),
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-
-                      Expanded(
-                        child: filteredList.isEmpty
-                            ? const Center(
-                                child: Text(
-                                  'Tidak ada pilihan cetak yang cocok',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF64748B),
-                                  ),
-                                ),
-                              )
-                            : ListView.separated(
-                                itemCount: filteredList.length,
-                                separatorBuilder: (_, _) =>
-                                    const Divider(height: 1),
-                                itemBuilder: (c, idx) {
-                                  final item = filteredList[idx];
-                                  final jenis =
-                                      (item['mhb_jenis'] ??
-                                              item['jenis'] ??
-                                              activeCategory)
-                                          .toString()
-                                          .toUpperCase();
-                                  final ket =
-                                      (item['mhb_ket'] ??
-                                              item['ket'] ??
-                                              item['nama'] ??
-                                              jenis)
-                                          .toString();
-                                  final biaya =
-                                      ((item['mhb_rp'] ??
-                                                  item['mhb_biaya'] ??
-                                                  item['biaya'] ??
-                                                  0)
-                                              as num)
-                                          .toInt();
-                                  final desc = getSablonUkuranDesc(ket);
-
-                                  return ListTile(
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 4,
-                                      vertical: 2,
-                                    ),
-                                    title: Text(
-                                      ket,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                    subtitle: desc.isNotEmpty
-                                        ? Text(
-                                            desc,
-                                            style: const TextStyle(
-                                              fontSize: 11,
-                                              color: Color(0xFF64748B),
-                                            ),
-                                          )
-                                        : null,
-                                    trailing: Text(
-                                      'Rp ${_formatNumberDisplay(biaya)} /pcs',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 13,
-                                        color: Color(0xFF0F172A),
-                                      ),
-                                    ),
-                                    onTap: () {
-                                      setState(() {
-                                        _garmenSelectedCetak.add({
-                                          'jenis': jenis,
-                                          'ket': ket,
-                                          'biaya': biaya,
-                                        });
-                                      });
-                                      Navigator.pop(ctx);
-                                      if (_currentStep == 2) {
-                                        _executeHitungGarmen();
-                                      }
-                                      AppToast.success(
-                                        context,
-                                        '$ket ditambahkan (+Rp ${_formatNumberDisplay(biaya)}/pcs)',
-                                      );
-                                    },
-                                  );
-                                },
-                              ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+          builder: (modalCtx, setModalState) {
+            return _buildGarmenCetakModalContent(
+              modalCtx,
+              setModalState,
+              isDialog: false,
             );
           },
         );
       },
     );
+  }
+
+  Widget _buildGarmenCetakModalContent(
+    BuildContext ctx,
+    StateSetter setModalState, {
+    required bool isDialog,
+  }) {
+    final activeCategory = _garmenCetakActiveCategory;
+    final sablonSubCategory = _garmenCetakSablonSubCategory;
+    final searchQuery = _garmenCetakSearchQuery;
+
+    final isDtfOrBordir = activeCategory == 'DTF' || activeCategory == 'BORDIR';
+
+    // Master item untuk DTF / Bordir
+    final masterItem = _garmenCetakMaster.firstWhere(
+      (c) =>
+          (c['mhb_jenis'] ?? c['jenis'] ?? '').toString().toUpperCase() ==
+          activeCategory,
+      orElse: () => <String, dynamic>{},
+    );
+    final defaultTarif =
+        (masterItem['mhb_cm'] as num?)?.toDouble() ??
+        (activeCategory == 'DTF' ? 25.0 : 90.0);
+    final minTarif =
+        (masterItem['mhb_min'] as num?)?.toDouble() ??
+        (activeCategory == 'DTF' ? 1000.0 : 2500.0);
+
+    // Perhitungan DTF / Bordir (Kunci paten dari database kencanaprint.tmintaharga_biaya)
+    final pj = _toNumDecimal(_dtfBordirPanjangController.text);
+    final lb = _toNumDecimal(_dtfBordirLebarController.text);
+    final luas = pj * lb;
+
+    final effectiveTarif = defaultTarif;
+    final biayaMurni = luas * effectiveTarif;
+    final isMinApplied = luas > 0 && biayaMurni < minTarif;
+    final biayaPerPcs = luas > 0
+        ? (isMinApplied ? minTarif : biayaMurni.roundToDouble())
+        : 0.0;
+    final qtyOrder = _toNumCurrency(_qtyController.text);
+    final totalBiayaOrder = biayaPerPcs * qtyOrder;
+
+    // List item untuk Sablon / Sublim
+    final filteredList = _garmenCetakMaster.where((cItem) {
+      final j = (cItem['mhb_jenis'] ?? cItem['jenis'] ?? '')
+          .toString()
+          .toUpperCase();
+      if (j != activeCategory) return false;
+
+      final ket = (cItem['mhb_ket'] ?? cItem['ket'] ?? cItem['nama'] ?? '')
+          .toString()
+          .toUpperCase();
+
+      if (activeCategory == 'SABLON') {
+        if (sablonSubCategory != 'ALL' && !ket.contains(sablonSubCategory)) {
+          return false;
+        }
+
+        if (searchQuery.trim().isEmpty) {
+          final curKtg = _garmenKategoriKain.toUpperCase();
+          final isPe =
+              curKtg.contains('PE') ||
+              curKtg.contains('HYGIT') ||
+              curKtg.contains('DRYFIT');
+          final isLacost = curKtg.contains('LACOST');
+
+          if (isPe) {
+            if (!ket.endsWith(' PE')) {
+              return false;
+            }
+          } else if (isLacost) {
+            if (ket.endsWith(' PE') || ket.endsWith(' COTTON')) {
+              return false;
+            }
+          } else {
+            if (ket.endsWith(' PE') || ket.endsWith(' LACOST')) {
+              return false;
+            }
+          }
+        }
+      }
+
+      if (searchQuery.trim().isNotEmpty) {
+        return ket.toLowerCase().contains(searchQuery.toLowerCase().trim());
+      }
+
+      return true;
+    }).toList();
+
+    final bodyWidget = Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: isDialog
+            ? BorderRadius.circular(20)
+            : const BorderRadius.vertical(top: Radius.circular(20)),
+        border: isDialog ? Border.all(color: const Color(0xFFE2E8F0)) : null,
+        boxShadow: isDialog
+            ? const [
+                BoxShadow(
+                  color: Color.fromRGBO(15, 23, 42, 0.18),
+                  blurRadius: 32,
+                  offset: Offset(0, 14),
+                ),
+              ]
+            : null,
+      ),
+      constraints: BoxConstraints(
+        maxHeight: isDialog ? 680 : MediaQuery.of(context).size.height * 0.85,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Tambahan Cetak',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 20),
+                onPressed: () => Navigator.pop(ctx),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // Category Tabs
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                _buildCetakTabItem('Sablon', 'SABLON', activeCategory, (cat) {
+                  setModalState(() => _garmenCetakActiveCategory = cat);
+                }),
+                _buildCetakTabItem('Sublim', 'SUBLIM', activeCategory, (cat) {
+                  setModalState(() => _garmenCetakActiveCategory = cat);
+                }),
+                _buildCetakTabItem('DTF', 'DTF', activeCategory, (cat) {
+                  setModalState(() => _garmenCetakActiveCategory = cat);
+                }),
+                _buildCetakTabItem('Bordir', 'BORDIR', activeCategory, (cat) {
+                  setModalState(() => _garmenCetakActiveCategory = cat);
+                }),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // TAMPILAN 1: KALKULATOR UKURAN KHUSUS DTF & BORDIR
+          if (isDtfOrBordir) ...[
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Input Dimensi (Panjang x Lebar cm)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Panjang (cm) *',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              TextFormField(
+                                controller: _dtfBordirPanjangController,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                inputFormatters: [_decimalInputFormatter],
+                                decoration: const InputDecoration(
+                                  hintText: '0',
+                                  suffixText: 'cm',
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 8,
+                                  ),
+                                ),
+                                onChanged: (_) => setModalState(() {}),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Lebar (cm) *',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              TextFormField(
+                                controller: _dtfBordirLebarController,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                inputFormatters: [_decimalInputFormatter],
+                                decoration: const InputDecoration(
+                                  hintText: '0',
+                                  suffixText: 'cm',
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 8,
+                                  ),
+                                ),
+                                onChanged: (_) => setModalState(() {}),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Ringkasan Estimasi Biaya DTF / Bordir
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFBFDBFE)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Ukuran Desain:',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF1E3A8A),
+                                ),
+                              ),
+                              Text(
+                                '${pj.toStringAsFixed(1)} x ${lb.toStringAsFixed(1)} cm',
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF1E3A8A),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Total Luas Desain:',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF1E3A8A),
+                                ),
+                              ),
+                              Text(
+                                '${luas.toStringAsFixed(1)} cm²',
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF1E3A8A),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Biaya Satuan / Pcs:',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF1E3A8A),
+                                ),
+                              ),
+                              Row(
+                                children: [
+                                  Text(
+                                    'Rp ${_formatNumberDisplay(biayaPerPcs.toInt())} /pcs',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w900,
+                                      color: Color(0xFF1D4ED8),
+                                    ),
+                                  ),
+                                  if (isMinApplied) ...[
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '(Min: Rp ${minTarif.toInt()})',
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        color: Color(0xFFB45309),
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 12, color: Color(0xFFBFDBFE)),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Total ($qtyOrder pcs):',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF1E3A8A),
+                                ),
+                              ),
+                              Text(
+                                'Rp ${_formatNumberDisplay(totalBiayaOrder.toInt())}',
+                                style: const TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF1E3A8A),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Tombol Terapkan DTF / Bordir
+                    ElevatedButton(
+                      onPressed: biayaPerPcs <= 0
+                          ? null
+                          : () {
+                              final label = '$activeCategory ${pj}x$lb cm';
+                              setState(() {
+                                _garmenSelectedCetak.add({
+                                  'jenis': activeCategory,
+                                  'ket': label,
+                                  'biaya': biayaPerPcs.toInt(),
+                                });
+                              });
+                              Navigator.pop(ctx);
+                              if (_currentStep == 2) {
+                                _executeHitungGarmen();
+                              }
+                              AppToast.success(
+                                context,
+                                '$label berhasil ditambahkan (+Rp ${_formatNumberDisplay(biayaPerPcs.toInt())}/pcs)',
+                              );
+                            },
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        backgroundColor: const Color(0xFF4F46E5),
+                      ),
+                      child: Text(
+                        'Terapkan Ukuran & Biaya $activeCategory Ini',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ] else ...[
+            // TAMPILAN 2: LIST SABLON / SUBLIM
+            if (activeCategory == 'SABLON') ...[
+              Row(
+                children: [
+                  _buildSubCategoryChip(
+                    'Semua',
+                    'ALL',
+                    sablonSubCategory,
+                    (s) =>
+                        setModalState(() => _garmenCetakSablonSubCategory = s),
+                  ),
+                  const SizedBox(width: 6),
+                  _buildSubCategoryChip(
+                    'Medium',
+                    'MEDIUM',
+                    sablonSubCategory,
+                    (s) =>
+                        setModalState(() => _garmenCetakSablonSubCategory = s),
+                  ),
+                  const SizedBox(width: 6),
+                  _buildSubCategoryChip(
+                    'Rubber',
+                    'RUBBER',
+                    sablonSubCategory,
+                    (s) =>
+                        setModalState(() => _garmenCetakSablonSubCategory = s),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
+
+            // Search input
+            Container(
+              height: 38,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.search, size: 16, color: Color(0xFF64748B)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: TextField(
+                      onChanged: (v) =>
+                          setModalState(() => _garmenCetakSearchQuery = v),
+                      style: const TextStyle(fontSize: 12),
+                      decoration: const InputDecoration(
+                        hintText: 'Cari jenis / ukuran...',
+                        hintStyle: TextStyle(
+                          fontSize: 11.5,
+                          color: Color(0xFF94A3B8),
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            Expanded(
+              child: filteredList.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'Tidak ada pilihan cetak yang cocok',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      itemCount: filteredList.length,
+                      separatorBuilder: (_, _) => const Divider(height: 1),
+                      itemBuilder: (c, idx) {
+                        final item = filteredList[idx];
+                        final jenis =
+                            (item['mhb_jenis'] ??
+                                    item['jenis'] ??
+                                    activeCategory)
+                                .toString()
+                                .toUpperCase();
+                        final ket =
+                            (item['mhb_ket'] ??
+                                    item['ket'] ??
+                                    item['nama'] ??
+                                    jenis)
+                                .toString();
+                        final biaya =
+                            ((item['mhb_rp'] ??
+                                        item['mhb_biaya'] ??
+                                        item['biaya'] ??
+                                        0)
+                                    as num)
+                                .toInt();
+                        final desc = getSablonUkuranDesc(ket);
+
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 2,
+                          ),
+                          title: Text(
+                            ket,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                          ),
+                          subtitle: desc.isNotEmpty
+                              ? Text(
+                                  desc,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                )
+                              : null,
+                          trailing: Text(
+                            'Rp ${_formatNumberDisplay(biaya)} /pcs',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          onTap: () {
+                            setState(() {
+                              _garmenSelectedCetak.add({
+                                'jenis': jenis,
+                                'ket': ket,
+                                'biaya': biaya,
+                              });
+                            });
+                            Navigator.pop(ctx);
+                            if (_currentStep == 2) {
+                              _executeHitungGarmen();
+                            }
+                            AppToast.success(
+                              context,
+                              '$ket ditambahkan (+Rp ${_formatNumberDisplay(biaya)}/pcs)',
+                            );
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    return isDialog ? bodyWidget : SafeArea(child: bodyWidget);
   }
 
   static Widget _buildCetakTabItem(
