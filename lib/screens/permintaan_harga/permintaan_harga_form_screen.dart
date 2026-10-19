@@ -716,6 +716,7 @@ class _PermintaanHargaFormScreenState
         'jenisKain': _garmenJenisKain,
         'kodeModel': _garmenKodeModel,
         'kategori': _garmenKategoriKain,
+        'qty': _toNumCurrency(_qtyController.text),
       });
       final cetak = await repo.getCetakLookup({
         'jenisKain': _garmenJenisKain,
@@ -822,6 +823,7 @@ class _PermintaanHargaFormScreenState
         'jenisKain': _garmenJenisKain,
         'kodeModel': _garmenKodeModel,
         'kategori': _garmenKategoriKain,
+        'qty': _toNumCurrency(_qtyController.text),
       });
       if (!mounted) return;
       setState(() {
@@ -1736,7 +1738,6 @@ class _PermintaanHargaFormScreenState
         return 'Workshop garmen wajib dipilih (Medium atau Premium)';
       }
     }
-
     // 2. Validasi Spesifik Divisi SPANDUK (1)
     else if (_selectedDivisi == '1') {
       if (_spandukMetode.trim().isEmpty) {
@@ -1761,7 +1762,6 @@ class _PermintaanHargaFormScreenState
         return 'Cetak Spanduk Manual minimal 100 pcs atau total luas 500 m² (saat ini: $qty pcs / ${totalLuasM2.toStringAsFixed(1)} m²). Silakan gunakan metode Cetak Machine.';
       }
     }
-
     // 3. Validasi Spesifik Divisi MMT (5)
     else if (_selectedDivisi == '5') {
       if (_mmtKategori.trim().isEmpty) {
@@ -1799,7 +1799,9 @@ class _PermintaanHargaFormScreenState
       return;
     }
 
-    setState(() => _currentStep = 2);
+    setState(() {
+      _currentStep = 2;
+    });
 
     // Auto trigger kalkulasi pertama kali jika belum pernah dihitung
     if (_selectedDivisi == '1' && _spandukResult == null) {
@@ -1821,7 +1823,9 @@ class _PermintaanHargaFormScreenState
       );
       return;
     }
-    setState(() => _currentStep = 3);
+    setState(() {
+      _currentStep = 3;
+    });
   }
 
   // --- SUBMIT FINAL ---
@@ -5161,7 +5165,7 @@ class _PermintaanHargaFormScreenState
             _buildMmtStrataAccordion(),
           ],
         ] else if (_selectedDivisi == '4') ...[
-          _buildGarmenEngineAdjustmentCard(),
+          _buildGarmenTambahanDanCetakCard(),
           const SizedBox(height: 12),
           if (_garmenCalcResult != null) ...[
             _buildGarmenKalkulasiResultCard(),
@@ -6210,8 +6214,8 @@ class _PermintaanHargaFormScreenState
     );
   }
 
-  // Engine Adjustment Card untuk Garmen di Step 2 (Selaras dengan React Native)
-  Widget _buildGarmenEngineAdjustmentCard() {
+  // Card Mandiri Tambahan Aksesoris & Cetak Garmen di Step 2
+  Widget _buildGarmenTambahanDanCetakCard() {
     final qtyOrder = _toNumCurrency(_qtyController.text);
     return Container(
       padding: const EdgeInsets.all(14),
@@ -6219,230 +6223,102 @@ class _PermintaanHargaFormScreenState
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x080F172A),
+            blurRadius: 4,
+            offset: Offset(0, 1),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header Card
           Row(
-            children: const [
-              Icon(
-                Icons.view_in_ar_rounded,
-                size: 18,
-                color: Color(0xFF7C3AED),
-              ),
-              SizedBox(width: 8),
-              Text(
-                'Penyesuaian Spesifikasi & Cetak Garmen',
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Tambahan Aksesoris & Cetak',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
                   color: Color(0xFF0F172A),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Model & Workshop
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Model Kaos',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF475569),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildSelectablePill(
-                            '1 Warna',
-                            _garmenKodeModel == 'KH-0001',
-                            () {
-                              setState(() => _garmenKodeModel = 'KH-0001');
-                              _executeHitungGarmen();
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: _buildSelectablePill(
-                            '2 Warna',
-                            _garmenKodeModel == 'KH-0002',
-                            () {
-                              setState(() => _garmenKodeModel = 'KH-0002');
-                              _executeHitungGarmen();
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Workshop',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF475569),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildSelectablePill(
-                            'Medium',
-                            _garmenWorkshop == 'MEDIUM',
-                            () {
-                              setState(() => _garmenWorkshop = 'MEDIUM');
-                              _executeHitungGarmen();
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: _buildSelectablePill(
-                            'Premium',
-                            _garmenWorkshop == 'PREMIUM',
-                            () {
-                              setState(() => _garmenWorkshop = 'PREMIUM');
-                              _executeHitungGarmen();
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+              Text(
+                '${_garmenSelectedTambahan.length + _garmenSelectedCetak.length} Item Terpilih',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF64748B),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 10),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          const SizedBox(height: 10),
 
-          // Kategori Warna
-          const Text(
-            'Kategori Warna',
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF475569),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Expanded(
-                child: _buildSelectablePill('Muda', _garmenWarna == 'muda', () {
-                  setState(() => _garmenWarna = 'muda');
-                  _executeHitungGarmen();
-                }),
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: _buildSelectablePill(
-                  'Sedang',
-                  _garmenWarna == 'sedang',
-                  () {
-                    setState(() => _garmenWarna = 'sedang');
-                    _executeHitungGarmen();
-                  },
-                ),
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: _buildSelectablePill('Tua', _garmenWarna == 'tua', () {
-                  setState(() => _garmenWarna = 'tua');
-                  _executeHitungGarmen();
-                }),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // 1. OPSI TAMBAHAN (AKSESORIS)
+          // 1. Tambahan Biaya Aksesoris
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Tambahan Biaya Aksesoris',
+                'Aksesoris Tambahan',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: Color(0xFF475569),
                 ),
               ),
-              TextButton.icon(
-                onPressed: _showGarmenTambahanPickerModal,
-                icon: const Icon(Icons.add, size: 14),
-                label: const Text(
-                  'Tambah Aksesoris',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+              InkWell(
+                onTap: _showGarmenTambahanPickerModal,
+                child: const Text(
+                  '+ Tambah Aksesoris',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF4F46E5),
+                  ),
                 ),
               ),
             ],
           ),
-          InkWell(
-            onTap: _showGarmenTambahanPickerModal,
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          const SizedBox(height: 6),
+          if (_garmenSelectedTambahan.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
                 color: const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFCBD5E1)),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _garmenSelectedTambahan.isNotEmpty
-                        ? '${_garmenSelectedTambahan.length} Tambahan Dipilih'
-                        : 'Pilih Tambahan (Opsional)...',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: _garmenSelectedTambahan.isNotEmpty
-                          ? FontWeight.w700
-                          : FontWeight.w500,
-                      color: _garmenSelectedTambahan.isNotEmpty
-                          ? const Color(0xFF0F172A)
-                          : const Color(0xFF94A3B8),
-                    ),
-                  ),
-                  const Icon(Icons.arrow_drop_down, color: Color(0xFF64748B)),
-                ],
+              child: const Text(
+                'Belum ada aksesoris tambahan dipilih',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontStyle: FontStyle.italic,
+                  color: Color(0xFF94A3B8),
+                ),
               ),
-            ),
-          ),
-          if (_garmenSelectedTambahan.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            )
+          else
             Column(
               children: _garmenSelectedTambahan.map((sItem) {
                 final tarif = (sItem['tarif'] as num?)?.toInt() ?? 0;
                 final sub = tarif * qtyOrder;
                 return Container(
-                  margin: const EdgeInsets.only(bottom: 6),
+                  margin: const EdgeInsets.only(bottom: 5),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+                    horizontal: 10,
+                    vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF5F3FF),
+                    color: const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFDDD6FE)),
+                    border: Border.all(color: const Color(0xFFCBD5E1)),
                   ),
                   child: Row(
                     children: [
@@ -6453,9 +6329,9 @@ class _PermintaanHargaFormScreenState
                             Text(
                               sItem['ket'] ?? '',
                               style: const TextStyle(
-                                fontSize: 12.5,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF5B21B6),
+                                color: Color(0xFF1E293B),
                               ),
                             ),
                             Text(
@@ -6471,9 +6347,9 @@ class _PermintaanHargaFormScreenState
                       Text(
                         'Rp ${_formatNumberDisplay(sub)}',
                         style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF7C3AED),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF4F46E5),
                         ),
                       ),
                       const SizedBox(width: 4),
@@ -6497,80 +6373,70 @@ class _PermintaanHargaFormScreenState
                 );
               }).toList(),
             ),
-          ],
           const SizedBox(height: 12),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          const SizedBox(height: 10),
 
-          // 2. OPSI CETAK (SABLON / DTF / BORDIR / SUBLIM)
+          // 2. Cetak (Sablon / DTF / Bordir / Sublim)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Cetak (Sablon / DTF / Bordir / Sublim)',
+                'Cetak (Sablon / DTF / Bordir)',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: Color(0xFF475569),
                 ),
               ),
-              TextButton.icon(
-                onPressed: _showGarmenCetakPickerModal,
-                icon: const Icon(Icons.add, size: 14),
-                label: const Text(
+              InkWell(
+                onTap: _showGarmenCetakPickerModal,
+                child: const Text(
                   '+ Tambah Cetak',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF4F46E5),
+                  ),
                 ),
               ),
             ],
           ),
-          InkWell(
-            onTap: _showGarmenCetakPickerModal,
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          const SizedBox(height: 6),
+          if (_garmenSelectedCetak.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
                 color: const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFCBD5E1)),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _garmenSelectedCetak.isNotEmpty
-                        ? '${_garmenSelectedCetak.length} Item Cetak Dipilih'
-                        : 'Pilih Sablon / DTF / Bordir / Sublim...',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: _garmenSelectedCetak.isNotEmpty
-                          ? FontWeight.w700
-                          : FontWeight.w500,
-                      color: _garmenSelectedCetak.isNotEmpty
-                          ? const Color(0xFF0F172A)
-                          : const Color(0xFF94A3B8),
-                    ),
-                  ),
-                  const Icon(Icons.arrow_drop_down, color: Color(0xFF64748B)),
-                ],
+              child: const Text(
+                'Belum ada sablon/cetak tambahan dipilih',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontStyle: FontStyle.italic,
+                  color: Color(0xFF94A3B8),
+                ),
               ),
-            ),
-          ),
-          if (_garmenSelectedCetak.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            )
+          else
             Column(
               children: _garmenSelectedCetak.map((cItem) {
                 final biaya = (cItem['biaya'] as num?)?.toInt() ?? 0;
                 final sub = biaya * qtyOrder;
                 final ukDesc = getSablonUkuranDesc(cItem['ket'] ?? '');
                 return Container(
-                  margin: const EdgeInsets.only(bottom: 6),
+                  margin: const EdgeInsets.only(bottom: 5),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+                    horizontal: 10,
+                    vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFAF5FF),
+                    color: const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFE9D5FF)),
+                    border: Border.all(color: const Color(0xFFCBD5E1)),
                   ),
                   child: Row(
                     children: [
@@ -6581,9 +6447,9 @@ class _PermintaanHargaFormScreenState
                             Text(
                               '${cItem['jenis']} - ${cItem['ket']}',
                               style: const TextStyle(
-                                fontSize: 12.5,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF6B21A8),
+                                color: Color(0xFF1E293B),
                               ),
                             ),
                             Text(
@@ -6599,9 +6465,9 @@ class _PermintaanHargaFormScreenState
                       Text(
                         'Rp ${_formatNumberDisplay(sub)}',
                         style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF7C3AED),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF4F46E5),
                         ),
                       ),
                       const SizedBox(width: 4),
@@ -6625,7 +6491,6 @@ class _PermintaanHargaFormScreenState
                 );
               }).toList(),
             ),
-          ],
         ],
       ),
     );
@@ -6645,9 +6510,7 @@ class _PermintaanHargaFormScreenState
       orElse: () => null,
     );
     final hargaBahanSatuan = activeTier != null
-        ? (activeTier['up'] ??
-              activeTier['hargaUp'] ??
-              0)
+        ? (activeTier['up'] ?? activeTier['hargaUp'] ?? 0)
         : ((res['hpp'] ?? 0) + (res['strataAktif']?['marginRp'] ?? 0));
 
     final tambahanPerPcs =
@@ -6864,8 +6727,7 @@ class _PermintaanHargaFormScreenState
                           tier['label']?.toString() ??
                           '${_formatNumberDisplay(qmin)} - ${qmax >= 999999 ? "≥ 1000" : _formatNumberDisplay(qmax)} pcs';
                       final hargaTier =
-                          (tier['up'] ?? tier['hargaUp'] ?? 0)
-                              as num;
+                          (tier['up'] ?? tier['hargaUp'] ?? 0) as num;
 
                       return Container(
                         color: isActive
@@ -7139,29 +7001,54 @@ class _PermintaanHargaFormScreenState
               ? 'MMT'
               : (_selectedDivisi == '4' ? 'Garmen' : 'Lainnya'));
 
-    // 1. Bahan & Ukuran
+    // 1. Bahan & Dimensi / Spesifikasi Teknis
     String labelBahan = 'Bahan / Kain';
     String specBahan = '-';
     String labelUkuran = 'Ukuran (P x L)';
     String specUkuran = '-';
 
-    if (_selectedDivisi == '4') {
-      labelBahan = 'Model & Warna';
-      specBahan =
-          '${_garmenKodeModel == 'KH-0001' ? '1 Warna' : '2 Warna'} ($_garmenWarna)';
-      labelUkuran = 'Jenis Kain';
-      specUkuran = _garmenJenisKain.isNotEmpty ? _garmenJenisKain : '-';
-    } else if (_selectedDivisi == '1') {
+    if (_selectedDivisi == '1') {
       labelBahan = 'Kain Spanduk';
-      specBahan = _spandukJenisKain.isNotEmpty ? _spandukJenisKain : '-';
+      final metodeStr = _spandukMetode.trim().isNotEmpty
+          ? (_spandukMetode.trim().toUpperCase() == 'MANUAL'
+                ? 'Manual'
+                : 'Machine')
+          : '';
+      if (_spandukJenisKain.isNotEmpty) {
+        specBahan = metodeStr.isNotEmpty
+            ? '$_spandukJenisKain ($metodeStr)'
+            : _spandukJenisKain;
+      } else {
+        specBahan = '-';
+      }
       labelUkuran = 'Ukuran (P x L)';
       final pStr = _panjangController.text.trim().isNotEmpty
           ? _panjangController.text.trim()
           : '0';
       specUkuran = '$pStr m x ${_spandukLebar.toInt()} cm';
+    } else if (_selectedDivisi == '4') {
+      labelBahan = 'Jenis Kain';
+      specBahan = _garmenJenisKain.isNotEmpty ? _garmenJenisKain : '-';
+      labelUkuran = 'Model & Warna';
+      final modelStr = _garmenKodeModel == 'KH-0001'
+          ? '1 Warna'
+          : (_garmenKodeModel == 'KH-0002' ? '2 Warna' : _garmenKodeModel);
+      final warnaStr = _garmenWarna.isNotEmpty ? _garmenWarna : '-';
+      specUkuran = '$modelStr ($warnaStr)';
     } else if (_selectedDivisi == '5') {
-      labelBahan = 'Kategori & Bahan MMT';
-      specBahan = '$_mmtKategori - $_mmtBahanKode';
+      labelBahan = 'Bahan MMT';
+      String bahanNama = _mmtBahanKode;
+      final foundBahan = _currentMmtBahanOptions
+          .cast<Map<String, dynamic>?>()
+          .firstWhere((b) => b?['kode'] == _mmtBahanKode, orElse: () => null);
+      if (foundBahan != null &&
+          foundBahan['nama'] != null &&
+          foundBahan['nama'].toString().isNotEmpty) {
+        bahanNama = foundBahan['nama'].toString();
+      }
+      specBahan = _mmtKategori.isNotEmpty
+          ? '$_mmtKategori - $bahanNama'
+          : (bahanNama.isNotEmpty ? bahanNama : '-');
       labelUkuran = 'Ukuran (P x L)';
       final pStr = _panjangController.text.trim().isNotEmpty
           ? _panjangController.text.trim()
@@ -7202,12 +7089,42 @@ class _PermintaanHargaFormScreenState
       }
     }
 
-    // Sublim / Workshop text
-    String sublimText = '';
-    if (_mhSublim.trim().isNotEmpty) {
-      sublimText = _mhSublim.trim();
-    } else if (_selectedDivisi == '4' && _garmenWorkshop.trim().isNotEmpty) {
-      sublimText = _garmenWorkshop.trim();
+    // Opsi Khusus Divisi (Workshop di Garmen, Topping/Opsi Cetak di MMT, Sublim di Spanduk)
+    String extraLabel = '';
+    String extraValue = '';
+    if (_selectedDivisi == '4') {
+      if (_garmenWorkshop.trim().isNotEmpty) {
+        extraLabel = 'WORKSHOP';
+        extraValue = _garmenWorkshop.trim();
+      }
+    } else if (_selectedDivisi == '5') {
+      if (_mmtToppingKode.trim().isNotEmpty) {
+        extraLabel = 'TOPPING';
+        final topQty = _mmtToppingQtyController.text.trim().isNotEmpty
+            ? _mmtToppingQtyController.text.trim()
+            : '1';
+        extraValue = '$_mmtToppingKode ($topQty Pcs)';
+      } else if (_mmtIsNetto) {
+        extraLabel = 'OPSI CETAK';
+        extraValue = _mmtAlasanNettoController.text.trim().isNotEmpty
+            ? 'Netto (${_mmtAlasanNettoController.text.trim()})'
+            : 'Netto';
+      } else if (_mmtSelongsongVert || _mmtSelongsongHoriz) {
+        extraLabel = 'OPSI CETAK';
+        if (_mmtSelongsongVert && _mmtSelongsongHoriz) {
+          extraValue = 'Selongsong (V & H)';
+        } else if (_mmtSelongsongVert) {
+          extraValue = 'Selongsong Vertikal';
+        } else {
+          extraValue = 'Selongsong Horizontal';
+        }
+      }
+    }
+
+    // Fallback Sublim jika belum ada extraValue dan sublim terisi
+    if (extraValue.isEmpty && _mhSublim.trim().isNotEmpty) {
+      extraLabel = 'SUBLIM';
+      extraValue = _mhSublim.trim();
     }
 
     // Pengiriman & Ongkir
@@ -7243,57 +7160,37 @@ class _PermintaanHargaFormScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header Baris: Judul & Tombol Ubah
+          // Header Baris: Judul Sederhana & Tombol Ubah
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: const [
-                  Icon(
-                    Icons.assignment_rounded,
-                    size: 16,
-                    color: Color(0xFF4F46E5),
-                  ),
-                  SizedBox(width: 6),
-                  Text(
-                    'Spesifikasi Terinput',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF1E40AF),
-                    ),
-                  ),
-                ],
+              const Text(
+                'Detail Terinput',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF1E293B),
+                ),
               ),
               InkWell(
                 onTap: () => setState(() => _currentStep = 1),
                 borderRadius: BorderRadius.circular(6),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3.5,
+                    horizontal: 10,
+                    vertical: 4,
                   ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFDBEAFE),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Row(
-                    children: const [
-                      Icon(
-                        Icons.edit_rounded,
-                        size: 13,
-                        color: Color(0xFF4F46E5),
-                      ),
-                      SizedBox(width: 3),
-                      Text(
-                        'Ubah',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF4F46E5),
-                        ),
-                      ),
-                    ],
+                  child: const Text(
+                    'Ubah',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF4F46E5),
+                    ),
                   ),
                 ),
               ),
@@ -7302,316 +7199,46 @@ class _PermintaanHargaFormScreenState
           const SizedBox(height: 8),
           const Divider(height: 1, color: Color(0xFFDBEAFE)),
           const SizedBox(height: 8),
-
-          if (_selectedDivisi == '4') ...[
-            // ========================================================
-            // TAMPILAN KHUSUS GARMEN (SIMPEL, COMPACT & ANTI-MENUMPUK DI MOBILE)
-            // ========================================================
-            // 1. Identitas Customer, Nama Pekerjaan & Badge Qty
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _customerNamaController.text.trim().isNotEmpty
-                            ? _customerNamaController.text.trim()
-                            : '-',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF0F172A),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 1.5),
-                      Text(
-                        _barangController.text.trim().isNotEmpty
-                            ? _barangController.text.trim()
-                            : 'Garmen',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF475569),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEEF2FF),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFC7D2FE)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.inventory_2_outlined,
-                        size: 13,
-                        color: Color(0xFF4F46E5),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${_formatNumberDisplay(_toNumCurrency(_qtyController.text))} Pcs',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF4F46E5),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-
-            // 2. Chips Spesifikasi Garmen (Mengalir Alami dengan Wrap - Anti Menumpuk di Layar Sempit)
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                _buildSpecChip(
-                  icon: Icons.texture_rounded,
-                  label: _garmenJenisKain.isNotEmpty
-                      ? _garmenJenisKain
-                      : 'Kain Belum Dipilih',
-                  bgColor: Colors.white,
-                  borderColor: const Color(0xFFCBD5E1),
-                  textColor: const Color(0xFF0F172A),
-                ),
-                _buildSpecChip(
-                  icon: Icons.checkroom_rounded,
-                  label:
-                      '${_garmenKodeModel == 'KH-0001' ? '1 Warna' : '2 Warna'} • $_garmenWarna',
-                  bgColor: Colors.white,
-                  borderColor: const Color(0xFFCBD5E1),
-                  textColor: const Color(0xFF334155),
-                ),
-                if (_garmenWorkshop.trim().isNotEmpty)
-                  _buildSpecChip(
-                    icon: Icons.storefront_rounded,
-                    label: _garmenWorkshop.trim(),
-                    bgColor: const Color(0xFFFEF3C7),
-                    borderColor: const Color(0xFFFDE68A),
-                    textColor: const Color(0xFF92400E),
-                  ),
-                if (finishingText.isNotEmpty)
-                  _buildSpecChip(
-                    icon: Icons.cut_rounded,
-                    label: finishingText,
-                    bgColor: const Color(0xFFF3E8FF),
-                    borderColor: const Color(0xFFE9D5FF),
-                    textColor: const Color(0xFF6B21A8),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-
-            // 3. Info Pengiriman, Estimasi Ongkir & Tanggal Order (Single Clean Row)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.local_shipping_outlined,
-                    size: 14,
-                    color: isFreeOngkir
-                        ? const Color(0xFF15803D)
-                        : const Color(0xFF64748B),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      '$alokasiTeks • $ongkirDisplay',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: isFreeOngkir
-                            ? const Color(0xFF15803D)
-                            : const Color(0xFF0F172A),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    DateFormat('dd/MM/yy').format(_rencanaOrderDate),
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF94A3B8),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // 4. Keterangan (jika ada)
-            if (keteranganTeks.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFFBEB),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: const Color(0xFFFDE68A)),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(
-                      Icons.info_outline_rounded,
-                      size: 13,
-                      color: Color(0xFFB45309),
-                    ),
-                    const SizedBox(width: 5),
-                    Expanded(
-                      child: Text(
-                        keteranganTeks,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontStyle: FontStyle.italic,
-                          color: Color(0xFF78350F),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ] else ...[
             // Baris 1: Customer & Nama Pekerjaan
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'CUSTOMER',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                      const SizedBox(height: 1),
-                      Text(
-                        _customerNamaController.text.trim().isNotEmpty
-                            ? _customerNamaController.text.trim()
-                            : '-',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1E293B),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                  child: _buildSpecInfoCell(
+                    label: 'CUSTOMER',
+                    value: _customerNamaController.text.trim().isNotEmpty
+                        ? _customerNamaController.text.trim()
+                        : '-',
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'NAMA PEKERJAAN',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                      const SizedBox(height: 1),
-                      Text(
-                        _barangController.text.trim().isNotEmpty
-                            ? _barangController.text.trim()
-                            : '-',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1E293B),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                  child: _buildSpecInfoCell(
+                    label: 'NAMA PEKERJAAN',
+                    value: _barangController.text.trim().isNotEmpty
+                        ? _barangController.text.trim()
+                        : '-',
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 6),
 
-            // Baris 2: Divisi & Rencana Tgl Order
+            // Baris 2: Divisi & Tanggal Order
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'DIVISI',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                      const SizedBox(height: 1),
-                      Text(
-                        divisiLabel,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1E293B),
-                        ),
-                      ),
-                    ],
+                  child: _buildSpecInfoCell(
+                    label: 'DIVISI',
+                    value: divisiLabel,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'TANGGAL',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                      const SizedBox(height: 1),
-                      Text(
-                        DateFormat('dd-MM-yyyy').format(_rencanaOrderDate),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1E293B),
-                        ),
-                      ),
-                    ],
+                  child: _buildSpecInfoCell(
+                    label: 'TANGGAL',
+                    value: DateFormat('dd-MM-yyyy').format(_rencanaOrderDate),
                   ),
                 ),
               ],
@@ -7623,145 +7250,56 @@ class _PermintaanHargaFormScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        labelBahan.toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                      const SizedBox(height: 1),
-                      Text(
-                        specBahan,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1E293B),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                  child: _buildSpecInfoCell(
+                    label: labelBahan,
+                    value: specBahan,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        labelUkuran.toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                      const SizedBox(height: 1),
-                      Text(
-                        specUkuran,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1E293B),
-                        ),
-                      ),
-                    ],
+                  child: _buildSpecInfoCell(
+                    label: labelUkuran,
+                    value: specUkuran,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 6),
 
-            // Baris 4: Kuantitas Order & Finishing & Sublim/Workshop
+            // Baris 4: Kuantitas Order & Opsi Spesifik Divisi / Finishing
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'JUMLAH ORDER',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                      const SizedBox(height: 1),
-                      Text(
+                  child: _buildSpecInfoCell(
+                    label: 'JUMLAH ORDER',
+                    value:
                         '${_formatNumberDisplay(_toNumCurrency(_qtyController.text))} Pcs',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF4F46E5),
-                        ),
-                      ),
-                    ],
+                    valueColor: const Color(0xFF4F46E5),
+                    valueFontWeight: FontWeight.w800,
                   ),
                 ),
-                if (finishingText.isNotEmpty) ...[
+                if (extraValue.isNotEmpty) ...[
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'FINISHING',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF64748B),
-                          ),
-                        ),
-                        const SizedBox(height: 1),
-                        Text(
-                          finishingText,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF1E293B),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                    child: _buildSpecInfoCell(
+                      label: extraLabel,
+                      value: extraValue,
                     ),
                   ),
                 ],
-                if (sublimText.isNotEmpty) ...[
+                if (finishingText.isNotEmpty) ...[
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _selectedDivisi == '4' ? 'WORKSHOP' : 'SUBLIM',
-                          style: const TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF64748B),
-                          ),
-                        ),
-                        const SizedBox(height: 1),
-                        Text(
-                          sublimText,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF1E293B),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                    child: _buildSpecInfoCell(
+                      label: 'FINISHING',
+                      value: finishingText,
                     ),
                   ),
+                ],
+                if (extraValue.isEmpty && finishingText.isEmpty) ...[
+                  const SizedBox(width: 8),
+                  const Expanded(child: SizedBox()),
                 ],
               ],
             ),
@@ -7772,62 +7310,65 @@ class _PermintaanHargaFormScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'PENGIRIMAN',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                      const SizedBox(height: 1),
-                      Text(
-                        alokasiTeks,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1E293B),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                  child: _buildSpecInfoCell(
+                    label: 'PENGIRIMAN',
+                    value: alokasiTeks,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'ESTIMASI ONGKIR',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                      const SizedBox(height: 1),
-                      Text(
-                        ongkirDisplay,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: isFreeOngkir
-                              ? const Color(0xFF15803D)
-                              : const Color(0xFF0284C7),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                  child: _buildSpecInfoCell(
+                    label: 'ESTIMASI ONGKIR',
+                    value: ongkirDisplay,
+                    valueColor: isFreeOngkir
+                        ? const Color(0xFF15803D)
+                        : const Color(0xFF0284C7),
                   ),
                 ),
               ],
             ),
+
+            // Baris Khusus Divisi Garmen: Tambahan Aksesoris & Cetak Terinput (Terlihat oleh User)
+            if (_selectedDivisi == '4') ...[
+              if (_garmenSelectedTambahan.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _buildSpecInfoCell(
+                        label: 'AKSESORIS TERINPUT',
+                        value: _garmenSelectedTambahan
+                            .map((e) =>
+                                '${e['ket']} (+Rp ${_formatNumberDisplay(e['tarif'] ?? 0)})')
+                            .join(', '),
+                        valueColor: const Color(0xFF4F46E5),
+                        maxLines: 2,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              if (_garmenSelectedCetak.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _buildSpecInfoCell(
+                        label: 'CETAK / SABLON TERINPUT',
+                        value: _garmenSelectedCetak
+                            .map((e) =>
+                                '${e['jenis']} - ${e['ket']} (+Rp ${_formatNumberDisplay(e['biaya'] ?? 0)})')
+                            .join(', '),
+                        valueColor: const Color(0xFF7C3AED),
+                        maxLines: 2,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
 
             // Baris 6: Keterangan Tambahan
             if (keteranganTeks.isNotEmpty) ...[
@@ -7846,6 +7387,7 @@ class _PermintaanHargaFormScreenState
                         fontSize: 10.5,
                         fontWeight: FontWeight.w600,
                         color: Color(0xFF64748B),
+                        letterSpacing: 0.2,
                       ),
                     ),
                     const SizedBox(height: 1),
@@ -7861,45 +7403,42 @@ class _PermintaanHargaFormScreenState
                 ),
               ),
             ],
-          ],
         ],
       ),
     );
   }
 
-  Widget _buildSpecChip({
-    required IconData icon,
+  Widget _buildSpecInfoCell({
     required String label,
-    required Color bgColor,
-    required Color borderColor,
-    required Color textColor,
+    required String value,
+    Color? valueColor,
+    FontWeight valueFontWeight = FontWeight.w700,
+    int maxLines = 1,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: borderColor),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: textColor),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w700,
-                color: textColor,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF64748B),
+            letterSpacing: 0.2,
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 1),
+        Text(
+          value.isNotEmpty ? value : '-',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: valueFontWeight,
+            color: valueColor ?? const Color(0xFF1E293B),
+          ),
+          maxLines: maxLines,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
     );
   }
 
@@ -8215,12 +7754,45 @@ class _PermintaanHargaFormScreenState
                 valueColor: const Color(0xFF4F46E5),
                 fontSize: 13,
               ),
-              if (_keteranganController.text.isNotEmpty)
-                _buildReviewRow(
-                  'Keterangan:',
-                  _keteranganController.text,
-                  valueColor: const Color(0xFF475569),
+              if (_keteranganController.text.trim().isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Detail Terinput:',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        _keteranganController.text.trim(),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
+                          color: Color(0xFF334155),
+                          height: 1.35,
+                        ),
+                        softWrap: true,
+                      ),
+                    ],
+                  ),
                 ),
+              ],
               const Divider(height: 20),
 
               // Final Price Summary Box (reviewPriceBox)
@@ -9172,17 +8744,91 @@ class _PermintaanHargaFormScreenState
     );
   }
 
+  // --- RESET FIELD SAAT GANTI DIVISI ---
+  void _onDivisiChanged(String newDivisi) {
+    if (_selectedDivisi == newDivisi) return;
+
+    setState(() {
+      _selectedDivisi = newDivisi;
+
+      // 1. Reset field spesifikasi Spanduk (Divisi 1)
+      _spandukMetode = 'MANUAL';
+      _spandukLebar = 90.0;
+      _spandukJenisKain = '';
+      _spandukFinishingIds.clear();
+      _spandukResult = null;
+      _spandukCalculatedParams = '';
+      _showSpandukStrataTabel = false;
+
+      // 2. Reset field spesifikasi MMT (Divisi 5)
+      _mmtKategori = 'VYNIL';
+      _mmtBahanKode = '';
+      _mmtToppingKode = '';
+      _mmtToppingQtyController.text = '1';
+      _mmtIsNetto = false;
+      _mmtAlasanNettoController.clear();
+      _mmtSelongsongVert = false;
+      _mmtSelongsongHoriz = false;
+      _mmtResult = null;
+      _mmtCalculatedParams = '';
+      _showMmtStrataTabel = false;
+
+      // 3. Reset field dimensi umum (Panjang & Lebar) yang dipakai Spanduk / MMT
+      _panjangController.clear();
+      _lebarController.clear();
+
+      // 4. Reset field spesifikasi Garmen (Divisi 4)
+      _garmenKodeModel = 'KH-0001';
+      _garmenJenisKain = '';
+      _garmenWarna = 'muda';
+      _garmenWorkshop = 'MEDIUM';
+      _garmenKategoriKain = 'COTTON';
+      _ukuranController.clear();
+      _gramasiController.clear();
+      _finishingController.clear();
+      _mhSublim = '';
+      _garmenSelectedTambahan.clear();
+      _garmenSelectedCetak.clear();
+      _garmenCalcResult = null;
+      _garmenCalculatedParams = '';
+      _showGarmenStrataTabel = false;
+      _dtfBordirPanjangController.clear();
+      _dtfBordirLebarController.clear();
+      _dtfTarifCmController.clear();
+      _bordirTarifCmController.clear();
+
+      // 5. Reset hasil kalkulasi sistem & pengajuan harga
+      _hargaKalkulasi = 0;
+      _hargaMintaController.clear();
+      _alasanPengajuanController.clear();
+      _keteranganKalkulasiController.text = 'INC PPN';
+      _isCustomOngkir = false;
+      _customOngkirValController.clear();
+
+      // 6. Reset pra-order jika divisi pra-order berbeda dengan divisi baru
+      if (_selectedPraOrderDetail != null) {
+        final poDiv = (_selectedPraOrderDetail?['divisi'] ?? '').toString();
+        if (poDiv.isNotEmpty && poDiv != newDivisi) {
+          _praOrderNomor = '';
+          _selectedPraOrderDetail = null;
+          _praOrderKainWarning = null;
+          _praOrderRawKain = null;
+        }
+      }
+
+      // 7. Jika pindah ke Garmen, muat lookup/master kain
+      if (newDivisi == '4') {
+        _loadGarmenLookups();
+      }
+    });
+  }
+
   // --- HELPER WIDGETS ---
   Widget _buildDivisiChip(String kode, String label) {
     final isSelected = _selectedDivisi == kode;
     return Expanded(
       child: GestureDetector(
-        onTap: () {
-          setState(() {
-            _selectedDivisi = kode;
-            if (kode == '4') _loadGarmenLookups();
-          });
-        },
+        onTap: () => _onDivisiChanged(kode),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
@@ -9976,7 +9622,9 @@ class _PermintaanHargaFormScreenState
                                             '')
                                         .toString();
                                 final ktg =
-                                    (item['mhk_kategori'] ??
+                                    (item['mhk_ktg'] ??
+                                            item['ktg'] ??
+                                            item['mhk_kategori'] ??
                                             item['kategori'] ??
                                             '')
                                         .toString()
@@ -11375,7 +11023,7 @@ class _PermintaanHargaFormScreenState
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
@@ -11385,13 +11033,18 @@ class _PermintaanHargaFormScreenState
               fontWeight: FontWeight.w600,
             ),
           ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: fontSize,
-              fontWeight: isBold ? FontWeight.w900 : FontWeight.w700,
-              color: valueColor ?? const Color(0xFF0F172A),
-              letterSpacing: letterSpacing,
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              softWrap: true,
+              style: TextStyle(
+                fontSize: fontSize,
+                fontWeight: isBold ? FontWeight.w900 : FontWeight.w700,
+                color: valueColor ?? const Color(0xFF0F172A),
+                letterSpacing: letterSpacing,
+              ),
             ),
           ),
         ],
