@@ -195,7 +195,9 @@ class PermintaanHargaDetail {
       nomorCreate: json['nomor_create']?.toString() ?? '',
       salesNama: json['sales_nama']?.toString() ?? '',
       status: json['status']?.toString() ?? json['mh_status']?.toString() ?? '',
-      nomorKalkulasi: json['mh_nomor_kalkulasi']?.toString() ?? '',
+      nomorKalkulasi: (json['mh_nomor_kalkulasi'] != null && json['mh_nomor_kalkulasi'].toString().isNotEmpty)
+          ? json['mh_nomor_kalkulasi'].toString()
+          : (kalDetail?['hdr']?['kal_nomor']?.toString() ?? json['nomor_kalkulasi']?.toString() ?? ''),
       dateKalkulasi: json['mh_date_kalkulasi']?.toString() ?? '',
       ketKalkulasi: json['mh_ket_kalkulasi']?.toString() ?? '',
       userKalkulasi: json['user_kalkulasi']?.toString() ?? json['mh_apv_usr']?.toString() ?? '',
