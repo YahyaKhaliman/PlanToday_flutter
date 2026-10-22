@@ -1234,107 +1234,116 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   // ── TOP BAR NAVIGASI (Adaptif Mobile / Desktop)
   Widget _buildTopBar({required bool isMobile}) {
     if (isMobile) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Tombol Hamburger Menu
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => _scaffoldKey.currentState?.openDrawer(),
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: const Color.fromRGBO(15, 23, 42, 0.08),
+      return SizedBox(
+        height: 44,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Tombol Hamburger Menu (Sisi Kiri)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _scaffoldKey.currentState?.openDrawer(),
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: const Color.fromRGBO(15, 23, 42, 0.08),
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.menu_rounded,
+                    size: 22,
+                    color: Color(0xFF4F46E5),
+                  ),
                 ),
-              ),
-              alignment: Alignment.center,
-              child: const Icon(
-                Icons.menu_rounded,
-                size: 22,
-                color: Color(0xFF4F46E5),
               ),
             ),
-          ),
 
-          // Logo PlanToday Gradient Text + Versi
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ShaderMask(
-                shaderCallback: (bounds) => const LinearGradient(
-                  colors: [Color(0xFF4F46E5), Color(0xFF00B4D8)],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ).createShader(bounds),
-                child: const Text(
-                  'PlanToday',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.4,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              Text(
-                'v${ref.watch(versionProvider).currentVersion}',
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF94A3B8),
-                  letterSpacing: 0.3,
-                ),
-              ),
-            ],
-          ),
-
-          // Tombol Aksi Kanan: Reload + Notifikasi
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Tooltip(
-                message: 'Segarkan data dashboard',
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _fetchDashboardData,
-                  child: Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
+            // Logo PlanToday Gradient Text + Versi (Benar-benar di Tengah Presisi Layar)
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ShaderMask(
+                  shaderCallback: (bounds) => const LinearGradient(
+                    colors: [Color(0xFF4F46E5), Color(0xFF00B4D8)],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ).createShader(bounds),
+                  child: const Text(
+                    'PlanToday',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.4,
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: const Color.fromRGBO(15, 23, 42, 0.08),
-                      ),
-                      boxShadow: AppShadows.softCard,
                     ),
-                    alignment: Alignment.center,
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Color(0xFF4F46E5),
-                            ),
-                          )
-                        : const Icon(
-                            Icons.refresh_rounded,
-                            size: 20,
-                            color: Color(0xFF4F46E5),
-                          ),
                   ),
                 ),
+                Text(
+                  'v${ref.watch(versionProvider).currentVersion}',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF94A3B8),
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
+
+            // Tombol Aksi Kanan: Reload + Notifikasi (Sisi Kanan)
+            Align(
+              alignment: Alignment.centerRight,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Tooltip(
+                    message: 'Segarkan data dashboard',
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _fetchDashboardData,
+                      child: Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: const Color.fromRGBO(15, 23, 42, 0.08),
+                          ),
+                          boxShadow: AppShadows.softCard,
+                        ),
+                        alignment: Alignment.center,
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Color(0xFF4F46E5),
+                                ),
+                              )
+                            : const Icon(
+                                Icons.refresh_rounded,
+                                size: 20,
+                                color: Color(0xFF4F46E5),
+                              ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildNotificationButton(),
+                ],
               ),
-              const SizedBox(width: 8),
-              _buildNotificationButton(),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       );
     } else {
       return Row(

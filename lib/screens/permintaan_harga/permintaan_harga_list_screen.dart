@@ -83,6 +83,7 @@ class _PermintaanHargaListScreenState
 
   final List<String> _statusFilters = [
     'ALL',
+    'BELUM DIVERIFIKASI',
     'MINTA',
     'WAIT',
     'DONE',

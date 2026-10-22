@@ -2078,9 +2078,9 @@ class _PermintaanHargaFormScreenState
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFFBEB),
+                    color: const Color(0xFFFFF3E0),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFFDE68A)),
+                    border: Border.all(color: const Color(0xFFFFCC80)),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -2088,7 +2088,7 @@ class _PermintaanHargaFormScreenState
                       const Icon(
                         Icons.hourglass_top_rounded,
                         size: 18,
-                        color: Color(0xFFD97706),
+                        color: Color(0xFFE65100),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -2100,7 +2100,7 @@ class _PermintaanHargaFormScreenState
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w800,
-                                color: Color(0xFF15803D),
+                                color: Color(0xFFE65100),
                               ),
                             ),
                             SizedBox(height: 2),
@@ -2108,7 +2108,7 @@ class _PermintaanHargaFormScreenState
                               'Harga permintaan memenuhi atau di atas standar kalkulasi sistem, menunggu verifikasi finance.',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Color(0xFF166534),
+                                color: Color(0xFFBF360C),
                               ),
                             ),
                           ],

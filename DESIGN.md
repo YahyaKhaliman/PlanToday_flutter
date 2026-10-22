@@ -22,6 +22,11 @@ design-system:
         acc: "#16A34A"     # Disetujui
         tolak: "#DC2626"   # Ditolak
       company_status:
+        belum_diverifikasi:
+          base: "#E65100"    # Oranye pekat (Permintaan harga belum diverifikasi / menunggu ACC standar)
+          text: "#BF360C"
+          unselected_bg: "#FFF3E0"
+          unselected_border: "#FFE0B2"
         belum:
           base: "#6B7280"
           text: "#374151"

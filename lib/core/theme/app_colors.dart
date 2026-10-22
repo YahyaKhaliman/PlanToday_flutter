@@ -76,11 +76,11 @@ class CompanyStatusColors {
     unselectedText: Color(0xFF15803D),
   );
   static const belumDiverifikasi = CompanyStatusToken(
-    base: Color(0xFFD97706),
-    text: Color(0xFFB45309),
-    unselectedBg: Color(0xFFFFFBEB),
-    unselectedBorder: Color(0xFFFDE68A),
-    unselectedText: Color(0xFFD97706),
+    base: Color(0xFFE65100),
+    text: Color(0xFFBF360C),
+    unselectedBg: Color(0xFFFFF3E0),
+    unselectedBorder: Color(0xFFFFCC80),
+    unselectedText: Color(0xFFE65100),
   );
   static const nego = CompanyStatusToken(
     base: Color(0xFF6B21A8),

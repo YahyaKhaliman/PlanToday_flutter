@@ -500,6 +500,7 @@ class _PermintaanHargaDetailScreenState
                     const Expanded(
                       child: Text(
                         'Detail Permintaan Harga',
+                        textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
@@ -1299,8 +1300,8 @@ class _HasilKalkulasiSectionWidgetState
     final persenGap = calcPrice > 0 ? (gap / calcPrice) * 100 : 0.0;
     final totalGap = gap * qty;
 
-    final cardBg = isNego 
-        ? const Color(0xFFFAF5FF) 
+    final cardBg = isNego
+        ? const Color(0xFFFAF5FF)
         : (isBelumVerif ? const Color(0xFFFFFBEB) : const Color(0xFFF0FDF4));
     final cardBorder = isNego
         ? const Color(0xFFE9D5FF)
@@ -1308,8 +1309,8 @@ class _HasilKalkulasiSectionWidgetState
     final titleColor = isNego
         ? const Color(0xFF581C87)
         : (isBelumVerif ? const Color(0xFF92400E) : const Color(0xFF166534));
-    final badgeBg = isNego 
-        ? const Color(0xFFF3E8FF) 
+    final badgeBg = isNego
+        ? const Color(0xFFF3E8FF)
         : (isBelumVerif ? const Color(0xFFFEF3C7) : const Color(0xFFDCFCE7));
     final badgeBorder = isNego
         ? const Color(0xFFD8B4FE)
