@@ -1070,7 +1070,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           vertical: isMobile ? 14 : 20,
         ),
         child: ResponsiveContainer(
-          maxWidth: isMobile ? 540 : ResponsiveHelper.maxContentWidth,
+          maxWidth: isMobile ? 540 : ResponsiveHelper.contentWidth(context),
           child: isMobile
               ? _buildMobileDashboardLayout(user, isManager, currencyFormat)
               : _buildDesktopDashboardLayout(user, isManager, currencyFormat),

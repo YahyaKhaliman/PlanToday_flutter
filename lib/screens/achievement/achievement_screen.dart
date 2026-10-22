@@ -291,7 +291,7 @@ class _AchievementScreenState extends ConsumerState<AchievementScreen> {
       backgroundColor: const Color(0xFFF7F9FF),
       body: SafeArea(
         child: ResponsiveContainer(
-          maxWidth: 1000,
+          maxWidth: ResponsiveHelper.contentWidth(context),
           child: Column(
             children: [
               // 1. TOP HEADER ALA REACT-NATIVE

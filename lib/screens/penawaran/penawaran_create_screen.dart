@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../core/utils/app_toast.dart';
+import '../../core/utils/responsive_helper.dart';
 import '../../models/customer_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/penawaran_repository.dart';
@@ -592,9 +593,28 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FF),
       appBar: AppBar(
-        title: const Text('Buat Surat Penawaran'),
+        title: const Text(
+          'Buat Surat Penawaran',
+          style: TextStyle(
+            color: Color(0xFF0F172A),
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.3,
+          ),
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
+        centerTitle: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Color(0xFF4F46E5)),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/penawaran');
+            }
+          },
+        ),
         actions: [
           if (_isCustomerLockedByPermintaan)
             TextButton.icon(
@@ -653,16 +673,22 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 840),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.symmetric(
+            horizontal: ResponsiveHelper.horizontalPadding(context),
+            vertical: 16,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: ResponsiveHelper.formWidth(context),
+              ),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                   // CARD INFORMASI UTAMA
                   AppCard(
                     child: Column(
@@ -1119,6 +1145,7 @@ class _PenawaranCreateScreenState extends ConsumerState<PenawaranCreateScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

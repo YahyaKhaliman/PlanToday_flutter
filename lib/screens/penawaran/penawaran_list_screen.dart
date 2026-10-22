@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/responsive_helper.dart';
 import '../../models/penawaran_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/penawaran_repository.dart';
@@ -351,16 +352,12 @@ class _PenawaranListScreenState extends ConsumerState<PenawaranListScreen> {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final isDesktop = constraints.maxWidth >= 960;
-            final isTablet =
-                constraints.maxWidth >= 640 && constraints.maxWidth < 960;
-            final horizontalPadding = isDesktop
-                ? 32.0
-                : (isTablet ? 24.0 : 16.0);
+            final isDesktop = ResponsiveHelper.isDesktop(context);
+            final horizontalPadding = ResponsiveHelper.horizontalPadding(context);
 
             return Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1100),
+                constraints: BoxConstraints(maxWidth: ResponsiveHelper.contentWidth(context)),
                 child: Column(
                   children: [
                     // 1. TOP HEADER ALA UI-STYLING

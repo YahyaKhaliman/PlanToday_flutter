@@ -1,12 +1,13 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../../core/utils/app_toast.dart';
 import '../../core/utils/image_compress_helper.dart';
+import '../../core/utils/location_helper.dart';
+import '../../core/utils/responsive_helper.dart';
 import '../../models/customer_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/visit_repository.dart';
@@ -36,6 +37,8 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
 
   double? _latitude;
   double? _longitude;
+  final _latitudeController = TextEditingController();
+  final _longitudeController = TextEditingController();
   bool _isGettingGps = false;
 
   Uint8List? _imageBytes;
@@ -109,44 +112,30 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
   void dispose() {
     _noteController.dispose();
     _catatanController.dispose();
+    _latitudeController.dispose();
+    _longitudeController.dispose();
     super.dispose();
   }
 
   Future<void> _fetchGpsLocation() async {
     setState(() => _isGettingGps = true);
-    try {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
+    final pos = await LocationHelper.getCurrentLocation(
+      onError: (msg) {
+        if (mounted) AppToast.error(context, msg);
+      },
+    );
 
-      if (permission == LocationPermission.whileInUse ||
-          permission == LocationPermission.always) {
-        final position = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            timeLimit: Duration(seconds: 10),
-          ),
-        );
-        if (mounted) {
-          setState(() {
-            _latitude = position.latitude;
-            _longitude = position.longitude;
-            _isGettingGps = false;
-          });
-          AppToast.success(context, 'Lokasi GPS berhasil diambil');
+    if (mounted) {
+      setState(() {
+        _isGettingGps = false;
+        if (pos != null) {
+          _latitude = pos.latitude;
+          _longitude = pos.longitude;
+          _latitudeController.text = pos.latitude.toStringAsFixed(6);
+          _longitudeController.text = pos.longitude.toStringAsFixed(6);
+          AppToast.success(context, 'Lokasi berhasil didapatkan');
         }
-      } else {
-        if (mounted) {
-          setState(() => _isGettingGps = false);
-          AppToast.error(context, 'Izin akses lokasi tidak diberikan');
-        }
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _isGettingGps = false);
-        AppToast.error(context, 'Gagal mengambil koordinat lokasi');
-      }
+      });
     }
   }
 
@@ -234,6 +223,9 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
     final user = ref.read(authProvider).user;
     final repo = ref.read(visitRepositoryProvider);
 
+    final finalLat = double.tryParse(_latitudeController.text.trim()) ?? _latitude;
+    final finalLng = double.tryParse(_longitudeController.text.trim()) ?? _longitude;
+
     final bool success;
     if (_existingVisitId != null) {
       success = await repo.updateVisit(
@@ -241,8 +233,8 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
         note: _noteController.text.trim(),
         catatan: _catatanController.text.trim(),
         tanggal: ymd,
-        latitude: _latitude,
-        longitude: _longitude,
+        latitude: finalLat,
+        longitude: finalLng,
         photoBytes: _imageBytes,
         photoName: _imageName,
       );
@@ -255,8 +247,8 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
         catatan: _catatanController.text.trim(),
         cabang: user?.cabang ?? '',
         sales: user?.nama ?? '',
-        latitude: _latitude,
-        longitude: _longitude,
+        latitude: finalLat,
+        longitude: finalLng,
         photoBytes: _imageBytes,
         photoName: _imageName,
       );
@@ -290,9 +282,9 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final isDesktop = constraints.maxWidth >= 900;
-            final isTablet = constraints.maxWidth >= 600 && constraints.maxWidth < 900;
-            final horizontalPadding = isDesktop ? 32.0 : (isTablet ? 24.0 : 16.0);
+            final isDesktop = ResponsiveHelper.isDesktop(context);
+            final isTablet = ResponsiveHelper.isTablet(context);
+            final horizontalPadding = ResponsiveHelper.horizontalPadding(context);
             final cardPadding = isDesktop ? 28.0 : (isTablet ? 24.0 : 20.0);
 
             // Widget Sales (Cabang)
@@ -412,7 +404,7 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
             return Center(
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxWidth: isDesktop ? 920 : (isTablet ? 740 : double.infinity),
+                  maxWidth: ResponsiveHelper.formWidth(context),
                 ),
                 child: Column(
                   children: [
@@ -630,7 +622,7 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
 
                                 // Lokasi (Latitude & Longitude)
                                 const Text(
-                                  'Lokasi',
+                                  'Lokasi (Koordinat)',
                                   style: TextStyle(
                                     fontWeight: FontWeight.w700,
                                     fontSize: 13,
@@ -641,48 +633,84 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
                                 Row(
                                   children: [
                                     Expanded(
-                                      child: Container(
-                                        height: 48,
-                                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFF1F5F9),
-                                          borderRadius: BorderRadius.circular(12),
-                                          border: Border.all(
-                                            color: const Color.fromRGBO(15, 23, 42, 0.06),
-                                          ),
+                                      child: TextFormField(
+                                        controller: _latitudeController,
+                                        keyboardType: const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                          signed: true,
                                         ),
-                                        alignment: Alignment.centerLeft,
-                                        child: Text(
-                                          _latitude != null ? _latitude!.toStringAsFixed(6) : 'Latitude',
-                                          style: TextStyle(
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF0F172A),
+                                        ),
+                                        decoration: InputDecoration(
+                                          isDense: true,
+                                          hintText: 'Latitude',
+                                          hintStyle: const TextStyle(
                                             fontSize: 13,
-                                            color: _latitude != null ? const Color(0xFF0F172A) : const Color(0xFF94A3B8),
-                                            fontWeight: _latitude != null ? FontWeight.w700 : FontWeight.w500,
+                                            color: Color(0xFF94A3B8),
+                                          ),
+                                          prefixIcon: const Icon(
+                                            Icons.location_on_outlined,
+                                            size: 18,
+                                            color: Color(0xFF06B6D4),
+                                          ),
+                                          filled: true,
+                                          fillColor: const Color(0xFFF1F5F9),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                            borderSide: BorderSide.none,
+                                          ),
+                                          contentPadding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 14,
                                           ),
                                         ),
+                                        onChanged: (val) {
+                                          _latitude = double.tryParse(val.trim());
+                                        },
                                       ),
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
-                                      child: Container(
-                                        height: 48,
-                                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFF1F5F9),
-                                          borderRadius: BorderRadius.circular(12),
-                                          border: Border.all(
-                                            color: const Color.fromRGBO(15, 23, 42, 0.06),
-                                          ),
+                                      child: TextFormField(
+                                        controller: _longitudeController,
+                                        keyboardType: const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                          signed: true,
                                         ),
-                                        alignment: Alignment.centerLeft,
-                                        child: Text(
-                                          _longitude != null ? _longitude!.toStringAsFixed(6) : 'Longitude',
-                                          style: TextStyle(
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF0F172A),
+                                        ),
+                                        decoration: InputDecoration(
+                                          isDense: true,
+                                          hintText: 'Longitude',
+                                          hintStyle: const TextStyle(
                                             fontSize: 13,
-                                            color: _longitude != null ? const Color(0xFF0F172A) : const Color(0xFF94A3B8),
-                                            fontWeight: _longitude != null ? FontWeight.w700 : FontWeight.w500,
+                                            color: Color(0xFF94A3B8),
+                                          ),
+                                          prefixIcon: const Icon(
+                                            Icons.location_on_outlined,
+                                            size: 18,
+                                            color: Color(0xFF06B6D4),
+                                          ),
+                                          filled: true,
+                                          fillColor: const Color(0xFFF1F5F9),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                            borderSide: BorderSide.none,
+                                          ),
+                                          contentPadding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 14,
                                           ),
                                         ),
+                                        onChanged: (val) {
+                                          _longitude = double.tryParse(val.trim());
+                                        },
                                       ),
                                     ),
                                   ],
@@ -691,7 +719,7 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
                                 SizedBox(
                                   width: double.infinity,
                                   height: 46,
-                                  child: ElevatedButton(
+                                  child: ElevatedButton.icon(
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: const Color(0xFF06B6D4),
                                       foregroundColor: Colors.white,
@@ -700,21 +728,25 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                     ),
-                                    onPressed: _isGettingGps ? null : _fetchGpsLocation,
-                                    child: _isGettingGps
+                                    icon: _isGettingGps
                                         ? const SizedBox(
-                                            width: 18,
-                                            height: 18,
-                                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                          )
-                                        : const Text(
-                                            'AMBIL LOKASI',
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w800,
-                                              letterSpacing: 0.5,
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
                                             ),
-                                          ),
+                                          )
+                                        : const Icon(Icons.my_location_rounded, size: 16),
+                                    onPressed: _isGettingGps ? null : _fetchGpsLocation,
+                                    label: Text(
+                                      _isGettingGps ? 'MEMINTA LOKASI...' : 'AMBIL LOKASI GPS',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(height: 14),

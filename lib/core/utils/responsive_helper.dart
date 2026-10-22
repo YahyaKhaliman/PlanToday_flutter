@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 
-/// Helper responsif sesuai panduan DESIGN.md PlanToday
+/// Helper responsif standar PlanToday (Mobile, Tablet, Desktop)
 class ResponsiveHelper {
+  // Breakpoint baku
   static const double mobileBreakpoint = 600.0;
-  static const double desktopBreakpoint = 1024.0;
-  static const double maxContentWidth = 1200.0;
-  static const double maxDialogWidth = 520.0;
+  static const double desktopBreakpoint = 1000.0;
+
+  // Preset batas lebar baku (Desktop & Tablet)
+  static const double maxContentWidth = 1100.0;     // Halaman List, Dashboard, Tracking, Rekap
+  static const double maxFormWidth = 880.0;          // Halaman Form, Create, Edit, Detail Dokumen
+  static const double maxTabletWidth = 760.0;        // Batas container halaman list di tablet
+  static const double maxTabletFormWidth = 720.0;    // Batas container form di tablet
+  static const double maxAuthWidth = 440.0;          // Login, Register, Ganti Password
+  static const double maxDialogWidth = 520.0;        // Dialog Popup Modal
 
   static bool isMobile(BuildContext context) =>
       MediaQuery.sizeOf(context).width < mobileBreakpoint;
@@ -17,6 +24,27 @@ class ResponsiveHelper {
 
   static bool isDesktop(BuildContext context) =>
       MediaQuery.sizeOf(context).width >= desktopBreakpoint;
+
+  /// Lebar container otomatis untuk halaman list/browse/dashboard
+  static double contentWidth(BuildContext context) {
+    if (isDesktop(context)) return maxContentWidth;
+    if (isTablet(context)) return maxTabletWidth;
+    return double.infinity;
+  }
+
+  /// Lebar container otomatis untuk halaman form/create/detail
+  static double formWidth(BuildContext context) {
+    if (isDesktop(context)) return maxFormWidth;
+    if (isTablet(context)) return maxTabletFormWidth;
+    return double.infinity;
+  }
+
+  /// Padding horizontal terstandarisasi antar layar
+  static double horizontalPadding(BuildContext context) {
+    if (isDesktop(context)) return 32.0;
+    if (isTablet(context)) return 24.0;
+    return 16.0;
+  }
 
   /// Nilai dinamis berdasarkan breakpoint layar aktif
   static T value<T>({

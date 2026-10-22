@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/app_toast.dart';
+import '../../core/utils/responsive_helper.dart';
 import '../../models/customer_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/customer_repository.dart';
@@ -196,13 +197,11 @@ class _TambahCustomerPermintaanHargaScreenState
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final isDesktop = constraints.maxWidth >= 900;
-            final isTablet =
-                constraints.maxWidth >= 600 && constraints.maxWidth < 900;
+            final isDesktop = ResponsiveHelper.isDesktop(context);
+            final isTablet = ResponsiveHelper.isTablet(context);
             final isWide = isDesktop || isTablet;
-            final horizontalPadding =
-                isDesktop ? 32.0 : (isTablet ? 24.0 : 16.0);
-            final maxFormWidth = isDesktop ? 840.0 : (isTablet ? 700.0 : 600.0);
+            final horizontalPadding = ResponsiveHelper.horizontalPadding(context);
+            final maxFormWidth = ResponsiveHelper.formWidth(context);
 
             Widget buildNamaField() => TextFormField(
                   controller: _namaController,

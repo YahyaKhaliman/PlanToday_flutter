@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/utils/app_toast.dart';
 import '../../core/utils/image_compress_helper.dart';
+import '../../core/utils/responsive_helper.dart';
 import '../../models/kurir_model.dart';
 import '../../repositories/kurir_repository.dart';
 import '../../widgets/ui/app_button.dart';
@@ -224,13 +225,8 @@ class _ProsesPengirimanScreenState
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final isDesktop = constraints.maxWidth >= 900;
-            final isTablet =
-                constraints.maxWidth >= 600 && constraints.maxWidth < 900;
-            final horizontalPadding =
-                isDesktop ? 32.0 : (isTablet ? 24.0 : 16.0);
-            final maxContainerWidth =
-                isDesktop ? 760.0 : (isTablet ? 640.0 : 540.0);
+            final horizontalPadding = ResponsiveHelper.horizontalPadding(context);
+            final maxContainerWidth = ResponsiveHelper.formWidth(context);
 
             return Center(
               child: ConstrainedBox(

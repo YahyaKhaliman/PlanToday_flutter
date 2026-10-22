@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../../core/utils/app_toast.dart';
 import '../../core/utils/image_compress_helper.dart';
+import '../../core/utils/responsive_helper.dart';
 import '../../engines/ongkir_engine.dart';
 import '../../models/permintaan_harga_model.dart';
 import '../../providers/auth_provider.dart';
@@ -2428,7 +2429,7 @@ class _PermintaanHargaFormScreenState
                 ),
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 800),
+                    constraints: BoxConstraints(maxWidth: ResponsiveHelper.formWidth(context)),
                     child: Form(
                       key: _formKey,
                       child: Column(
@@ -2464,7 +2465,7 @@ class _PermintaanHargaFormScreenState
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 800),
+          constraints: BoxConstraints(maxWidth: ResponsiveHelper.formWidth(context)),
           child: Row(
             children: [
               _buildStepItem(
@@ -2585,7 +2586,7 @@ class _PermintaanHargaFormScreenState
         top: false,
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 800),
+            constraints: BoxConstraints(maxWidth: ResponsiveHelper.formWidth(context)),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: _currentStep == 1

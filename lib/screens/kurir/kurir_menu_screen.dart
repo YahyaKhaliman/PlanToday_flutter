@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../models/kurir_model.dart';
+import '../../core/utils/responsive_helper.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/kurir_repository.dart';
 import '../../widgets/ui/app_badge.dart';
@@ -126,13 +127,10 @@ class _KurirMenuScreenState extends ConsumerState<KurirMenuScreen>
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final isDesktop = constraints.maxWidth >= 900;
-            final isTablet =
-                constraints.maxWidth >= 600 && constraints.maxWidth < 900;
-            final horizontalPadding =
-                isDesktop ? 32.0 : (isTablet ? 24.0 : 16.0);
-            final maxContainerWidth =
-                isDesktop ? 1040.0 : (isTablet ? 760.0 : double.infinity);
+            final isDesktop = ResponsiveHelper.isDesktop(context);
+            final isTablet = ResponsiveHelper.isTablet(context);
+            final horizontalPadding = ResponsiveHelper.horizontalPadding(context);
+            final maxContainerWidth = ResponsiveHelper.contentWidth(context);
 
             return Center(
               child: ConstrainedBox(

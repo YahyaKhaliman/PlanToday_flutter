@@ -312,6 +312,8 @@ class VisitRepository {
     required String user,
     required String tanggalPlan,
     required String note,
+    double? latitude,
+    double? longitude,
   }) async {
     try {
       final payload = <String, dynamic>{
@@ -320,6 +322,8 @@ class VisitRepository {
         'tanggal_plan': tanggalPlan,
         'note': note,
       };
+      if (latitude != null) payload['latitude'] = latitude;
+      if (longitude != null) payload['longitude'] = longitude;
 
       final response = await _api.dio.post(ApiConfig.visitPlan, data: payload);
       return response.data != null && response.data['success'] == true;
@@ -333,6 +337,8 @@ class VisitRepository {
     required String tanggalPlan,
     required String note,
     String? catatan,
+    double? latitude,
+    double? longitude,
   }) async {
     try {
       final payload = <String, dynamic>{
@@ -340,6 +346,8 @@ class VisitRepository {
         'note': note,
       };
       if (catatan != null) payload['catatan'] = catatan;
+      if (latitude != null) payload['latitude'] = latitude;
+      if (longitude != null) payload['longitude'] = longitude;
 
       final response = await _api.dio.put('${ApiConfig.visitPlan}/$id', data: payload);
       return response.data != null && response.data['success'] == true;

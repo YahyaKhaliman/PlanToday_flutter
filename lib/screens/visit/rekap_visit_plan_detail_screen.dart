@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/utils/app_toast.dart';
+import '../../core/utils/responsive_helper.dart';
 import '../../repositories/visit_repository.dart';
 import '../../widgets/app_reload_button.dart';
 
@@ -90,14 +91,14 @@ class _RekapVisitPlanDetailScreenState
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final isDesktop = constraints.maxWidth >= 900;
-            final isTablet = constraints.maxWidth >= 600 && constraints.maxWidth < 900;
-            final horizontalPadding = isDesktop ? 32.0 : (isTablet ? 24.0 : 16.0);
+            final isDesktop = ResponsiveHelper.isDesktop(context);
+            final isTablet = ResponsiveHelper.isTablet(context);
+            final horizontalPadding = ResponsiveHelper.horizontalPadding(context);
             final cardPadding = isDesktop ? 28.0 : (isTablet ? 24.0 : 20.0);
 
             return Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 760),
+                constraints: BoxConstraints(maxWidth: ResponsiveHelper.formWidth(context)),
                 child: Column(
                   children: [
                     // 1. TOP HEADER (Responsif)

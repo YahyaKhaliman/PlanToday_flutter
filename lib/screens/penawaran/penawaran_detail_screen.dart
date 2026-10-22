@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/app_toast.dart';
+import '../../core/utils/responsive_helper.dart';
 import '../../models/penawaran_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/penawaran_repository.dart';
@@ -488,10 +489,12 @@ class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
           ),
         ),
         child: SafeArea(
-          child: Column(
-            children: [
-              // 1. HEADER AREA (Persis styles.headerArea React Native)
-              Padding(
+          child: ResponsiveContainer(
+            maxWidth: ResponsiveHelper.formWidth(context),
+            child: Column(
+              children: [
+                // 1. HEADER AREA (Persis styles.headerArea React Native)
+                Padding(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
                 child: Row(
                   children: [
@@ -628,7 +631,8 @@ class _PenawaranDetailScreenState extends ConsumerState<PenawaranDetailScreen> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   // --- WIDGET KARTU 1: INFORMASI HEADER ---

@@ -101,6 +101,30 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
     return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
   }
 
+  String _formatItemDate(String? ymd) {
+    if (ymd == null || ymd.trim().isEmpty) return '-';
+    final trimmed = ymd.trim();
+    try {
+      if (trimmed.contains('-')) {
+        final clean = trimmed.split('T')[0].split(' ')[0];
+        final parts = clean.split('-').map(int.parse).toList();
+        if (parts.length >= 3) {
+          final day = parts[2];
+          final month = parts[1];
+          final year = parts[0];
+          if (month >= 1 && month <= 12) {
+            return '$day ${_kShortMonths[month - 1]} $year';
+          }
+        }
+      }
+      final dt = DateTime.tryParse(trimmed);
+      if (dt != null) {
+        return '${dt.day} ${_kShortMonths[dt.month - 1]} ${dt.year}';
+      }
+    } catch (_) {}
+    return trimmed;
+  }
+
   Future<void> _fetchSalesForCabang(String cabang) async {
     final repo = ref.read(visitRepositoryProvider);
     final sales = await repo.getSalesByCabang(cabang);
@@ -522,7 +546,7 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
       backgroundColor: const Color(0xFFF7F9FF),
       body: SafeArea(
         child: ResponsiveContainer(
-          maxWidth: 1000,
+          maxWidth: ResponsiveHelper.contentWidth(context),
           child: Column(
             children: [
               // 1. TOP HEADER PERSIS SCREENSHOT IMAGE 1
@@ -1036,7 +1060,7 @@ class _VisitPlanScreenState extends ConsumerState<VisitPlanScreen> {
                                                 ),
                                                 const SizedBox(width: 4),
                                                 Text(
-                                                  plan.tanggal,
+                                                  _formatItemDate(plan.tanggal),
                                                   style: const TextStyle(
                                                     fontSize: 12,
                                                     color: Color(0xFF64748B),

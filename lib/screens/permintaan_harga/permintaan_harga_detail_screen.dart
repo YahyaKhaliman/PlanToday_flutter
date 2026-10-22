@@ -418,7 +418,7 @@ class _PermintaanHargaDetailScreenState
       backgroundColor: const Color(0xFFF7F9FF),
       body: SafeArea(
         child: ResponsiveContainer(
-          maxWidth: 820,
+          maxWidth: ResponsiveHelper.formWidth(context),
           child: Column(
             children: [
               // 1. TOP APP BAR

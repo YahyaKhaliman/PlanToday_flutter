@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../core/utils/app_toast.dart';
+import '../../core/utils/location_helper.dart';
+import '../../core/utils/responsive_helper.dart';
 import '../../models/customer_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/visit_repository.dart';
@@ -24,6 +26,11 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
   CustomerModel? _selectedCustomer;
   DateTime _selectedDate = DateTime.now();
   final _noteController = TextEditingController();
+  final _latitudeController = TextEditingController();
+  final _longitudeController = TextEditingController();
+  double? _latitude;
+  double? _longitude;
+  bool _isGettingGps = false;
   bool _isLoading = false;
 
   @override
@@ -35,7 +42,31 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
   @override
   void dispose() {
     _noteController.dispose();
+    _latitudeController.dispose();
+    _longitudeController.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchGpsLocation() async {
+    setState(() => _isGettingGps = true);
+    final pos = await LocationHelper.getCurrentLocation(
+      onError: (msg) {
+        if (mounted) AppToast.error(context, msg);
+      },
+    );
+
+    if (mounted) {
+      setState(() {
+        _isGettingGps = false;
+        if (pos != null) {
+          _latitude = pos.latitude;
+          _longitude = pos.longitude;
+          _latitudeController.text = pos.latitude.toStringAsFixed(6);
+          _longitudeController.text = pos.longitude.toStringAsFixed(6);
+          AppToast.success(context, 'Lokasi berhasil didapatkan');
+        }
+      });
+    }
   }
 
   Future<void> _selectCustomer() async {
@@ -96,11 +127,16 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
     final user = ref.read(authProvider).user;
     final repo = ref.read(visitRepositoryProvider);
 
+    final finalLat = double.tryParse(_latitudeController.text.trim()) ?? _latitude;
+    final finalLng = double.tryParse(_longitudeController.text.trim()) ?? _longitude;
+
     final success = await repo.createVisitPlan(
       cusKode: _selectedCustomer!.kode,
       user: user?.nama ?? '',
       tanggalPlan: planYmd,
       note: _noteController.text.trim(),
+      latitude: finalLat,
+      longitude: finalLng,
     );
 
     if (mounted) {
@@ -126,12 +162,9 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final isDesktop = constraints.maxWidth >= 900;
-            final isTablet =
-                constraints.maxWidth >= 600 && constraints.maxWidth < 900;
-            final horizontalPadding = isDesktop
-                ? 32.0
-                : (isTablet ? 24.0 : 16.0);
+            final isDesktop = ResponsiveHelper.isDesktop(context);
+            final isTablet = ResponsiveHelper.isTablet(context);
+            final horizontalPadding = ResponsiveHelper.horizontalPadding(context);
             final cardPadding = isDesktop ? 28.0 : (isTablet ? 24.0 : 20.0);
 
             // Widget Sales (Cabang)
@@ -257,9 +290,7 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
               // Di Desktop (>=900px) gunakan maxWidth 860, Tablet 720, Mobile penuh
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxWidth: isDesktop
-                      ? 860
-                      : (isTablet ? 720 : double.infinity),
+                  maxWidth: ResponsiveHelper.formWidth(context),
                 ),
                 child: Column(
                   children: [
@@ -561,6 +592,137 @@ class _TambahVisitPlanScreenState extends ConsumerState<TambahVisitPlanScreen> {
                                       (v == null || v.trim().isEmpty)
                                       ? 'Keperluan kunjungan wajib diisi'
                                       : null,
+                                ),
+                                const SizedBox(height: 14),
+
+                                // Lokasi Rencana (Latitude & Longitude)
+                                const Text(
+                                  'Lokasi Rencana (Opsional)',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13,
+                                    color: Color(0xFF0F172A),
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextFormField(
+                                        controller: _latitudeController,
+                                        keyboardType: const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                          signed: true,
+                                        ),
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF0F172A),
+                                        ),
+                                        decoration: InputDecoration(
+                                          isDense: true,
+                                          hintText: 'Latitude',
+                                          hintStyle: const TextStyle(
+                                            fontSize: 13,
+                                            color: Color(0xFF94A3B8),
+                                          ),
+                                          prefixIcon: const Icon(
+                                            Icons.location_on_outlined,
+                                            size: 18,
+                                            color: Color(0xFF06B6D4),
+                                          ),
+                                          filled: true,
+                                          fillColor: const Color(0xFFF1F5F9),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                            borderSide: BorderSide.none,
+                                          ),
+                                          contentPadding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 14,
+                                          ),
+                                        ),
+                                        onChanged: (val) {
+                                          _latitude = double.tryParse(val.trim());
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: TextFormField(
+                                        controller: _longitudeController,
+                                        keyboardType: const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                          signed: true,
+                                        ),
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF0F172A),
+                                        ),
+                                        decoration: InputDecoration(
+                                          isDense: true,
+                                          hintText: 'Longitude',
+                                          hintStyle: const TextStyle(
+                                            fontSize: 13,
+                                            color: Color(0xFF94A3B8),
+                                          ),
+                                          prefixIcon: const Icon(
+                                            Icons.location_on_outlined,
+                                            size: 18,
+                                            color: Color(0xFF06B6D4),
+                                          ),
+                                          filled: true,
+                                          fillColor: const Color(0xFFF1F5F9),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                            borderSide: BorderSide.none,
+                                          ),
+                                          contentPadding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 14,
+                                          ),
+                                        ),
+                                        onChanged: (val) {
+                                          _longitude = double.tryParse(val.trim());
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 46,
+                                  child: ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF06B6D4),
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    icon: _isGettingGps
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : const Icon(Icons.my_location_rounded, size: 16),
+                                    onPressed: _isGettingGps ? null : _fetchGpsLocation,
+                                    label: Text(
+                                      _isGettingGps ? 'MEMINTA LOKASI...' : 'AMBIL LOKASI GPS',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                                 const SizedBox(height: 24),
 

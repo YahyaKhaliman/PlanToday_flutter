@@ -168,17 +168,12 @@ class _AchievementDetailUserScreenState
         backgroundColor: Colors.transparent,
         body: SafeArea(
           child: ResponsiveContainer(
-            maxWidth: 1100,
+            maxWidth: ResponsiveHelper.contentWidth(context),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final isDesktop = constraints.maxWidth >= 900;
-                final isTablet =
-                    constraints.maxWidth >= 580 && constraints.maxWidth < 900;
-                final horizontalPad = isDesktop
-                    ? 28.0
-                    : isTablet
-                        ? 22.0
-                        : 16.0;
+                final isDesktop = ResponsiveHelper.isDesktop(context);
+                final isTablet = ResponsiveHelper.isTablet(context);
+                final horizontalPad = ResponsiveHelper.horizontalPadding(context);
 
                 return Column(
                   children: [

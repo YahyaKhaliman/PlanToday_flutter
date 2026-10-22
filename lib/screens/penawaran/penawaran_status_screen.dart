@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../core/utils/app_toast.dart';
+import '../../core/utils/responsive_helper.dart';
 import '../../models/penawaran_model.dart';
 import '../../repositories/penawaran_repository.dart';
 
@@ -294,13 +295,9 @@ class _PenawaranStatusScreenState extends ConsumerState<PenawaranStatusScreen> {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final isDesktop = constraints.maxWidth >= 900;
-            final isTablet =
-                constraints.maxWidth >= 600 && constraints.maxWidth < 900;
             final horizontalPadding =
-                isDesktop ? 32.0 : (isTablet ? 24.0 : 16.0);
-            final maxContainerWidth =
-                isDesktop ? 860.0 : (isTablet ? 680.0 : double.infinity);
+                ResponsiveHelper.horizontalPadding(context);
+            final maxContainerWidth = ResponsiveHelper.formWidth(context);
 
             return Center(
               child: ConstrainedBox(

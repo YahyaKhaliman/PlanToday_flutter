@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../core/utils/app_toast.dart';
+import '../../core/utils/responsive_helper.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/kurir_repository.dart';
 import '../../widgets/ui/app_button.dart';
@@ -93,14 +94,11 @@ class _TambahPengirimanScreenState
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final isDesktop = constraints.maxWidth >= 900;
-            final isTablet =
-                constraints.maxWidth >= 600 && constraints.maxWidth < 900;
+            final isDesktop = ResponsiveHelper.isDesktop(context);
+            final isTablet = ResponsiveHelper.isTablet(context);
             final isWide = isDesktop || isTablet;
-            final horizontalPadding =
-                isDesktop ? 32.0 : (isTablet ? 24.0 : 16.0);
-            final maxContainerWidth =
-                isDesktop ? 760.0 : (isTablet ? 640.0 : 540.0);
+            final horizontalPadding = ResponsiveHelper.horizontalPadding(context);
+            final maxContainerWidth = ResponsiveHelper.formWidth(context);
 
             return Center(
               child: ConstrainedBox(

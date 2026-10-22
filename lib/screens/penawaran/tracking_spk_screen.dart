@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/responsive_helper.dart';
 import '../../models/tracking_model.dart';
 import '../../repositories/tracking_repository.dart';
 import '../../widgets/app_date_range_picker_modal.dart';
@@ -152,13 +153,10 @@ class _TrackingSpkScreenState extends ConsumerState<TrackingSpkScreen> {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final isDesktop = constraints.maxWidth >= 960;
-            final isTablet =
-                constraints.maxWidth >= 640 && constraints.maxWidth < 960;
-            final horizontalPadding =
-                isDesktop ? 32.0 : (isTablet ? 24.0 : 16.0);
-            final maxContainerWidth =
-                isDesktop ? 1080.0 : (isTablet ? 760.0 : double.infinity);
+            final isDesktop = ResponsiveHelper.isDesktop(context);
+            final isTablet = ResponsiveHelper.isTablet(context);
+            final horizontalPadding = ResponsiveHelper.horizontalPadding(context);
+            final maxContainerWidth = ResponsiveHelper.contentWidth(context);
 
             return Center(
               child: ConstrainedBox(

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/responsive_helper.dart';
 import '../../models/permintaan_harga_model.dart';
 import '../../repositories/permintaan_harga_repository.dart';
 import '../../widgets/app_date_range_picker_modal.dart';
@@ -363,17 +364,13 @@ class _PermintaanHargaListScreenState
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final isDesktop = constraints.maxWidth >= 900;
-            final isTablet =
-                constraints.maxWidth >= 600 && constraints.maxWidth < 900;
-            final horizontalPadding = isDesktop
-                ? 32.0
-                : (isTablet ? 24.0 : 16.0);
+            final isDesktop = ResponsiveHelper.isDesktop(context);
+            final horizontalPadding = ResponsiveHelper.horizontalPadding(context);
             final useGrid = constraints.maxWidth >= 680;
 
             return Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1100),
+                constraints: BoxConstraints(maxWidth: ResponsiveHelper.contentWidth(context)),
                 child: Column(
                   children: [
                     // 1. TOP HEADER ALA UI-STYLING
