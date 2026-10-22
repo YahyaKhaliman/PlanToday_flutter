@@ -168,16 +168,25 @@ class PermintaanHargaRepository {
   }) async {
     try {
       final encodedNomor = Uri.encodeComponent(nomor);
+      final String resolvedFilename = fileName ??
+          (file != null
+              ? file.path.split(RegExp(r'[/\\]')).last
+              : 'mh_${nomor}_$slot.jpg');
+      final String ext = resolvedFilename.split('.').last.toLowerCase();
+      final String subType = (ext == 'png') ? 'png' : (ext == 'webp' ? 'webp' : 'jpeg');
+
       final MultipartFile multipartFile;
       if (fileBytes != null) {
         multipartFile = MultipartFile.fromBytes(
           fileBytes,
-          filename: fileName ?? 'mh_${nomor}_$slot.jpg',
+          filename: resolvedFilename,
+          contentType: DioMediaType('image', subType),
         );
       } else if (file != null) {
         multipartFile = await MultipartFile.fromFile(
           file.path,
-          filename: file.path.split(RegExp(r'[/\\]')).last,
+          filename: resolvedFilename,
+          contentType: DioMediaType('image', subType),
         );
       } else {
         return null;
@@ -190,7 +199,9 @@ class PermintaanHargaRepository {
       );
       return response.data?['data']?['url']?.toString() ??
           response.data?['data']?.toString();
-    } catch (_) {
+    } catch (e) {
+      // ignore: avoid_print
+      print('Gagal upload gambar permintaan harga $nomor slot $slot: $e');
       return null;
     }
   }

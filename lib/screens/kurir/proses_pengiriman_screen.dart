@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/utils/app_toast.dart';
+import '../../core/utils/image_compress_helper.dart';
 import '../../models/kurir_model.dart';
 import '../../repositories/kurir_repository.dart';
 import '../../widgets/ui/app_button.dart';
@@ -79,11 +80,9 @@ class _ProsesPengirimanScreenState
 
   Future<void> _pickImage(ImageSource source) async {
     try {
-      final picked = await _picker.pickImage(
+      final picked = await ImageCompressHelper.pickCompressedImage(
+        _picker,
         source: source,
-        maxWidth: 1280,
-        maxHeight: 1280,
-        imageQuality: 75,
       );
       if (picked != null && mounted) {
         final bytes = await picked.readAsBytes();

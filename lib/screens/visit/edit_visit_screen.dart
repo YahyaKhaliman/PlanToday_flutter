@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/app_toast.dart';
+import '../../core/utils/image_compress_helper.dart';
 import '../../models/visit_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/visit_repository.dart';
@@ -101,11 +102,9 @@ class _EditVisitScreenState extends ConsumerState<EditVisitScreen> {
 
   Future<void> _pickImage(ImageSource source) async {
     try {
-      final picked = await _picker.pickImage(
+      final picked = await ImageCompressHelper.pickCompressedImage(
+        _picker,
         source: source,
-        maxWidth: 1280,
-        maxHeight: 1280,
-        imageQuality: 75,
       );
       if (picked != null && mounted) {
         final bytes = await picked.readAsBytes();

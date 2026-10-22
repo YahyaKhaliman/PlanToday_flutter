@@ -132,22 +132,34 @@ class KurirRepository {
 
       if (isSuccess && (photoBytes != null || photo != null)) {
         try {
+          final String resolvedFilename = photoName ??
+              (photo != null
+                  ? photo.path.split(RegExp(r'[/\\]')).last
+                  : 'kurir_$id.jpg');
+          final String ext = resolvedFilename.split('.').last.toLowerCase();
+          final String subType = (ext == 'png') ? 'png' : (ext == 'webp' ? 'webp' : 'jpeg');
+
           final MultipartFile multipartFile;
           if (photoBytes != null) {
             multipartFile = MultipartFile.fromBytes(
               photoBytes,
-              filename: photoName ?? 'kurir_$id.jpg',
+              filename: resolvedFilename,
+              contentType: DioMediaType('image', subType),
             );
           } else {
             multipartFile = await MultipartFile.fromFile(
               photo!.path,
-              filename: photo.path.split(RegExp(r'[/\\]')).last,
+              filename: resolvedFilename,
+              contentType: DioMediaType('image', subType),
             );
           }
 
           final formData = FormData.fromMap({'file': multipartFile});
           await _api.dio.post('/kurir/pengiriman/$id/photo', data: formData);
-        } catch (_) {}
+        } catch (e) {
+          // ignore: avoid_print
+          print('Gagal upload foto kurir $id: $e');
+        }
       }
 
       return isSuccess;

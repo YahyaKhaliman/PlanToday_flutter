@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../../core/utils/app_toast.dart';
+import '../../core/utils/image_compress_helper.dart';
 import '../../models/customer_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/visit_repository.dart';
@@ -151,11 +152,9 @@ class _TambahVisitScreenState extends ConsumerState<TambahVisitScreen> {
 
   Future<void> _pickImage(ImageSource source) async {
     try {
-      final picked = await _picker.pickImage(
+      final picked = await ImageCompressHelper.pickCompressedImage(
+        _picker,
         source: source,
-        maxWidth: 1280,
-        maxHeight: 1280,
-        imageQuality: 75,
       );
       if (picked != null && mounted) {
         final bytes = await picked.readAsBytes();

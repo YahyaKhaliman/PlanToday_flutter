@@ -38,6 +38,13 @@ class ApiClient {
           final method = options.method.toUpperCase();
           final skipDedupe = options.extra['skipDedupe'] == true;
 
+          // Hapus Content-Type application/json jika data adalah FormData agar Dio
+          // otomatis membuat Content-Type: multipart/form-data beserta boundary yang valid
+          if (options.data is FormData) {
+            options.headers.remove('Content-Type');
+            options.contentType = null;
+          }
+
           if (!_mutatingMethods.contains(method) || skipDedupe) {
             return handler.next(options);
           }
@@ -79,7 +86,18 @@ class ApiClient {
     final method = options.method.toLowerCase();
     final url = options.path;
     final params = jsonEncode(options.queryParameters);
-    final data = options.data != null ? jsonEncode(options.data) : '';
-    return '$method|$url|$params|$data';
+    String dataStr = '';
+    if (options.data != null) {
+      if (options.data is FormData) {
+        dataStr = 'form_data_${options.data.hashCode}';
+      } else {
+        try {
+          dataStr = jsonEncode(options.data);
+        } catch (_) {
+          dataStr = options.data.toString();
+        }
+      }
+    }
+    return '$method|$url|$params|$dataStr';
   }
 }

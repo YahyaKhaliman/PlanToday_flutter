@@ -141,20 +141,31 @@ class VisitRepository {
       final createdId = response.data?['data']?['id'] ?? response.data?['id'];
       if (isSuccess && (photoBytes != null || photo != null) && createdId != null) {
         try {
+          final String resolvedFilename = (photoName != null && photoName.isNotEmpty)
+              ? photoName
+              : (photo != null
+                  ? photo.path.split(RegExp(r'[/\\]')).last
+                  : 'visit_$createdId.jpg');
+          final String ext = resolvedFilename.split('.').last.toLowerCase();
+          final String subType = (ext == 'png') ? 'png' : (ext == 'webp' ? 'webp' : 'jpeg');
+
           final MultipartFile multipartFile = photoBytes != null
               ? MultipartFile.fromBytes(
                   photoBytes,
-                  filename: (photoName != null && photoName.isNotEmpty)
-                      ? photoName
-                      : 'visit_$createdId.jpg',
+                  filename: resolvedFilename,
+                  contentType: DioMediaType('image', subType),
                 )
               : await MultipartFile.fromFile(
                   photo!.path,
-                  filename: photo.path.split(RegExp(r'[/\\]')).last,
+                  filename: resolvedFilename,
+                  contentType: DioMediaType('image', subType),
                 );
           final formData = FormData.fromMap({'file': multipartFile});
           await _api.dio.post('${ApiConfig.visit}/$createdId/photo', data: formData);
-        } catch (_) {}
+        } catch (e) {
+          // ignore: avoid_print
+          print('Gagal upload foto visit $createdId: $e');
+        }
       }
 
       return isSuccess;
@@ -188,20 +199,31 @@ class VisitRepository {
 
       if (isSuccess && (photoBytes != null || photo != null)) {
         try {
+          final String resolvedFilename = (photoName != null && photoName.isNotEmpty)
+              ? photoName
+              : (photo != null
+                  ? photo.path.split(RegExp(r'[/\\]')).last
+                  : 'visit_$id.jpg');
+          final String ext = resolvedFilename.split('.').last.toLowerCase();
+          final String subType = (ext == 'png') ? 'png' : (ext == 'webp' ? 'webp' : 'jpeg');
+
           final MultipartFile multipartFile = photoBytes != null
               ? MultipartFile.fromBytes(
                   photoBytes,
-                  filename: (photoName != null && photoName.isNotEmpty)
-                      ? photoName
-                      : 'visit_$id.jpg',
+                  filename: resolvedFilename,
+                  contentType: DioMediaType('image', subType),
                 )
               : await MultipartFile.fromFile(
                   photo!.path,
-                  filename: photo.path.split(RegExp(r'[/\\]')).last,
+                  filename: resolvedFilename,
+                  contentType: DioMediaType('image', subType),
                 );
           final formData = FormData.fromMap({'file': multipartFile});
           await _api.dio.post('${ApiConfig.visit}/$id/photo', data: formData);
-        } catch (_) {}
+        } catch (e) {
+          // ignore: avoid_print
+          print('Gagal upload foto update visit $id: $e');
+        }
       }
 
       return isSuccess;
