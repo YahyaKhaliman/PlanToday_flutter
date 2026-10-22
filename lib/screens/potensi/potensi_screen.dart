@@ -8,6 +8,7 @@ import '../../models/potensi_kandidat_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/penawaran_repository.dart';
 import '../../repositories/potensi_repository.dart';
+import '../../widgets/app_reload_button.dart';
 
 class PotensiScreen extends ConsumerStatefulWidget {
   const PotensiScreen({super.key});
@@ -471,34 +472,11 @@ class _PotensiScreenState extends ConsumerState<PotensiScreen> {
                           ),
                           const SizedBox(width: 8),
 
-                          // Tombol Refresh Kandidat
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
+                          AppReloadButton(
                             onTap: _fetchKandidat,
-                            child: Container(
-                              width: isDesktop ? 44 : 40,
-                              height: isDesktop ? 44 : 40,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: const Color.fromRGBO(15, 23, 42, 0.08),
-                                ),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Color.fromRGBO(15, 23, 42, 0.03),
-                                    blurRadius: 6,
-                                    offset: Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              alignment: Alignment.center,
-                              child: const Icon(
-                                Icons.refresh_rounded,
-                                size: 20,
-                                color: Color(0xFF4F46E5),
-                              ),
-                            ),
+                            isLoading: _isLoading,
+                            tooltip: 'Segarkan kandidat',
+                            size: isDesktop ? 44 : 40,
                           ),
                         ],
                       ),

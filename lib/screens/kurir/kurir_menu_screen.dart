@@ -6,6 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../../repositories/kurir_repository.dart';
 import '../../widgets/ui/app_badge.dart';
 import '../../widgets/ui/app_card.dart';
+import '../../widgets/app_reload_button.dart';
 
 class KurirMenuScreen extends ConsumerStatefulWidget {
   const KurirMenuScreen({super.key});
@@ -212,14 +213,14 @@ class _KurirMenuScreenState extends ConsumerState<KurirMenuScreen>
                                 ],
                               ),
                             ),
-                            IconButton(
-                              onPressed: _fetchData,
-                              icon: const Icon(
-                                Icons.refresh_rounded,
-                                color: Color(0xFF4F46E5),
-                              ),
+                            AppReloadButton(
+                              onTap: _fetchData,
+                              isLoading: _isLoading,
                               tooltip: 'Muat Ulang',
+                              size: 38,
+                              iconSize: 18,
                             ),
+                            const SizedBox(width: 8),
                             IconButton(
                               onPressed: _confirmLogout,
                               icon: const Icon(Icons.logout_rounded,

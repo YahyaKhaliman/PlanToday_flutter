@@ -9,6 +9,7 @@ import '../../providers/auth_provider.dart';
 import '../../repositories/penawaran_repository.dart';
 import '../../repositories/potensi_repository.dart';
 import 'modal_batal_potensi.dart';
+import '../../widgets/app_reload_button.dart';
 
 const _kShortMonths = [
   'Jan',
@@ -250,8 +251,9 @@ class _LaporanPotensiScreenState extends ConsumerState<LaporanPotensiScreen> {
                             value: i + 1,
                             child: Text(
                               _kFullMonths[i],
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w700),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           );
                         }),
@@ -270,8 +272,9 @@ class _LaporanPotensiScreenState extends ConsumerState<LaporanPotensiScreen> {
                             value: y,
                             child: Text(
                               y.toString(),
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w700),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           );
                         }).toList(),
@@ -315,8 +318,10 @@ class _LaporanPotensiScreenState extends ConsumerState<LaporanPotensiScreen> {
                     },
                     child: const Text(
                       'Terapkan',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
                 ),
@@ -581,6 +586,7 @@ class _LaporanPotensiScreenState extends ConsumerState<LaporanPotensiScreen> {
                               children: [
                                 Text(
                                   'Laporan Potensi',
+                                  textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontSize: isDesktop ? 20 : 18,
                                     fontWeight: FontWeight.w900,
@@ -623,34 +629,11 @@ class _LaporanPotensiScreenState extends ConsumerState<LaporanPotensiScreen> {
                           ),
                           const SizedBox(width: 8),
 
-                          // Tombol Refresh Laporan
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
+                          AppReloadButton(
                             onTap: _fetchData,
-                            child: Container(
-                              width: isDesktop ? 44 : 40,
-                              height: isDesktop ? 44 : 40,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: const Color.fromRGBO(15, 23, 42, 0.08),
-                                ),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Color.fromRGBO(15, 23, 42, 0.03),
-                                    blurRadius: 6,
-                                    offset: Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              alignment: Alignment.center,
-                              child: const Icon(
-                                Icons.refresh_rounded,
-                                size: 20,
-                                color: Color(0xFF4F46E5),
-                              ),
-                            ),
+                            isLoading: _isLoading,
+                            tooltip: 'Segarkan laporan',
+                            size: isDesktop ? 44 : 40,
                           ),
                         ],
                       ),
@@ -887,22 +870,36 @@ class _LaporanPotensiScreenState extends ConsumerState<LaporanPotensiScreen> {
                                     const SizedBox(height: 4),
                                     GestureDetector(
                                       behavior: HitTestBehavior.opaque,
-                                      onTap: () => _showMonthYearPicker(isStart: true),
+                                      onTap: () =>
+                                          _showMonthYearPicker(isStart: true),
                                       child: Container(
                                         height: 42,
-                                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                        ),
                                         decoration: BoxDecoration(
                                           color: Colors.white,
-                                          borderRadius: BorderRadius.circular(12),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
                                           border: Border.all(
-                                            color: const Color.fromRGBO(15, 23, 42, 0.08),
+                                            color: const Color.fromRGBO(
+                                              15,
+                                              23,
+                                              42,
+                                              0.08,
+                                            ),
                                           ),
                                         ),
                                         child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
                                           children: [
                                             Text(
-                                              _formatMonthYear(_fromMonth, _fromYear),
+                                              _formatMonthYear(
+                                                _fromMonth,
+                                                _fromYear,
+                                              ),
                                               style: const TextStyle(
                                                 fontSize: 12.5,
                                                 fontWeight: FontWeight.w800,
@@ -939,22 +936,36 @@ class _LaporanPotensiScreenState extends ConsumerState<LaporanPotensiScreen> {
                                     const SizedBox(height: 4),
                                     GestureDetector(
                                       behavior: HitTestBehavior.opaque,
-                                      onTap: () => _showMonthYearPicker(isStart: false),
+                                      onTap: () =>
+                                          _showMonthYearPicker(isStart: false),
                                       child: Container(
                                         height: 42,
-                                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                        ),
                                         decoration: BoxDecoration(
                                           color: Colors.white,
-                                          borderRadius: BorderRadius.circular(12),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
                                           border: Border.all(
-                                            color: const Color.fromRGBO(15, 23, 42, 0.08),
+                                            color: const Color.fromRGBO(
+                                              15,
+                                              23,
+                                              42,
+                                              0.08,
+                                            ),
                                           ),
                                         ),
                                         child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
                                           children: [
                                             Text(
-                                              _formatMonthYear(_toMonth, _toYear),
+                                              _formatMonthYear(
+                                                _toMonth,
+                                                _toYear,
+                                              ),
                                               style: const TextStyle(
                                                 fontSize: 12.5,
                                                 fontWeight: FontWeight.w800,

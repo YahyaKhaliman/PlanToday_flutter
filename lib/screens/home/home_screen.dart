@@ -24,6 +24,7 @@ import '../../repositories/potensi_repository.dart';
 import '../../repositories/tracking_repository.dart';
 import '../../repositories/visit_repository.dart';
 import '../../widgets/web_shortcut_guide_modal.dart';
+import '../../widgets/app_reload_button.dart';
 
 const _kIndonesianMonths = [
   'Januari',
@@ -1303,39 +1304,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Tooltip(
-                    message: 'Segarkan data dashboard',
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: _fetchDashboardData,
-                      child: Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: const Color.fromRGBO(15, 23, 42, 0.08),
-                          ),
-                          boxShadow: AppShadows.softCard,
-                        ),
-                        alignment: Alignment.center,
-                        child: _isLoading
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Color(0xFF4F46E5),
-                                ),
-                              )
-                            : const Icon(
-                                Icons.refresh_rounded,
-                                size: 20,
-                                color: Color(0xFF4F46E5),
-                              ),
-                      ),
-                    ),
+                  AppReloadButton(
+                    onTap: _fetchDashboardData,
+                    isLoading: _isLoading,
+                    tooltip: 'Segarkan data dashboard',
                   ),
                   const SizedBox(width: 8),
                   _buildNotificationButton(),
@@ -1366,39 +1338,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           Row(
             children: [
               // Tombol Segarkan Data
-              Tooltip(
-                message: 'Segarkan data dashboard',
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _fetchDashboardData,
-                  child: Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: const Color.fromRGBO(15, 23, 42, 0.08),
-                      ),
-                      boxShadow: AppShadows.softCard,
-                    ),
-                    alignment: Alignment.center,
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Color(0xFF4F46E5),
-                            ),
-                          )
-                        : const Icon(
-                            Icons.refresh_rounded,
-                            size: 20,
-                            color: Color(0xFF4F46E5),
-                          ),
-                  ),
-                ),
+              AppReloadButton(
+                onTap: _fetchDashboardData,
+                isLoading: _isLoading,
+                tooltip: 'Segarkan data dashboard',
               ),
               const SizedBox(width: 10),
               _buildNotificationButton(),

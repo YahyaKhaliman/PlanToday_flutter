@@ -7,7 +7,9 @@ import '../../core/utils/app_toast.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../models/permintaan_harga_model.dart';
 import '../../repositories/permintaan_harga_repository.dart';
+import '../../core/theme/app_colors.dart';
 import '../../widgets/web_safe_network_image.dart';
+import '../../widgets/app_reload_button.dart';
 
 const _kShortMonths = [
   'Jan',
@@ -179,57 +181,13 @@ class StatusBadgeInfo {
 
 StatusBadgeInfo _statusBadgeStyle(String status) {
   final key = status.trim().toUpperCase();
-  switch (key) {
-    case 'BELUM':
-      return StatusBadgeInfo(
-        bg: const Color(0xFF64748B).withValues(alpha: 0.12),
-        border: const Color(0xFF64748B),
-        text: const Color(0xFF475569),
-        label: 'BELUM',
-      );
-    case 'MINTA':
-      return StatusBadgeInfo(
-        bg: const Color(0xFFF59E0B).withValues(alpha: 0.12),
-        border: const Color(0xFFF59E0B),
-        text: const Color(0xFFB45309),
-        label: 'MINTA',
-      );
-    case 'CANCEL':
-      return StatusBadgeInfo(
-        bg: const Color(0xFFEF4444).withValues(alpha: 0.12),
-        border: const Color(0xFFEF4444),
-        text: const Color(0xFFB91C1C),
-        label: 'CANCEL',
-      );
-    case 'WAIT':
-      return StatusBadgeInfo(
-        bg: const Color(0xFF3B82F6).withValues(alpha: 0.12),
-        border: const Color(0xFF3B82F6),
-        text: const Color(0xFF1D4ED8),
-        label: 'WAIT',
-      );
-    case 'NEGO':
-      return StatusBadgeInfo(
-        bg: const Color(0xFF8B5CF6).withValues(alpha: 0.12),
-        border: const Color(0xFF8B5CF6),
-        text: const Color(0xFF6D28D9),
-        label: 'NEGO',
-      );
-    case 'DONE':
-      return StatusBadgeInfo(
-        bg: const Color(0xFF10B981).withValues(alpha: 0.12),
-        border: const Color(0xFF10B981),
-        text: const Color(0xFF047857),
-        label: 'DONE',
-      );
-    default:
-      return StatusBadgeInfo(
-        bg: const Color(0xFF64748B).withValues(alpha: 0.12),
-        border: const Color(0xFF64748B),
-        text: const Color(0xFF475569),
-        label: key.isNotEmpty ? key : '-',
-      );
-  }
+  final token = PermintaanHargaStatusHelper.getToken(key);
+  return StatusBadgeInfo(
+    bg: token.unselectedBg,
+    border: token.unselectedBorder,
+    text: token.base,
+    label: key.isNotEmpty ? key : '-',
+  );
 }
 
 String _getStatusDescription(String status) {
@@ -238,7 +196,7 @@ String _getStatusDescription(String status) {
     case 'BELUM':
       return 'Tidak muncul di kalkulasi harga';
     case 'BELUM DIVERIFIKASI':
-      return 'Permintaan harga sesuai standar, menunggu verifikasi';
+      return 'Menunggu verifikasi dari Finance';
     case 'MINTA':
       return 'Sedang dimintakan harga ke Finance';
     case 'CANCEL':
@@ -509,13 +467,10 @@ class _PermintaanHargaDetailScreenState
                         ),
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.refresh_rounded,
-                        color: Color(0xFF4F46E5),
-                      ),
-                      onPressed: _fetchDetail,
-                      tooltip: 'Refresh Data',
+                    AppReloadButton(
+                      onTap: _fetchDetail,
+                      isLoading: _isLoading,
+                      tooltip: 'Segarkan data',
                     ),
                   ],
                 ),
@@ -628,25 +583,26 @@ class _PermintaanHargaDetailScreenState
                                       vertical: 6,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFF8FAFC),
+                                      color: statusMeta.bg,
                                       borderRadius: BorderRadius.circular(8),
                                       border: Border.all(
-                                        color: const Color(0xFFE2E8F0),
+                                        color: statusMeta.border,
                                       ),
                                     ),
                                     child: Text.rich(
                                       TextSpan(
                                         text: 'Status: ',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 11.5,
-                                          color: Color(0xFF64748B),
+                                          fontWeight: FontWeight.w600,
+                                          color: statusMeta.text,
                                         ),
                                         children: [
                                           TextSpan(
                                             text: statusDesc,
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontWeight: FontWeight.w800,
-                                              color: Color(0xFF0F172A),
+                                              color: statusMeta.text,
                                             ),
                                           ),
                                         ],
@@ -874,8 +830,11 @@ class _PermintaanHargaDetailScreenState
                             ),
                             const SizedBox(height: 12),
 
-                            // CARD 4: HASIL KALKULASI HARGA (Jika status DONE atau NEGO)
-                            if (statusNorm == 'DONE' || statusNorm == 'NEGO')
+                            // CARD 4: HASIL KALKULASI HARGA (Jika status DONE, NEGO, atau BELUM DIVERIFIKASI)
+                            if (statusNorm == 'DONE' ||
+                                statusNorm == 'NEGO' ||
+                                statusNorm == 'BELUM DIVERIFIKASI' ||
+                                statusNorm == 'BELUM_DIVERIFIKASI')
                               _HasilKalkulasiSectionWidget(detail: _detail!),
 
                             const SizedBox(height: 12),
@@ -1252,7 +1211,9 @@ class _HasilKalkulasiSectionWidgetState
     final d = widget.detail;
     final cleanStatus = d.status.trim().toUpperCase();
     final isNego = cleanStatus == 'NEGO';
-    final isBelumVerif = cleanStatus == 'BELUM DIVERIFIKASI';
+    final isBelumVerif =
+        cleanStatus == 'BELUM DIVERIFIKASI' ||
+        cleanStatus == 'BELUM_DIVERIFIKASI';
 
     final parsed = parseKetKalkulasi(d.ketKalkulasi);
     final cardBadgeCode = d.nomorKalkulasi.isNotEmpty
@@ -1260,7 +1221,9 @@ class _HasilKalkulasiSectionWidgetState
         : (isNego ? 'KALS' : 'KAL');
     final userText = isNego
         ? (d.salesNama.isNotEmpty ? d.salesNama : d.userCreate)
-        : (d.userKalkulasi.isNotEmpty ? d.userKalkulasi : '-');
+        : (d.userKalkulasi.isNotEmpty
+              ? d.userKalkulasi
+              : (d.userCreate.isNotEmpty ? d.userCreate : '-'));
 
     final rawSistemKal = d.kalRpSistem > 0
         ? d.kalRpSistem
@@ -1302,22 +1265,22 @@ class _HasilKalkulasiSectionWidgetState
 
     final cardBg = isNego
         ? const Color(0xFFFAF5FF)
-        : (isBelumVerif ? const Color(0xFFFFFBEB) : const Color(0xFFF0FDF4));
+        : (isBelumVerif ? const Color(0xFFFFF3E0) : const Color(0xFFF0FDF4));
     final cardBorder = isNego
         ? const Color(0xFFE9D5FF)
-        : (isBelumVerif ? const Color(0xFFFDE68A) : const Color(0xFFBBF7D0));
+        : (isBelumVerif ? const Color(0xFFFFCC80) : const Color(0xFFBBF7D0));
     final titleColor = isNego
         ? const Color(0xFF581C87)
-        : (isBelumVerif ? const Color(0xFF92400E) : const Color(0xFF166534));
+        : (isBelumVerif ? const Color(0xFFBF360C) : const Color(0xFF166534));
     final badgeBg = isNego
         ? const Color(0xFFF3E8FF)
-        : (isBelumVerif ? const Color(0xFFFEF3C7) : const Color(0xFFDCFCE7));
+        : (isBelumVerif ? const Color(0xFFFFE0B2) : const Color(0xFFDCFCE7));
     final badgeBorder = isNego
         ? const Color(0xFFD8B4FE)
-        : (isBelumVerif ? const Color(0xFFFCD34D) : const Color(0xFF86EFAC));
+        : (isBelumVerif ? const Color(0xFFFFB74D) : const Color(0xFF86EFAC));
     final badgeText = isNego
         ? const Color(0xFF6B21A8)
-        : (isBelumVerif ? const Color(0xFFB45309) : const Color(0xFF15803D));
+        : (isBelumVerif ? const Color(0xFFE65100) : const Color(0xFF15803D));
 
     final komponenList =
         (d.kalkulasiDetail?['komponen'] as List<dynamic>?)
@@ -1491,7 +1454,9 @@ class _HasilKalkulasiSectionWidgetState
               border: Border.all(
                 color: isNego
                     ? const Color(0xFFF5D0FE)
-                    : const Color(0xFFBBF7D0),
+                    : (isBelumVerif
+                          ? const Color(0xFFFFCC80)
+                          : const Color(0xFFBBF7D0)),
               ),
             ),
             child: Column(
@@ -1636,7 +1601,9 @@ class _HasilKalkulasiSectionWidgetState
                 decoration: BoxDecoration(
                   color: isNego
                       ? const Color(0xFFF3E8FF)
-                      : const Color(0xFFDCFCE7),
+                      : (isBelumVerif
+                            ? const Color(0xFFFFE0B2)
+                            : const Color(0xFFDCFCE7)),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -1683,19 +1650,62 @@ class _HasilKalkulasiSectionWidgetState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Sub 1: Komponen Bahan
+                    // Sub 1: Harga Bahan
                     if (hasKomponen) ...[
-                      const Text(
-                        '1. KOMPONEN BAHAN / KAIN',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF334155),
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            '1. HARGA BAHAN (Otomatis Sistem)',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF334155),
+                            ),
+                          ),
+                          if (komponenList.length > 1) ...[
+                            Builder(
+                              builder: (context) {
+                                final totalBahan = komponenList.fold<double>(
+                                  0.0,
+                                  (sum, k) =>
+                                      sum +
+                                      ((k['kk_pcs'] as num?)?.toDouble() ??
+                                          0.0),
+                                );
+                                if (totalBahan <= 0) return const SizedBox();
+                                return Text(
+                                  'Total: Rp ${_formatNumber(totalBahan)} / pcs',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF16A34A),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 6),
-                      ...komponenList.map(
-                        (k) => Container(
+                      ...komponenList.map((k) {
+                        final rawKomp =
+                            (k['kk_komponen']?.toString() ?? '')
+                                .trim()
+                                .toUpperCase();
+                        final kompLabel = rawKomp == 'BODY'
+                            ? (komponenList.length == 1
+                                  ? 'Harga Bahan'
+                                  : 'Bahan Body')
+                            : (rawKomp == 'LENGAN'
+                                  ? 'Bahan Lengan'
+                                  : (rawKomp == 'RIB'
+                                        ? 'Bahan Rib'
+                                        : (rawKomp.isEmpty || rawKomp == 'BAHAN'
+                                              ? 'Harga Bahan'
+                                              : 'Harga Bahan ($rawKomp)')));
+
+                        return Container(
                           margin: const EdgeInsets.only(bottom: 6),
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
@@ -1711,7 +1721,7 @@ class _HasilKalkulasiSectionWidgetState
                                     MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
-                                    k['kk_komponen']?.toString() ?? 'BAHAN',
+                                    kompLabel,
                                     style: const TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w800,
@@ -1738,15 +1748,15 @@ class _HasilKalkulasiSectionWidgetState
                               ),
                             ],
                           ),
-                        ),
-                      ),
+                        );
+                      }),
                       const SizedBox(height: 8),
                     ],
 
                     // Sub 2: Biaya Jahit & Operasional
                     if (hasDtl && dtl != null) ...[
                       const Text(
-                        '2. BIAYA JAHIT & OPERASIONAL',
+                        '2. BIAYA JAHIT & OPERASIONAL (Otomatis Sistem)',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
@@ -1802,7 +1812,7 @@ class _HasilKalkulasiSectionWidgetState
                     // Sub 3: Biaya Cetak & Variasi
                     if (hasVariasi) ...[
                       const Text(
-                        '3. BIAYA CETAK & VARIASI',
+                        '3. BIAYA CETAK & VARIASI (Inputan Sales)',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
@@ -1866,7 +1876,7 @@ class _HasilKalkulasiSectionWidgetState
                     // Sub 4: Aksesoris Tambahan
                     if (hasAksesoris) ...[
                       const Text(
-                        '4. AKSESORIS TAMBAHAN',
+                        '4. AKSESORIS TAMBAHAN (Inputan Sales)',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
@@ -1898,7 +1908,7 @@ class _HasilKalkulasiSectionWidgetState
                     // Sub 5: Allowance & Margin
                     if (hasHdrDetails) ...[
                       const Text(
-                        '5. ALLOWANCE & MARGIN',
+                        '5. ALLOWANCE & MARGIN (Otomatis Sistem)',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
@@ -1915,31 +1925,31 @@ class _HasilKalkulasiSectionWidgetState
                         ),
                         child: Column(
                           children: [
-                            if (((hdr['kal_rpallowance'] as num?)?.toDouble() ??
-                                    0) >
-                                0)
-                              _buildBreakdownRow(
-                                'Allowance (${hdr['kal_allowance']}%)',
-                                '+Rp ${_formatNumber(hdr['kal_rpallowance'])}',
-                              ),
-                            if (((hdr['kal_rplaba'] as num?)?.toDouble() ?? 0) >
-                                0)
-                              _buildBreakdownRow(
-                                'Margin Laba (${hdr['kal_laba']}%)',
-                                '+Rp ${_formatNumber(hdr['kal_rplaba'])}',
-                              ),
+                            // if (((hdr['kal_rpallowance'] as num?)?.toDouble() ??
+                            //         0) >
+                            //     0)
+                            //   _buildBreakdownRow(
+                            //     'Allowance (${hdr['kal_allowance']}%)',
+                            //     '+Rp ${_formatNumber(hdr['kal_rpallowance'])}',
+                            //   ),
+                            // if (((hdr['kal_rplaba'] as num?)?.toDouble() ?? 0) >
+                            //     0)
+                            //   _buildBreakdownRow(
+                            //     'Margin Laba (${hdr['kal_laba']}%)',
+                            //     '+Rp ${_formatNumber(hdr['kal_rplaba'])}',
+                            //   ),
                             if (((hdr['kal_rpsistem'] as num?)?.toDouble() ??
                                     0) >
                                 0)
                               _buildBreakdownRow(
-                                'Kalkulasi Sistem',
+                                'Kalkulasi Sistem (Exc PPN)',
                                 'Rp ${_formatNumber(hdr['kal_rpsistem'])}',
                               ),
                             if (((hdr['kal_rpsales'] as num?)?.toDouble() ??
                                     0) >
                                 0)
                               _buildBreakdownRow(
-                                'Pengajuan Sales',
+                                'Pengajuan Sales (Exc PPN)',
                                 'Rp ${_formatNumber(hdr['kal_rpsales'])}',
                               ),
                           ],
@@ -1975,13 +1985,17 @@ class _HasilKalkulasiSectionWidgetState
                     ? BoxDecoration(
                         color: isNego
                             ? const Color(0xFFFAF5FF)
-                            : const Color(0xFFF0FDF4),
+                            : (isBelumVerif
+                                  ? const Color(0xFFFFF3E0)
+                                  : const Color(0xFFF0FDF4)),
                         borderRadius: BorderRadius.circular(4),
                         border: Border(
                           left: BorderSide(
                             color: isNego
                                 ? const Color(0xFF6B21A8)
-                                : const Color(0xFF16A34A),
+                                : (isBelumVerif
+                                      ? const Color(0xFFE65100)
+                                      : const Color(0xFF16A34A)),
                             width: 2.5,
                           ),
                         ),
@@ -1997,7 +2011,9 @@ class _HasilKalkulasiSectionWidgetState
                           fontSize: 12,
                           color: isNego
                               ? const Color(0xFF6B21A8)
-                              : const Color(0xFF15803D),
+                              : (isBelumVerif
+                                    ? const Color(0xFFE65100)
+                                    : const Color(0xFF15803D)),
                         ),
                       ),
                     Expanded(
@@ -2011,7 +2027,9 @@ class _HasilKalkulasiSectionWidgetState
                           color: isAlasan
                               ? (isNego
                                     ? const Color(0xFF581C87)
-                                    : const Color(0xFF166534))
+                                    : (isBelumVerif
+                                          ? const Color(0xFFBF360C)
+                                          : const Color(0xFF166534)))
                               : const Color(0xFF334155),
                         ),
                       ),

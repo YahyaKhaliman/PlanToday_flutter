@@ -7,6 +7,7 @@ import '../../repositories/tracking_repository.dart';
 import '../../widgets/app_date_range_picker_modal.dart';
 import '../../widgets/ui/app_card.dart';
 import '../../widgets/ui/segmented_bar.dart';
+import '../../widgets/app_reload_button.dart';
 
 const _kShortMonths = [
   'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
@@ -232,33 +233,10 @@ class _TrackingSpkScreenState extends ConsumerState<TrackingSpkScreen> {
                               ],
                             ),
                           ),
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
+                          AppReloadButton(
                             onTap: () => _fetchData(),
-                            child: Container(
-                              width: 42,
-                              height: 42,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: const Color.fromRGBO(15, 23, 42, 0.08),
-                                ),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Color.fromRGBO(15, 23, 42, 0.03),
-                                    blurRadius: 6,
-                                    offset: Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              alignment: Alignment.center,
-                              child: const Icon(
-                                Icons.refresh_rounded,
-                                size: 20,
-                                color: Color(0xFF4F46E5),
-                              ),
-                            ),
+                            isLoading: _isLoading,
+                            tooltip: 'Segarkan data',
                           ),
                         ],
                       ),

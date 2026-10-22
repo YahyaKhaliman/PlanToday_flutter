@@ -9,6 +9,7 @@ import '../../models/visit_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../repositories/visit_repository.dart';
 import '../../widgets/app_date_range_picker_modal.dart';
+import '../../widgets/app_reload_button.dart';
 
 const _kShortMonths = [
   'Jan',
@@ -666,42 +667,10 @@ class _VisitScreenState extends ConsumerState<VisitScreen> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
+                        AppReloadButton(
                           onTap: _fetchVisits,
-                          child: Container(
-                            width: 42,
-                            height: 42,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: const Color.fromRGBO(15, 23, 42, 0.08),
-                              ),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Color.fromRGBO(15, 23, 42, 0.03),
-                                  blurRadius: 6,
-                                  offset: Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            alignment: Alignment.center,
-                            child: _isLoading
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Color(0xFF4F46E5),
-                                    ),
-                                  )
-                                : const Icon(
-                                    Icons.refresh_rounded,
-                                    size: 20,
-                                    color: Color(0xFF4F46E5),
-                                  ),
-                          ),
+                          isLoading: _isLoading,
+                          tooltip: 'Segarkan data',
                         ),
                       ],
                     ),

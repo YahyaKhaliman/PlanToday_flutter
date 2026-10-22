@@ -48,9 +48,9 @@ class CompanyStatusToken {
     Color? unselectedBg,
     Color? unselectedBorder,
     Color? unselectedText,
-  })  : unselectedBg = unselectedBg ?? const Color(0xFFF1F5F9),
-        unselectedBorder = unselectedBorder ?? const Color(0xFFCBD5E1),
-        unselectedText = unselectedText ?? text;
+  }) : unselectedBg = unselectedBg ?? const Color(0xFFF1F5F9),
+       unselectedBorder = unselectedBorder ?? const Color(0xFFCBD5E1),
+       unselectedText = unselectedText ?? text;
 }
 
 class CompanyStatusColors {
@@ -142,7 +142,7 @@ class PermintaanHargaStatusHelper {
       case 'BELUM DIVERIFIKASI':
       case 'BELUM_DIVERIFIKASI':
       case 'VERIF':
-        return 'Permintaan harga sesuai standar, menunggu verifikasi';
+        return 'Menunggu verifikasi dari Finance';
       case 'BELUM':
         return 'Pengajuan ke MO terlebih dahulu';
       case 'MINTA':

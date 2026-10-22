@@ -9,6 +9,7 @@ import '../../providers/auth_provider.dart';
 import '../../repositories/achievement_repository.dart';
 import '../../widgets/ui/app_card.dart';
 import 'circular_progress.dart';
+import '../../widgets/app_reload_button.dart';
 
 const _kShortMonths = [
   'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
@@ -352,33 +353,10 @@ class _AchievementScreenState extends ConsumerState<AchievementScreen> {
                         ],
                       ),
                     ),
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
+                    AppReloadButton(
                       onTap: _fetchAchievement,
-                      child: Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: const Color.fromRGBO(15, 23, 42, 0.08),
-                          ),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color.fromRGBO(15, 23, 42, 0.03),
-                              blurRadius: 6,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.refresh_rounded,
-                          size: 20,
-                          color: Color(0xFF4F46E5),
-                        ),
-                      ),
+                      isLoading: _isLoading,
+                      tooltip: 'Segarkan data',
                     ),
                   ],
                 ),
