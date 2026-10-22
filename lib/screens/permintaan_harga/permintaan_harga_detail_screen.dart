@@ -237,6 +237,8 @@ String _getStatusDescription(String status) {
   switch (key) {
     case 'BELUM':
       return 'Tidak muncul di kalkulasi harga';
+    case 'BELUM DIVERIFIKASI':
+      return 'Permintaan harga sesuai standar, menunggu verifikasi';
     case 'MINTA':
       return 'Sedang dimintakan harga ke Finance';
     case 'CANCEL':
@@ -1247,7 +1249,9 @@ class _HasilKalkulasiSectionWidgetState
   @override
   Widget build(BuildContext context) {
     final d = widget.detail;
-    final isNego = d.status.trim().toUpperCase() == 'NEGO';
+    final cleanStatus = d.status.trim().toUpperCase();
+    final isNego = cleanStatus == 'NEGO';
+    final isBelumVerif = cleanStatus == 'BELUM DIVERIFIKASI';
 
     final parsed = parseKetKalkulasi(d.ketKalkulasi);
     final cardBadgeCode = d.nomorKalkulasi.isNotEmpty
@@ -1295,20 +1299,24 @@ class _HasilKalkulasiSectionWidgetState
     final persenGap = calcPrice > 0 ? (gap / calcPrice) * 100 : 0.0;
     final totalGap = gap * qty;
 
-    final cardBg = isNego ? const Color(0xFFFAF5FF) : const Color(0xFFF0FDF4);
+    final cardBg = isNego 
+        ? const Color(0xFFFAF5FF) 
+        : (isBelumVerif ? const Color(0xFFFFFBEB) : const Color(0xFFF0FDF4));
     final cardBorder = isNego
         ? const Color(0xFFE9D5FF)
-        : const Color(0xFFBBF7D0);
+        : (isBelumVerif ? const Color(0xFFFDE68A) : const Color(0xFFBBF7D0));
     final titleColor = isNego
         ? const Color(0xFF581C87)
-        : const Color(0xFF166534);
-    final badgeBg = isNego ? const Color(0xFFF3E8FF) : const Color(0xFFDCFCE7);
+        : (isBelumVerif ? const Color(0xFF92400E) : const Color(0xFF166534));
+    final badgeBg = isNego 
+        ? const Color(0xFFF3E8FF) 
+        : (isBelumVerif ? const Color(0xFFFEF3C7) : const Color(0xFFDCFCE7));
     final badgeBorder = isNego
         ? const Color(0xFFD8B4FE)
-        : const Color(0xFF86EFAC);
+        : (isBelumVerif ? const Color(0xFFFCD34D) : const Color(0xFF86EFAC));
     final badgeText = isNego
         ? const Color(0xFF6B21A8)
-        : const Color(0xFF15803D);
+        : (isBelumVerif ? const Color(0xFFB45309) : const Color(0xFF15803D));
 
     final komponenList =
         (d.kalkulasiDetail?['komponen'] as List<dynamic>?)

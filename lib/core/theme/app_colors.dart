@@ -75,6 +75,13 @@ class CompanyStatusColors {
     unselectedBorder: Color(0xFFBBF7D0),
     unselectedText: Color(0xFF15803D),
   );
+  static const belumDiverifikasi = CompanyStatusToken(
+    base: Color(0xFFD97706),
+    text: Color(0xFFB45309),
+    unselectedBg: Color(0xFFFFFBEB),
+    unselectedBorder: Color(0xFFFDE68A),
+    unselectedText: Color(0xFFD97706),
+  );
   static const nego = CompanyStatusToken(
     base: Color(0xFF6B21A8),
     text: Color(0xFF4A044E),
@@ -108,6 +115,10 @@ class CompanyStatusColors {
 class PermintaanHargaStatusHelper {
   static CompanyStatusToken getToken(String status) {
     switch (status.toUpperCase().trim()) {
+      case 'BELUM DIVERIFIKASI':
+      case 'BELUM_DIVERIFIKASI':
+      case 'VERIF':
+        return CompanyStatusColors.belumDiverifikasi;
       case 'BELUM':
         return CompanyStatusColors.belum;
       case 'MINTA':
@@ -128,6 +139,10 @@ class PermintaanHargaStatusHelper {
 
   static String getDescription(String status) {
     switch (status.toUpperCase().trim()) {
+      case 'BELUM DIVERIFIKASI':
+      case 'BELUM_DIVERIFIKASI':
+      case 'VERIF':
+        return 'Permintaan harga sesuai standar, menunggu verifikasi';
       case 'BELUM':
         return 'Pengajuan ke MO terlebih dahulu';
       case 'MINTA':

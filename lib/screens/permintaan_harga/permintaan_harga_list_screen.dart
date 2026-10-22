@@ -159,7 +159,7 @@ class _PermintaanHargaListScreenState
                   ],
                 ),
                 const SizedBox(height: 16),
-                ...['BELUM', 'MINTA', 'WAIT', 'NEGO', 'DONE', 'CANCEL'].map((
+                ...['BELUM DIVERIFIKASI', 'BELUM', 'MINTA', 'WAIT', 'NEGO', 'DONE', 'CANCEL'].map((
                   status,
                 ) {
                   final token = PermintaanHargaStatusHelper.getToken(status);

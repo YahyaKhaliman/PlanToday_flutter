@@ -1178,7 +1178,7 @@ class _PermintaanHargaFormScreenState
                 ' + ${items.map((it) => it['nama'].toString()).join(' + ')}';
           }
           final spec =
-              'Spanduk $_spandukMetode $_spandukJenisKain L${_spandukLebar.toInt()}cm$finishingSpec';
+              'Spanduk $_spandukJenisKain ${_panjangController.text}m x ${_spandukLebar.toInt()}cm $finishingSpec';
           _keteranganKalkulasiController.text = _includePpn
               ? 'INC PPN; $spec'
               : 'EXC PPN; $spec';
@@ -1337,7 +1337,7 @@ class _PermintaanHargaFormScreenState
           }
 
           final spec =
-              'Garmen $_garmenKodeModel $_garmenJenisKain ($_garmenWarna) $_garmenWorkshop';
+              'Garmen ($_garmenWorkshop) $_garmenJenisKain warna $_garmenWarna ';
           _keteranganKalkulasiController.text = _includePpn
               ? 'INC PPN; $spec'
               : 'EXC PPN; $spec';
@@ -1972,9 +1972,16 @@ class _PermintaanHargaFormScreenState
                       const SizedBox(height: 6),
                       _buildConfirmRow(
                         'Ongkir',
-                        'Rp ${_formatNumberDisplay(_currentOngkirResult.totalOngkir)}',
+                        'Rp ${_formatNumberDisplay(_currentOngkirResult.ongkirPerPcs)} / Pcs',
                       ),
                     ],
+                    const SizedBox(height: 6),
+                    _buildConfirmRow(
+                      'Total Order (${_formatNumberDisplay(qty)} Pcs)',
+                      'Rp ${_formatNumberDisplay(_currentOngkirResult.totalOngkir + (finalHargaPengajuan * qty))}',
+                      fontSize: 16,
+                      isBold: true,
+                    ),
                   ],
                 ),
               ),
@@ -2071,17 +2078,17 @@ class _PermintaanHargaFormScreenState
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF0FDF4),
+                    color: const Color(0xFFFFFBEB),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFBBF7D0)),
+                    border: Border.all(color: const Color(0xFFFDE68A)),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Icon(
-                        Icons.check_circle_rounded,
+                        Icons.hourglass_top_rounded,
                         size: 18,
-                        color: Color(0xFF16A34A),
+                        color: Color(0xFFD97706),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -2089,7 +2096,7 @@ class _PermintaanHargaFormScreenState
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: const [
                             Text(
-                              'STATUS: DONE (Otomatis Disetujui)',
+                              'STATUS: BELUM DIVERIFIKASI',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w800,
@@ -2098,7 +2105,7 @@ class _PermintaanHargaFormScreenState
                             ),
                             SizedBox(height: 2),
                             Text(
-                              'Harga permintaan memenuhi atau di atas standar kalkulasi sistem.',
+                              'Harga permintaan memenuhi atau di atas standar kalkulasi sistem, menunggu verifikasi finance.',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: Color(0xFF166534),
@@ -2172,6 +2179,7 @@ class _PermintaanHargaFormScreenState
     String value, {
     Color? valueColor,
     bool isBold = false,
+    double? fontSize,
   }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2354,7 +2362,7 @@ class _PermintaanHargaFormScreenState
             : (isDirectBypass || finalHargaKalkulasi <= 0
                   ? 'Permintaan harga berhasil diajukan (Status: BELUM)'
                   : (isDone
-                        ? 'Permintaan harga berhasil diajukan (Status: DONE - Disetujui Otomatis)'
+                        ? 'Permintaan harga berhasil diajukan (Status: BELUM DIVERIFIKASI)'
                         : (isNego
                               ? 'Permintaan harga berhasil diajukan (Status: NEGO - Menunggu Persetujuan)'
                               : 'Permintaan harga berhasil disimpan')));
@@ -6754,7 +6762,7 @@ class _PermintaanHargaFormScreenState
                       Expanded(
                         flex: 1,
                         child: Text(
-                          'Harga UP / Pcs',
+                          'Harga / Pcs',
                           textAlign: TextAlign.right,
                           style: TextStyle(
                             fontSize: 11,
@@ -6946,7 +6954,7 @@ class _PermintaanHargaFormScreenState
                   ),
                 const SizedBox(width: 8),
                 const Text(
-                  'Hitung Ulang / Refresh Kalkulasi',
+                  'Hitung Ulang',
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 13,
