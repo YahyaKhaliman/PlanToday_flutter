@@ -9,7 +9,8 @@ on:
       mandatory:
         description: "Set true for mandatory update"
         required: false
-        default: "false"
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -100,7 +101,7 @@ jobs:
           MYAPP_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           MYAPP_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          flutter build apk --target-platform android-arm64 --release
+          flutter build apk --target-platform android-arm64 --release --dart-define-from-file=.env
 
       - name: Prepare artifact and latest.json
         id: meta
@@ -123,9 +124,11 @@ jobs:
           cp "$APK_PATH" "deploy/out/${LATEST_APK_FILE}"
 
           SHA256=$(sha256sum "deploy/out/${APK_FILE}" | awk '{print $1}')
-          MANDATORY_INPUT="${{ github.event.inputs.mandatory }}"
-          if [ -z "${MANDATORY_INPUT}" ]; then
-            MANDATORY_INPUT="false"
+          MANDATORY_RAW="${{ github.event.inputs.mandatory }}"
+          if [ "$(echo "$MANDATORY_RAW" | tr '[:upper:]' '[:lower:]')" = "true" ]; then
+            MANDATORY_VALUE="true"
+          else
+            MANDATORY_VALUE="false"
           fi
 
           BASE_URL="${{ secrets.VPS_BASE_DOWNLOAD_URL || 'http://103.94.238.252:8182/releases' }}"
@@ -134,7 +137,7 @@ jobs:
 {
   "versionCode": ${VERSION_CODE},
   "versionName": "${VERSION_NAME}",
-  "mandatory": ${MANDATORY_INPUT},
+  "mandatory": ${MANDATORY_VALUE},
   "apkUrl": "${BASE_URL}/${LATEST_APK_FILE}",
   "sha256": "${SHA256}",
   "releaseDate": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
