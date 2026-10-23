@@ -64,7 +64,10 @@ jobs:
           fi
 
       - name: Make gradlew executable
-        run: chmod +x android/gradlew
+        run: |
+          if [ -f android/gradlew ]; then
+            chmod +x android/gradlew
+          fi
 
       - name: Validate versionCode bump
         shell: bash
