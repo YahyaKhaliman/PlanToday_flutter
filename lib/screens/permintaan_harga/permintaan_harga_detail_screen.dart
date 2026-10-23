@@ -10,6 +10,7 @@ import '../../repositories/permintaan_harga_repository.dart';
 import '../../core/theme/app_colors.dart';
 import '../../widgets/web_safe_network_image.dart';
 import '../../widgets/app_reload_button.dart';
+import '../../engines/ongkir_engine.dart';
 
 const _kShortMonths = [
   'Jan',
@@ -78,6 +79,15 @@ String _formatNumber(dynamic n) {
   final num = double.tryParse(n.toString());
   if (num == null) return n.toString();
   return NumberFormat.decimalPattern('id_ID').format(num);
+}
+
+String _formatOngkirLabel(PermintaanHargaDetail d) {
+  final rawText = '${d.keterangan} ${d.ketKalkulasi}'.trim();
+  final detected = OngkirEngine.detectAlokasiFromText(rawText);
+  if (detected != null && detected.alokasi.isNotEmpty) {
+    return 'Rp ${_formatNumber(d.ongkir)} (${detected.alokasi})';
+  }
+  return 'Rp ${_formatNumber(d.ongkir)}';
 }
 
 class ParsedKetKalkulasi {
@@ -808,8 +818,7 @@ class _PermintaanHargaDetailScreenState
                                   const SizedBox(height: 10),
                                   _CompactCell(
                                     label: 'Ongkos Kirim',
-                                    value:
-                                        'Rp ${_formatNumber(_detail!.ongkir)} (Luar Pulau Jawa)',
+                                    value: _formatOngkirLabel(_detail!),
                                     fullWidth: true,
                                   ),
                                 ],
@@ -1347,8 +1356,58 @@ class _HasilKalkulasiSectionWidgetState
             ((hdr['kal_rpsistem'] as num?)?.toDouble() ?? 0) > 0 ||
             ((hdr['kal_rpsales'] as num?)?.toDouble() ?? 0) > 0);
 
+    final totalCetak =
+        ((cetak?['kald_rpcetak'] as num?)?.toDouble() ?? 0) +
+        ((dtf?['kald_rpdtf'] as num?)?.toDouble() ?? 0) +
+        ((bordir?['kald_rpbordir'] as num?)?.toDouble() ?? 0) +
+        ((sublim?['kald_rpsublim'] as num?)?.toDouble() ?? 0) +
+        ((polyflex?['kald_rppolyflex'] as num?)?.toDouble() ?? 0);
+
+    final totalAksesoris = aksesorisList.fold<double>(
+      0.0,
+      (sum, a) => sum + ((a['ka_biaya'] as num?)?.toDouble() ?? 0.0),
+    );
+
+    double hargaBahanUp = 0.0;
+    if (rawSistemKal > 0) {
+      final sisa = rawSistemKal - totalCetak - totalAksesoris;
+      if (sisa > 0) {
+        hargaBahanUp = sisa;
+      }
+    }
+    if (hargaBahanUp <= 0 && hasKomponen) {
+      final totalKomp = komponenList.fold<double>(
+        0.0,
+        (sum, k) => sum + ((k['kk_pcs'] as num?)?.toDouble() ?? 0.0),
+      );
+      final allowRp = ((hdr?['kal_rpallowance'] as num?)?.toDouble() ?? 0.0);
+      final labaRp = ((hdr?['kal_rplaba'] as num?)?.toDouble() ?? 0.0);
+      final jahitRp =
+          ((dtl?['kald_rpjahit'] as num?)?.toDouble() ?? 0.0) +
+          ((dtl?['kald_rppotong'] as num?)?.toDouble() ?? 0.0) +
+          ((dtl?['kald_rpfinishing'] as num?)?.toDouble() ?? 0.0) +
+          ((dtl?['kald_rptenagacetak'] as num?)?.toDouble() ?? 0.0);
+      final totalEst = totalKomp + allowRp + labaRp + jahitRp;
+      hargaBahanUp = totalEst > 0 ? totalEst : totalKomp;
+    }
+
+    final namaKain = d.kain.isNotEmpty
+        ? d.kain
+        : (komponenList.isNotEmpty
+            ? (komponenList.first['kk_jeniskain']?.toString() ?? '-')
+            : '-');
+    final namaWarna = d.warna.isNotEmpty
+        ? d.warna
+        : (komponenList.isNotEmpty
+            ? (komponenList.first['kk_warna']?.toString() ?? '')
+            : '');
+
     final hasAnyBreakdown =
-        hasKomponen || hasDtl || hasVariasi || hasAksesoris || hasHdrDetails;
+        (hasKomponen || hargaBahanUp > 0) ||
+        hasDtl ||
+        hasVariasi ||
+        hasAksesoris ||
+        hasHdrDetails;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -1674,105 +1733,37 @@ class _HasilKalkulasiSectionWidgetState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Sub 1: Harga Bahan
-                    if (hasKomponen) ...[
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            '1. HARGA BAHAN (Otomatis Sistem)',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF334155),
-                            ),
-                          ),
-                          if (komponenList.length > 1) ...[
-                            Builder(
-                              builder: (context) {
-                                final totalBahan = komponenList.fold<double>(
-                                  0.0,
-                                  (sum, k) =>
-                                      sum +
-                                      ((k['kk_pcs'] as num?)?.toDouble() ??
-                                          0.0),
-                                );
-                                if (totalBahan <= 0) return const SizedBox();
-                                return Text(
-                                  'Total: Rp ${_formatNumber(totalBahan)} / pcs',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800,
-                                    color: Color(0xFF16A34A),
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                        ],
+                    // Sub 1: Harga Bahan (Otomatis Sistem)
+                    if (hasKomponen || hargaBahanUp > 0) ...[
+                      const Text(
+                        '1. HARGA BAHAN (Otomatis Sistem)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF334155),
+                        ),
                       ),
                       const SizedBox(height: 6),
-                      ...komponenList.map((k) {
-                        final rawKomp = (k['kk_komponen']?.toString() ?? '')
-                            .trim()
-                            .toUpperCase();
-                        final kompLabel = rawKomp == 'BODY'
-                            ? (komponenList.length == 1
-                                  ? 'Harga Bahan'
-                                  : 'Bahan Body')
-                            : (rawKomp == 'LENGAN'
-                                  ? 'Bahan Lengan'
-                                  : (rawKomp == 'RIB'
-                                        ? 'Bahan Rib'
-                                        : (rawKomp.isEmpty || rawKomp == 'BAHAN'
-                                              ? 'Harga Bahan'
-                                              : 'Harga Bahan ($rawKomp)')));
-
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 6),
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFFF1F5F9)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    kompLabel,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w800,
-                                      color: Color(0xFF1E293B),
-                                    ),
-                                  ),
-                                  Text(
-                                    'Rp ${_formatNumber(k['kk_pcs'])} / pcs',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w800,
-                                      color: Color(0xFF16A34A),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${k['kk_jeniskain'] ?? '-'} ${k['kk_warna'] != null ? '(${k['kk_warna']})' : ''}',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xFF64748B),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFFF1F5F9)),
+                        ),
+                        child: Column(
+                          children: [
+                            _buildBreakdownRow(
+                              namaKain.isNotEmpty
+                                  ? (namaWarna.isNotEmpty
+                                      ? '$namaKain ($namaWarna)'
+                                      : namaKain)
+                                  : 'Bahan Kain',
+                              'Rp ${_formatNumber(hargaBahanUp)}',
+                            ),
+                          ],
+                        ),
+                      ),
                       const SizedBox(height: 8),
                     ],
 

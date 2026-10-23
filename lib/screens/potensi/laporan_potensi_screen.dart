@@ -472,18 +472,6 @@ class _LaporanPotensiScreenState extends ConsumerState<LaporanPotensiScreen> {
     );
   }
 
-  // Item aktif adalah item yang statusnya belum CLOSE dan belum BATAL
-  List<PotensiListItem> get _activeOpenItems {
-    return _rawItems.where((it) {
-      final s = it.status.toUpperCase();
-      return s != 'CLOSE' && s != 'BATAL';
-    }).toList();
-  }
-
-  double get _totalNominalOpen {
-    return _activeOpenItems.fold<double>(0.0, (acc, it) => acc + it.harga);
-  }
-
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
@@ -515,6 +503,31 @@ class _LaporanPotensiScreenState extends ConsumerState<LaporanPotensiScreen> {
       }
       return true;
     }).toList();
+
+    final totalNominalFiltered = filteredList.fold<double>(
+      0.0,
+      (acc, it) => acc + it.harga,
+    );
+
+    final String bannerTitle;
+    final String bannerBadge;
+    switch (_selectedStatus) {
+      case 'POTENSI':
+        bannerTitle = 'TOTAL POTENSI OMSET ($_periodeBulanLabel)';
+        bannerBadge = '${filteredList.length} Item Aktif';
+        break;
+      case 'CLOSE':
+        bannerTitle = 'TOTAL REALISASI CLOSE ($_periodeBulanLabel)';
+        bannerBadge = '${filteredList.length} Item Close';
+        break;
+      case 'BATAL':
+        bannerTitle = 'TOTAL OMSET BATAL ($_periodeBulanLabel)';
+        bannerBadge = '${filteredList.length} Item Batal';
+        break;
+      default:
+        bannerTitle = 'TOTAL KESELURUHAN OMSET ($_periodeBulanLabel)';
+        bannerBadge = '${filteredList.length} Item';
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FF),
@@ -658,15 +671,20 @@ class _LaporanPotensiScreenState extends ConsumerState<LaporanPotensiScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  'TOTAL POTENSI OMSET ($_periodeBulanLabel)',
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0.8,
+                                Expanded(
+                                  child: Text(
+                                    bannerTitle,
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.8,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
+                                const SizedBox(width: 8),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 8,
@@ -677,7 +695,7 @@ class _LaporanPotensiScreenState extends ConsumerState<LaporanPotensiScreen> {
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
-                                    '${_activeOpenItems.length} Item Aktif',
+                                    bannerBadge,
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 11,
@@ -689,7 +707,7 @@ class _LaporanPotensiScreenState extends ConsumerState<LaporanPotensiScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              currencyFormat.format(_totalNominalOpen),
+                              currencyFormat.format(totalNominalFiltered),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 24,
@@ -992,8 +1010,10 @@ class _LaporanPotensiScreenState extends ConsumerState<LaporanPotensiScreen> {
                       padding: EdgeInsets.symmetric(
                         horizontal: horizontalPadding,
                       ),
-                      child: Row(
-                        children: _statusOptions.map((st) {
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: _statusOptions.map((st) {
                           final isSelected = _selectedStatus == st;
                           return Padding(
                             padding: const EdgeInsets.only(right: 8),
@@ -1030,6 +1050,7 @@ class _LaporanPotensiScreenState extends ConsumerState<LaporanPotensiScreen> {
                         }).toList(),
                       ),
                     ),
+                  ),
                     const SizedBox(height: 8),
 
                     // 5. DAFTAR KARTU LAPORAN
@@ -1159,30 +1180,48 @@ class _LaporanPotensiScreenState extends ConsumerState<LaporanPotensiScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.trending_up_rounded,
-                        size: 16,
-                        color: Color(0xFF4F46E5),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        item.nomor,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF4F46E5),
-                        ),
-                      ),
-                    ],
+                  const Icon(
+                    Icons.trending_up_rounded,
+                    size: 16,
+                    color: Color(0xFF4F46E5),
                   ),
+                  const SizedBox(width: 6),
+                  Text(
+                    item.nomor,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF4F46E5),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    '•',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF94A3B8),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _formatItemDate(item.tanggal),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF64748B),
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
+                      horizontal: 7,
+                      vertical: 2.5,
                     ),
                     decoration: BoxDecoration(
                       color: badgeBg,
@@ -1192,7 +1231,7 @@ class _LaporanPotensiScreenState extends ConsumerState<LaporanPotensiScreen> {
                     child: Text(
                       isPotensi ? 'POTENSI' : status,
                       style: TextStyle(
-                        fontSize: 10.5,
+                        fontSize: 10,
                         fontWeight: FontWeight.w900,
                         color: badgeText,
                       ),
@@ -1200,56 +1239,58 @@ class _LaporanPotensiScreenState extends ConsumerState<LaporanPotensiScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  const Icon(
-                    Icons.event_outlined,
-                    size: 13,
-                    color: Color(0xFF94A3B8),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    _formatItemDate(item.tanggal),
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF64748B),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  if (item.nomorSumber != null &&
-                      item.nomorSumber!.isNotEmpty) ...[
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () {
-                        final refNo = item.nomorSumber!.trim();
-                        final upper = refNo.toUpperCase();
-                        if (upper.startsWith('PEN')) {
-                          context.push(
-                            '/penawaran/${Uri.encodeComponent(refNo)}',
-                            extra: refNo,
-                          );
-                        } else if (upper.startsWith('MAP') ||
-                            upper.startsWith('MSPK')) {
-                          context.push('/tracking-map');
-                        }
-                      },
-                      child: Text(
-                        '• Ref: ${item.nomorSumber}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF4F46E5),
-                          fontWeight: FontWeight.w700,
-                          decoration: TextDecoration.underline,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+              if (item.nomorSumber != null &&
+                  item.nomorSumber!.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    final refNo = item.nomorSumber!.trim();
+                    final upper = refNo.toUpperCase();
+                    final isMap = upper.startsWith('MAP') ||
+                        upper.startsWith('MSPK') ||
+                        item.tipeSumber.toUpperCase() == 'MAP';
+                    final isPen = !isMap ||
+                        upper.startsWith('PEN') ||
+                        upper.contains('/') ||
+                        item.tipeSumber.toUpperCase() == 'PENAWARAN';
+
+                    final targetRoute = isPen ? '/tracking-penawaran' : '/tracking-map';
+                    final uri = Uri(
+                      path: targetRoute,
+                      queryParameters: {'q': refNo},
+                    ).toString();
+
+                    context.push(uri, extra: refNo);
+                  },
+                  child: Row(
+                    children: [
+                      Icon(
+                        (item.nomorSumber!.toUpperCase().startsWith('PEN') ||
+                                item.tipeSumber.toUpperCase() == 'PENAWARAN')
+                            ? Icons.description_outlined
+                            : Icons.map_outlined,
+                        size: 13,
+                        color: const Color(0xFF4F46E5),
                       ),
-                    ),
-                  ],
-                ],
-              ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          'Ref: ${item.nomorSumber}',
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            color: Color(0xFF4F46E5),
+                            fontWeight: FontWeight.w700,
+                            decoration: TextDecoration.underline,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 10),
               Text(
                 item.customerNama.isNotEmpty ? item.customerNama : '-',

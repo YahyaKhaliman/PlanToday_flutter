@@ -23,13 +23,35 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        ndk {
+            abiFilters.add("arm64-v8a")
+        }
+    }
+
+    signingConfigs {
+        create("release") {
+            val storeFilePath = System.getenv("MYAPP_UPLOAD_STORE_FILE")
+            if (!storeFilePath.isNullOrEmpty()) {
+                val storeFileObj = file(storeFilePath)
+                if (storeFileObj.exists()) {
+                    storeFile = storeFileObj
+                    storePassword = System.getenv("MYAPP_UPLOAD_STORE_PASSWORD")
+                    keyAlias = System.getenv("MYAPP_UPLOAD_KEY_ALIAS")
+                    keyPassword = System.getenv("MYAPP_UPLOAD_KEY_PASSWORD")
+                }
+            }
+        }
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            val releaseSigning = signingConfigs.getByName("release")
+            signingConfig = if (releaseSigning.storeFile != null && releaseSigning.storeFile!!.exists()) {
+                releaseSigning
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }

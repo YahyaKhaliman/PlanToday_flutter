@@ -29,7 +29,9 @@ const _kShortMonths = [
 ];
 
 class TrackingPenawaranScreen extends ConsumerStatefulWidget {
-  const TrackingPenawaranScreen({super.key});
+  final String? initialSearch;
+
+  const TrackingPenawaranScreen({super.key, this.initialSearch});
 
   @override
   ConsumerState<TrackingPenawaranScreen> createState() =>
@@ -38,7 +40,7 @@ class TrackingPenawaranScreen extends ConsumerStatefulWidget {
 
 class _TrackingPenawaranScreenState
     extends ConsumerState<TrackingPenawaranScreen> {
-  final _searchController = TextEditingController();
+  late final TextEditingController _searchController;
 
   DateTime _startDate = DateTime(DateTime.now().year, DateTime.now().month, 1);
   DateTime _endDate = DateTime(
@@ -65,6 +67,12 @@ class _TrackingPenawaranScreenState
   @override
   void initState() {
     super.initState();
+    final initial = widget.initialSearch?.trim() ?? '';
+    _searchController = TextEditingController(text: initial);
+    if (initial.isNotEmpty) {
+      _startDate = DateTime(DateTime.now().year - 1, 1, 1);
+      _endDate = DateTime(DateTime.now().year + 1, 12, 31);
+    }
     _fetchData();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = ref.read(authProvider).user;
@@ -72,6 +80,20 @@ class _TrackingPenawaranScreenState
         _loadSalesList();
       }
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant TrackingPenawaranScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialSearch != oldWidget.initialSearch) {
+      final newSearch = widget.initialSearch?.trim() ?? '';
+      _searchController.text = newSearch;
+      if (newSearch.isNotEmpty) {
+        _startDate = DateTime(DateTime.now().year - 1, 1, 1);
+        _endDate = DateTime(DateTime.now().year + 1, 12, 31);
+      }
+      _fetchData();
+    }
   }
 
   @override
@@ -770,8 +792,10 @@ class _TrackingPenawaranScreenState
                             const SizedBox(height: 10),
 
                             // Chip Filters Row
-                            Row(
-                              children: _statusFilters.map((st) {
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: _statusFilters.map((st) {
                                 final isSelected = _selectedStatus == st;
                                 String countLabel = '';
                                 if (st == 'OPEN') countLabel = ' ($openCount)';
@@ -865,7 +889,8 @@ class _TrackingPenawaranScreenState
                                 );
                               }).toList(),
                             ),
-                            const SizedBox(height: 10),
+                          ),
+                          const SizedBox(height: 10),
 
                             // Segmented Bar Progress Distribution
                             SegmentedBar(segments: trackingSegments, height: 6),
@@ -1233,16 +1258,21 @@ class _TrackingPenawaranRowCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                isOpened
-                    ? 'Tutup detail item ${docLabel.replaceFirst("No. ", "")}'
-                    : 'Lihat detail item ${docLabel.replaceFirst("No. ", "")}',
-                style: const TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF4F46E5),
+              Expanded(
+                child: Text(
+                  isOpened
+                      ? 'Tutup detail item ${docLabel.replaceFirst("No. ", "")}'
+                      : 'Lihat detail item ${docLabel.replaceFirst("No. ", "")}',
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF4F46E5),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              const SizedBox(width: 4),
               Icon(
                 isOpened
                     ? Icons.keyboard_arrow_up_rounded

@@ -294,12 +294,30 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/tracking-penawaran',
         name: 'tracking-penawaran',
-        builder: (context, state) => const TrackingPenawaranScreen(),
+        builder: (context, state) {
+          final extraStr = state.extra is String ? (state.extra as String).trim() : null;
+          final queryStr = state.uri.queryParameters['q']?.trim();
+          final search = (extraStr != null && extraStr.isNotEmpty) ? extraStr : queryStr;
+
+          return TrackingPenawaranScreen(
+            key: ValueKey('tracking-penawaran-$search'),
+            initialSearch: search,
+          );
+        },
       ),
       GoRoute(
         path: '/tracking-map',
         name: 'tracking-map',
-        builder: (context, state) => const TrackingMapScreen(),
+        builder: (context, state) {
+          final extraStr = state.extra is String ? (state.extra as String).trim() : null;
+          final queryStr = state.uri.queryParameters['q']?.trim();
+          final search = (extraStr != null && extraStr.isNotEmpty) ? extraStr : queryStr;
+
+          return TrackingMapScreen(
+            key: ValueKey('tracking-map-$search'),
+            initialSearch: search,
+          );
+        },
       ),
       GoRoute(
         path: '/tracking-spk',

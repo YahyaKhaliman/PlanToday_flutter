@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme/app_colors.dart';
@@ -246,45 +247,60 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
                 ],
               ),
             ),
-            IconButton(
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-              icon: const Icon(
-                Icons.close_rounded,
-                color: AppColors.muted,
-                size: 18,
+            if (!versionState.isMandatory)
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                icon: const Icon(
+                  Icons.close_rounded,
+                  color: AppColors.muted,
+                  size: 18,
+                ),
+                onPressed: () {
+                  ref.read(versionProvider.notifier).dismissUpdateNotification();
+                },
               ),
-              onPressed: () {
-                ref.read(versionProvider.notifier).dismissUpdateNotification();
-              },
-            ),
           ],
         ),
         const SizedBox(height: 6),
-        RichText(
-          text: const TextSpan(
-            style: TextStyle(
+        if (kIsWeb)
+          RichText(
+            text: const TextSpan(
+              style: TextStyle(
+                color: AppColors.muted,
+                fontSize: 11,
+                height: 1.35,
+              ),
+              children: [
+                TextSpan(
+                  text: '⚠️ Simpan pekerjaan Anda terlebih dahulu',
+                  style: TextStyle(
+                    color: Color(0xFFD97706),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                TextSpan(
+                  text: ' sebelum memuat ulang halaman.',
+                ),
+              ],
+            ),
+          )
+        else
+          Text(
+            versionState.releaseNotes?.isNotEmpty == true
+                ? versionState.releaseNotes!
+                : (versionState.isMandatory
+                    ? '⚠️ Pembaruan penting wajib diunduh untuk melanjutkan pemakaian aplikasi.'
+                    : 'File APK versi baru telah tersedia. Unduh dan pasang pembaruan sekarang.'),
+            style: const TextStyle(
               color: AppColors.muted,
               fontSize: 11,
               height: 1.35,
             ),
-            children: [
-              TextSpan(
-                text: '⚠️ Simpan pekerjaan Anda terlebih dahulu',
-                style: TextStyle(
-                  color: Color(0xFFD97706),
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              TextSpan(
-                text: ' sebelum memuat ulang halaman.',
-              ),
-            ],
           ),
-        ),
         const SizedBox(height: 8),
         _buildGradientReloadButton(
-          label: 'Muat Ulang Sekarang',
+          label: kIsWeb ? 'Muat Ulang Sekarang' : 'Unduh & Pasang Update (APK)',
           fullWidth: true,
           onPressed: () {
             ref.read(versionProvider.notifier).applyUpdateAndReload();
@@ -330,51 +346,64 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
               _buildVersionBadge(versionState),
               const SizedBox(width: 12),
               Expanded(
-                child: RichText(
-                  overflow: TextOverflow.ellipsis,
-                  text: const TextSpan(
-                    style: TextStyle(
-                      color: AppColors.muted,
-                      fontSize: 11.5,
-                    ),
-                    children: [
-                      TextSpan(
-                        text: '⚠️ Simpan pekerjaan Anda terlebih dahulu',
-                        style: TextStyle(
-                          color: Color(0xFFD97706),
-                          fontWeight: FontWeight.w800,
+                child: kIsWeb
+                    ? RichText(
+                        overflow: TextOverflow.ellipsis,
+                        text: const TextSpan(
+                          style: TextStyle(
+                            color: AppColors.muted,
+                            fontSize: 11.5,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: '⚠️ Simpan pekerjaan Anda terlebih dahulu',
+                              style: TextStyle(
+                                color: Color(0xFFD97706),
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            TextSpan(
+                              text:
+                                  ' sebelum memuat ulang untuk menerapkan pembaruan.',
+                            ),
+                          ],
+                        ),
+                      )
+                    : Text(
+                        versionState.releaseNotes?.isNotEmpty == true
+                            ? versionState.releaseNotes!
+                            : 'Pembaruan aplikasi versi baru telah tersedia di server.',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 11.5,
                         ),
                       ),
-                      TextSpan(
-                        text:
-                            ' sebelum memuat ulang untuk menerapkan pembaruan.',
-                      ),
-                    ],
-                  ),
-                ),
               ),
             ],
           ),
         ),
         const SizedBox(width: 14),
         _buildGradientReloadButton(
-          label: 'Muat Ulang',
+          label: kIsWeb ? 'Muat Ulang' : 'Unduh APK',
           onPressed: () {
             ref.read(versionProvider.notifier).applyUpdateAndReload();
           },
         ),
-        const SizedBox(width: 6),
-        IconButton(
-          icon: const Icon(
-            Icons.close_rounded,
-            color: AppColors.muted,
-            size: 18,
+        if (!versionState.isMandatory) ...[
+          const SizedBox(width: 6),
+          IconButton(
+            icon: const Icon(
+              Icons.close_rounded,
+              color: AppColors.muted,
+              size: 18,
+            ),
+            onPressed: () {
+              ref.read(versionProvider.notifier).dismissUpdateNotification();
+            },
+            splashRadius: 18,
           ),
-          onPressed: () {
-            ref.read(versionProvider.notifier).dismissUpdateNotification();
-          },
-          splashRadius: 18,
-        ),
+        ],
       ],
     );
   }

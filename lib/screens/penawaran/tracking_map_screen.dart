@@ -17,7 +17,9 @@ const _kShortMonths = [
 ];
 
 class TrackingMapScreen extends ConsumerStatefulWidget {
-  const TrackingMapScreen({super.key});
+  final String? initialSearch;
+
+  const TrackingMapScreen({super.key, this.initialSearch});
 
   static String formatDate(String? ymd) {
     if (ymd == null || ymd.trim().isEmpty) return '-';
@@ -54,7 +56,7 @@ class TrackingMapScreen extends ConsumerStatefulWidget {
 }
 
 class _TrackingMapScreenState extends ConsumerState<TrackingMapScreen> {
-  final _searchController = TextEditingController();
+  late final TextEditingController _searchController;
 
   DateTime _startDate = DateTime(DateTime.now().year, DateTime.now().month, 1);
   DateTime _endDate = DateTime(DateTime.now().year, DateTime.now().month + 1, 0);
@@ -76,6 +78,12 @@ class _TrackingMapScreenState extends ConsumerState<TrackingMapScreen> {
   @override
   void initState() {
     super.initState();
+    final initial = widget.initialSearch?.trim() ?? '';
+    _searchController = TextEditingController(text: initial);
+    if (initial.isNotEmpty) {
+      _startDate = DateTime(DateTime.now().year - 1, 1, 1);
+      _endDate = DateTime(DateTime.now().year + 1, 12, 31);
+    }
     _fetchData();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = ref.read(authProvider).user;
@@ -83,6 +91,20 @@ class _TrackingMapScreenState extends ConsumerState<TrackingMapScreen> {
         _loadSalesList();
       }
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant TrackingMapScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialSearch != oldWidget.initialSearch) {
+      final newSearch = widget.initialSearch?.trim() ?? '';
+      _searchController.text = newSearch;
+      if (newSearch.isNotEmpty) {
+        _startDate = DateTime(DateTime.now().year - 1, 1, 1);
+        _endDate = DateTime(DateTime.now().year + 1, 12, 31);
+      }
+      _fetchData();
+    }
   }
 
   @override
@@ -686,8 +708,10 @@ class _TrackingMapScreenState extends ConsumerState<TrackingMapScreen> {
                             const SizedBox(height: 10),
 
                             // 4. Status Filter Chips Row (Semua, BAST, SJ MAP)
-                            Row(
-                              children: [
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
                                 // Chip 1: Semua
                                 Padding(
                                   padding: const EdgeInsets.only(right: 8.0),
@@ -863,7 +887,8 @@ class _TrackingMapScreenState extends ConsumerState<TrackingMapScreen> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 10),
+                          ),
+                          const SizedBox(height: 10),
 
                             // 5. Segmented Bar Progress Distribution
                             SegmentedBar(

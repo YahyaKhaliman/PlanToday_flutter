@@ -6,6 +6,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../core/constants/app_constants.dart';
 import '../core/utils/web_reload.dart';
 
 const String _kAppliedVersionKey = 'plantoday_applied_version';
@@ -17,6 +19,9 @@ class VersionState {
   final String? latestBuildNumber;
   final bool hasUpdate;
   final bool isChecking;
+  final bool isMandatory;
+  final String? apkUrl;
+  final String? releaseNotes;
 
   const VersionState({
     this.currentVersion = '1.0.0',
@@ -25,6 +30,9 @@ class VersionState {
     this.latestBuildNumber,
     this.hasUpdate = false,
     this.isChecking = false,
+    this.isMandatory = false,
+    this.apkUrl,
+    this.releaseNotes,
   });
 
   String get fullCurrentVersion => '$currentVersion+$currentBuildNumber';
@@ -40,6 +48,9 @@ class VersionState {
     String? latestBuildNumber,
     bool? hasUpdate,
     bool? isChecking,
+    bool? isMandatory,
+    String? apkUrl,
+    String? releaseNotes,
   }) {
     return VersionState(
       currentVersion: currentVersion ?? this.currentVersion,
@@ -48,6 +59,9 @@ class VersionState {
       latestBuildNumber: latestBuildNumber ?? this.latestBuildNumber,
       hasUpdate: hasUpdate ?? this.hasUpdate,
       isChecking: isChecking ?? this.isChecking,
+      isMandatory: isMandatory ?? this.isMandatory,
+      apkUrl: apkUrl ?? this.apkUrl,
+      releaseNotes: releaseNotes ?? this.releaseNotes,
     );
   }
 }
@@ -89,17 +103,17 @@ class VersionNotifier extends Notifier<VersionState> {
 
     await checkForUpdate(force: true);
 
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+      checkForUpdate();
+    });
+
+    _lifecycleListener?.dispose();
+    _lifecycleListener = AppLifecycleListener(
+      onResume: () => checkForUpdate(),
+    );
+
     if (kIsWeb) {
-      _pollingTimer?.cancel();
-      _pollingTimer = Timer.periodic(const Duration(minutes: 2), (_) {
-        checkForUpdate();
-      });
-
-      _lifecycleListener?.dispose();
-      _lifecycleListener = AppLifecycleListener(
-        onResume: () => checkForUpdate(),
-      );
-
       registerWebFocusListener(() {
         checkForUpdate();
       });
@@ -176,8 +190,39 @@ class VersionNotifier extends Notifier<VersionState> {
     return null;
   }
 
+  Future<Map<String, dynamic>?> _fetchRemoteLatestJson() async {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final baseCheckUrl = ApiConfig.updateCheckUrl;
+    final separator = baseCheckUrl.contains('?') ? '&' : '?';
+    final url = '$baseCheckUrl${separator}t=$timestamp';
+
+    final response = await _dio.get(
+      url,
+      options: Options(
+        responseType: ResponseType.plain,
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+      ),
+    );
+
+    if (response.statusCode == 200 && response.data != null) {
+      if (response.data is Map) {
+        return Map<String, dynamic>.from(response.data as Map);
+      } else if (response.data is String) {
+        final raw = (response.data as String).trim();
+        if (raw.startsWith('{')) {
+          return jsonDecode(raw) as Map<String, dynamic>;
+        }
+      }
+    }
+    return null;
+  }
+
   Future<void> checkForUpdate({bool force = false}) async {
-    if (!kIsWeb || state.isChecking) return;
+    if (state.isChecking) return;
 
     final now = DateTime.now();
     if (!force &&
@@ -189,27 +234,58 @@ class VersionNotifier extends Notifier<VersionState> {
 
     state = state.copyWith(isChecking: true);
     try {
-      final remote = await _fetchRemoteVersionJson();
-      if (remote != null) {
-        final remoteVersion = remote['version'] ?? '';
-        final remoteBuild = remote['build_number'] ?? '';
+      if (kIsWeb) {
+        final remote = await _fetchRemoteVersionJson();
+        if (remote != null) {
+          final remoteVersion = remote['version'] ?? '';
+          final remoteBuild = remote['build_number'] ?? '';
 
-        final currentBuild = int.tryParse(state.currentBuildNumber) ?? 0;
-        final targetBuild = int.tryParse(remoteBuild) ?? 0;
+          final currentBuild = int.tryParse(state.currentBuildNumber) ?? 0;
+          final targetBuild = int.tryParse(remoteBuild) ?? 0;
 
-        final isNewer = (targetBuild > currentBuild) ||
-            (remoteBuild.isNotEmpty &&
-                remoteBuild != state.currentBuildNumber) ||
-            (remoteVersion.isNotEmpty && remoteVersion != state.currentVersion);
+          final isNewer = (targetBuild > currentBuild) ||
+              (remoteBuild.isNotEmpty &&
+                  remoteBuild != state.currentBuildNumber) ||
+              (remoteVersion.isNotEmpty &&
+                  remoteVersion != state.currentVersion);
 
-        if (isNewer) {
-          state = state.copyWith(
-            latestVersion: remoteVersion,
-            latestBuildNumber: remoteBuild,
-            hasUpdate: true,
-            isChecking: false,
-          );
-          return;
+          if (isNewer) {
+            state = state.copyWith(
+              latestVersion: remoteVersion,
+              latestBuildNumber: remoteBuild,
+              hasUpdate: true,
+              isChecking: false,
+            );
+            return;
+          }
+        }
+      } else {
+        final remote = await _fetchRemoteLatestJson();
+        if (remote != null) {
+          final remoteCode = remote['versionCode']?.toString() ?? '';
+          final remoteName = remote['versionName']?.toString() ?? '';
+          final mandatory = remote['mandatory'] == true;
+          final apkUrl = remote['apkUrl']?.toString();
+          final notes = remote['notes']?.toString();
+
+          final currentBuild = int.tryParse(state.currentBuildNumber) ?? 0;
+          final targetBuild = int.tryParse(remoteCode) ?? 0;
+
+          final isNewer = targetBuild > currentBuild;
+
+          if (isNewer) {
+            state = state.copyWith(
+              latestVersion:
+                  remoteName.isNotEmpty ? remoteName : state.currentVersion,
+              latestBuildNumber: remoteCode,
+              hasUpdate: true,
+              isMandatory: mandatory,
+              apkUrl: apkUrl,
+              releaseNotes: notes,
+              isChecking: false,
+            );
+            return;
+          }
         }
       }
       state = state.copyWith(isChecking: false);
@@ -219,17 +295,28 @@ class VersionNotifier extends Notifier<VersionState> {
   }
 
   void dismissUpdateNotification() {
+    if (state.isMandatory) return;
     state = state.copyWith(hasUpdate: false);
   }
 
   Future<void> applyUpdateAndReload() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final targetVer = state.latestVersion ?? state.currentVersion;
-      final targetBuild = state.latestBuildNumber ?? state.currentBuildNumber;
-      await prefs.setString(_kAppliedVersionKey, '$targetVer+$targetBuild');
-    } catch (_) {}
-    reloadWebPage();
+    if (kIsWeb) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final targetVer = state.latestVersion ?? state.currentVersion;
+        final targetBuild = state.latestBuildNumber ?? state.currentBuildNumber;
+        await prefs.setString(_kAppliedVersionKey, '$targetVer+$targetBuild');
+      } catch (_) {}
+      reloadWebPage();
+    } else {
+      final downloadUrl = state.apkUrl?.isNotEmpty == true
+          ? state.apkUrl!
+          : 'http://103.94.238.252:8182/releases/PlanToday-latest.apk';
+      final uri = Uri.parse(downloadUrl);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    }
   }
 }
 

@@ -11,6 +11,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/utils/app_toast.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/version_provider.dart';
 import '../../widgets/web_shortcut_guide_modal.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -520,25 +521,69 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         const SizedBox(height: 18),
 
                         // Catatan Versi & Status
-                        Text(
-                          _appVersion,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF64748B),
-                            fontWeight: FontWeight.w500,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _updateStatusText,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF475569),
-                            fontWeight: FontWeight.w500,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
+                        () {
+                          final versionState = ref.watch(versionProvider);
+                          final displayVersion = versionState.currentVersion.isNotEmpty
+                              ? 'Versi ${versionState.currentVersion} (build ${versionState.currentBuildNumber})'
+                              : _appVersion;
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                displayVersion,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF64748B),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 4),
+                              if (versionState.hasUpdate)
+                                InkWell(
+                                  onTap: () => ref
+                                      .read(versionProvider.notifier)
+                                      .applyUpdateAndReload(),
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 4),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.download_rounded,
+                                          size: 14,
+                                          color: AppColors.primary,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          kIsWeb
+                                              ? 'Pembaruan v${versionState.latestVersion ?? ''} tersedia (Klik muat ulang)'
+                                              : 'Pembaruan v${versionState.latestVersion ?? ''} tersedia (Unduh APK)',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.primary,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                              else
+                                Text(
+                                  _updateStatusText,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF475569),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                            ],
+                          );
+                        }(),
                         if (kIsWeb) ...[
                           const SizedBox(height: 14),
                           Center(

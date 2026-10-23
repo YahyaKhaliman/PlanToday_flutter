@@ -50,6 +50,15 @@ class ApiConfig {
         defaultValue: '/images/mintaharga',
       );
 
+  // Update Check URL
+  static String get updateCheckUrl {
+    final configured = dotenv.env['UPDATE_CHECK_URL'] ??
+        const String.fromEnvironment('UPDATE_CHECK_URL');
+    if (configured.isNotEmpty) return configured;
+    final base = imageReadUrl.isNotEmpty ? imageReadUrl : 'http://103.94.238.252:8182';
+    return '$base/releases/latest.json';
+  }
+
   // Timeout settings
   static const Duration connectTimeout = Duration(seconds: 30);
   static const Duration receiveTimeout = Duration(seconds: 30);
