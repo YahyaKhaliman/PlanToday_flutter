@@ -142,6 +142,74 @@ class PermintaanHargaDetail {
     return false;
   }
 
+  String get kodeKh {
+    final fromHdr =
+        kalkulasiDetail?['hdr']?['kal_kh_kode']?.toString().trim();
+    if (fromHdr != null && fromHdr.isNotEmpty) {
+      return fromHdr.toUpperCase();
+    }
+
+    if (rawJson != null) {
+      final fromRaw = rawJson!['kal_kh_kode']?.toString().trim() ??
+          rawJson!['kh_kode']?.toString().trim() ??
+          rawJson!['garmen_model']?.toString().trim() ??
+          rawJson!['kode_model']?.toString().trim() ??
+          rawJson!['mh_kode_model']?.toString().trim() ??
+          '';
+      if (fromRaw.isNotEmpty) {
+        return fromRaw.toUpperCase();
+      }
+    }
+
+    if (kalkulasiDetail?['komponen'] is List) {
+      final komponenList = (kalkulasiDetail!['komponen'] as List)
+          .whereType<Map<String, dynamic>>()
+          .toList();
+      final hasLengan = komponenList.any(
+        (k) =>
+            (k['kk_komponen']?.toString().toUpperCase().trim() ?? '') ==
+            'LENGAN',
+      );
+      if (hasLengan) {
+        return 'KH-0002';
+      }
+    }
+
+    final text = '$keterangan $ketKalkulasi $ukuran $nama'.toUpperCase();
+    if (text.contains('KH-0002') ||
+        text.contains('2 WARNA') ||
+        text.contains('2WARNA')) {
+      return 'KH-0002';
+    } else if (text.contains('KH-0001') ||
+        text.contains('1 WARNA') ||
+        text.contains('1WARNA')) {
+      return 'KH-0001';
+    }
+
+    if (divisi == '4') {
+      return 'KH-0001';
+    }
+
+    return '';
+  }
+
+  String? get keteranganWarnaKh {
+    final code = kodeKh;
+    if (code.isEmpty) return null;
+
+    if (code.contains('KH-0002') ||
+        code.contains('0002') ||
+        code.contains('2 WARNA')) {
+      return '2 Warna (KH-0002)';
+    } else if (code.contains('KH-0001') ||
+        code.contains('0001') ||
+        code.contains('1 WARNA')) {
+      return '1 Warna (KH-0001)';
+    }
+
+    return code;
+  }
+
   factory PermintaanHargaDetail.fromJson(Map<String, dynamic> json) {
     Map<String, dynamic>? kalDetail;
     if (json['kalkulasi_detail'] is Map<String, dynamic>) {

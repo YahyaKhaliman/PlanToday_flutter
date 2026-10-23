@@ -1,6 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/network/api_client.dart';
 import '../models/permintaan_harga_model.dart';
@@ -173,29 +173,27 @@ class PermintaanHargaRepository {
               ? file.path.split(RegExp(r'[/\\]')).last
               : 'mh_${nomor}_$slot.jpg');
       final String ext = resolvedFilename.split('.').last.toLowerCase();
-      final String subType = (ext == 'png') ? 'png' : (ext == 'webp' ? 'webp' : 'jpeg');
+      final String subType = (ext == 'png') ? 'png' : 'jpeg';
 
-      final MultipartFile multipartFile;
+      final Uint8List bytes;
       if (fileBytes != null) {
-        multipartFile = MultipartFile.fromBytes(
-          fileBytes,
-          filename: resolvedFilename,
-          contentType: DioMediaType('image', subType),
-        );
+        bytes = fileBytes;
       } else if (file != null) {
-        multipartFile = await MultipartFile.fromFile(
-          file.path,
-          filename: resolvedFilename,
-          contentType: DioMediaType('image', subType),
-        );
+        bytes = await file.readAsBytes();
       } else {
         return null;
       }
 
-      final formData = FormData.fromMap({'file': multipartFile});
+      final String base64Data =
+          'data:image/$subType;base64,${base64Encode(bytes)}';
+
       final response = await _api.dio.post(
-        '/permintaan-harga/$encodedNomor/gambar/$slot',
-        data: formData,
+        '/permintaan-harga/$encodedNomor/gambar-base64/$slot',
+        data: {
+          'file_base64': base64Data,
+          'file_name': resolvedFilename,
+          'file_type': 'image/$subType',
+        },
       );
       return response.data?['data']?['url']?.toString() ??
           response.data?['data']?.toString();

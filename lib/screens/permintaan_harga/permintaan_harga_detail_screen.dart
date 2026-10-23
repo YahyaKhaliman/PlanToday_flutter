@@ -751,7 +751,31 @@ class _PermintaanHargaDetailScreenState
                                     ),
                                   ],
                                 ),
-                                if (_detail!.sublim.isNotEmpty ||
+                                if (_detail!.keteranganWarnaKh != null) ...[
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    children: [
+                                      _CompactCell(
+                                        label: 'Keterangan Warna',
+                                        value: _detail!.keteranganWarnaKh,
+                                        highlight: true,
+                                      ),
+                                      const SizedBox(width: 10),
+                                      _CompactCell(
+                                        label: 'Warna Kain',
+                                        value: _detail!.warna,
+                                      ),
+                                    ],
+                                  ),
+                                  if (_detail!.sublim.isNotEmpty) ...[
+                                    const SizedBox(height: 10),
+                                    _CompactCell(
+                                      label: 'Sublim',
+                                      value: _detail!.sublim,
+                                      fullWidth: true,
+                                    ),
+                                  ],
+                                ] else if (_detail!.sublim.isNotEmpty ||
                                     _detail!.warna.isNotEmpty) ...[
                                   const SizedBox(height: 10),
                                   Row(
@@ -1689,10 +1713,9 @@ class _HasilKalkulasiSectionWidgetState
                       ),
                       const SizedBox(height: 6),
                       ...komponenList.map((k) {
-                        final rawKomp =
-                            (k['kk_komponen']?.toString() ?? '')
-                                .trim()
-                                .toUpperCase();
+                        final rawKomp = (k['kk_komponen']?.toString() ?? '')
+                            .trim()
+                            .toUpperCase();
                         final kompLabel = rawKomp == 'BODY'
                             ? (komponenList.length == 1
                                   ? 'Harga Bahan'
@@ -1833,14 +1856,14 @@ class _HasilKalkulasiSectionWidgetState
                                     0) >
                                 0)
                               _buildBreakdownRow(
-                                'Sablon Manual',
+                                'Sablon',
                                 'Rp ${_formatNumber(cetak!['kald_rpcetak'])}',
                               ),
                             if (((dtf?['kald_rpdtf'] as num?)?.toDouble() ??
                                     0) >
                                 0)
                               _buildBreakdownRow(
-                                'Cetak DTF',
+                                'DTF',
                                 'Rp ${_formatNumber(dtf!['kald_rpdtf'])}',
                               ),
                             if (((bordir?['kald_rpbordir'] as num?)
@@ -1848,7 +1871,7 @@ class _HasilKalkulasiSectionWidgetState
                                     0) >
                                 0)
                               _buildBreakdownRow(
-                                'Bordir Komputer',
+                                'Bordir',
                                 'Rp ${_formatNumber(bordir!['kald_rpbordir'])}',
                               ),
                             if (((sublim?['kald_rpsublim'] as num?)
@@ -1856,7 +1879,7 @@ class _HasilKalkulasiSectionWidgetState
                                     0) >
                                 0)
                               _buildBreakdownRow(
-                                'Sublimasi',
+                                'Sublim',
                                 'Rp ${_formatNumber(sublim!['kald_rpsublim'])}',
                               ),
                             if (((polyflex?['kald_rppolyflex'] as num?)
