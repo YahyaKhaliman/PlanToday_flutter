@@ -364,16 +364,14 @@ class _PermintaanHargaDetailScreenState
       return true;
     }
 
-    final authSalesKode = (user.salesKode ??
-            user.salKode ??
-            user.kodeSales ??
-            user.kode ??
-            '')
-        .trim();
-    final rowSalesKode = (_detail!.rawJson?['mh_sal_kode']?.toString() ??
-            _detail!.rawJson?['sal_kode']?.toString() ??
-            '')
-        .trim();
+    final authSalesKode =
+        (user.salesKode ?? user.salKode ?? user.kodeSales ?? user.kode ?? '')
+            .trim();
+    final rowSalesKode =
+        (_detail!.rawJson?['mh_sal_kode']?.toString() ??
+                _detail!.rawJson?['sal_kode']?.toString() ??
+                '')
+            .trim();
 
     if (authSalesKode.isNotEmpty && rowSalesKode.isNotEmpty) {
       if (authSalesKode.toUpperCase() == rowSalesKode.toUpperCase()) {
@@ -547,10 +545,14 @@ class _PermintaanHargaDetailScreenState
                           width: 40,
                           height: 40,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF4F46E5).withValues(alpha: 0.1),
+                            color: const Color(
+                              0xFF4F46E5,
+                            ).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                              color: const Color(0xFF4F46E5).withValues(alpha: 0.2),
+                              color: const Color(
+                                0xFF4F46E5,
+                              ).withValues(alpha: 0.2),
                             ),
                           ),
                           alignment: Alignment.center,
@@ -1484,13 +1486,13 @@ class _HasilKalkulasiSectionWidgetState
     final namaKain = d.kain.isNotEmpty
         ? d.kain
         : (komponenList.isNotEmpty
-            ? (komponenList.first['kk_jeniskain']?.toString() ?? '-')
-            : '-');
+              ? (komponenList.first['kk_jeniskain']?.toString() ?? '-')
+              : '-');
     final namaWarna = d.warna.isNotEmpty
         ? d.warna
         : (komponenList.isNotEmpty
-            ? (komponenList.first['kk_warna']?.toString() ?? '')
-            : '');
+              ? (komponenList.first['kk_warna']?.toString() ?? '')
+              : '');
 
     final hasAnyBreakdown =
         (hasKomponen || hargaBahanUp > 0) ||
@@ -1760,7 +1762,7 @@ class _HasilKalkulasiSectionWidgetState
             ),
           ],
 
-          // 5. Collapsible Breakdown (Rincian Kalkulasi Lengkap)
+          // 5. Collapsible Breakdown (Rincian Kalkulasi)
           if (hasAnyBreakdown) ...[
             const SizedBox(height: 10),
             InkWell(
@@ -1791,7 +1793,7 @@ class _HasilKalkulasiSectionWidgetState
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          'Rincian Kalkulasi Lengkap',
+                          'Rincian Kalkulasi',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
@@ -1846,8 +1848,8 @@ class _HasilKalkulasiSectionWidgetState
                             _buildBreakdownRow(
                               namaKain.isNotEmpty
                                   ? (namaWarna.isNotEmpty
-                                      ? '$namaKain ($namaWarna)'
-                                      : namaKain)
+                                        ? '$namaKain ($namaWarna)'
+                                        : namaKain)
                                   : 'Bahan Kain',
                               'Rp ${_formatNumber(hargaBahanUp)}',
                             ),
@@ -1857,66 +1859,10 @@ class _HasilKalkulasiSectionWidgetState
                       const SizedBox(height: 8),
                     ],
 
-                    // Sub 2: Biaya Jahit & Operasional
-                    if (hasDtl && dtl != null) ...[
-                      const Text(
-                        '2. BIAYA JAHIT & OPERASIONAL (Otomatis Sistem)',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF334155),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFFF1F5F9)),
-                        ),
-                        child: Column(
-                          children: [
-                            if (((dtl['kald_rpjahit'] as num?)?.toDouble() ??
-                                    0) >
-                                0)
-                              _buildBreakdownRow(
-                                'Biaya Jahit',
-                                'Rp ${_formatNumber(dtl['kald_rpjahit'])}',
-                              ),
-                            if (((dtl['kald_rppotong'] as num?)?.toDouble() ??
-                                    0) >
-                                0)
-                              _buildBreakdownRow(
-                                'Biaya Potong',
-                                'Rp ${_formatNumber(dtl['kald_rppotong'])}',
-                              ),
-                            if (((dtl['kald_rpfinishing'] as num?)
-                                        ?.toDouble() ??
-                                    0) >
-                                0)
-                              _buildBreakdownRow(
-                                'Biaya Finishing',
-                                'Rp ${_formatNumber(dtl['kald_rpfinishing'])}',
-                              ),
-                            if (((dtl['kald_rptenagacetak'] as num?)
-                                        ?.toDouble() ??
-                                    0) >
-                                0)
-                              _buildBreakdownRow(
-                                'Tenaga Cetak',
-                                'Rp ${_formatNumber(dtl['kald_rptenagacetak'])}',
-                              ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-
-                    // Sub 3: Biaya Cetak & Variasi
+                    // Sub 2: Biaya Cetak & Variasi
                     if (hasVariasi) ...[
                       const Text(
-                        '3. BIAYA CETAK & VARIASI (Inputan Sales)',
+                        '2. BIAYA CETAK & VARIASI (Inputan Sales)',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
@@ -1977,10 +1923,10 @@ class _HasilKalkulasiSectionWidgetState
                       const SizedBox(height: 8),
                     ],
 
-                    // Sub 4: Aksesoris Tambahan
+                    // Sub 3: Aksesoris Tambahan
                     if (hasAksesoris) ...[
                       const Text(
-                        '4. AKSESORIS TAMBAHAN (Inputan Sales)',
+                        '3. AKSESORIS TAMBAHAN (Inputan Sales)',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
@@ -2009,10 +1955,10 @@ class _HasilKalkulasiSectionWidgetState
                       const SizedBox(height: 8),
                     ],
 
-                    // Sub 5: Allowance & Margin
+                    // Sub 4: Ringkasan Kalkulasi Sistem
                     if (hasHdrDetails) ...[
                       const Text(
-                        '5. ALLOWANCE & MARGIN (Otomatis Sistem)',
+                        '4. RINGKASAN KALKULASI (Otomatis Sistem)',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
