@@ -6,6 +6,8 @@ import '../../core/constants/app_constants.dart';
 import '../../core/utils/app_toast.dart';
 import '../../core/utils/responsive_helper.dart';
 import '../../models/permintaan_harga_model.dart';
+import '../../models/user_model.dart';
+import '../../providers/auth_provider.dart';
 import '../../repositories/permintaan_harga_repository.dart';
 import '../../core/theme/app_colors.dart';
 import '../../widgets/web_safe_network_image.dart';
@@ -344,6 +346,63 @@ class _PermintaanHargaDetailScreenState
     }
   }
 
+  bool _canEdit(UserModel? user) {
+    if (user == null || _detail == null) return false;
+
+    final status = _detail!.status.trim().toUpperCase();
+    const allowedStatuses = [
+      'BELUM',
+      'NEGO',
+      'BELUM DIVERIFIKASI',
+      'BELUM_DIVERIFIKASI',
+    ];
+    if (!allowedStatuses.contains(status)) {
+      return false;
+    }
+
+    if (user.isManager) {
+      return true;
+    }
+
+    final authSalesKode = (user.salesKode ??
+            user.salKode ??
+            user.kodeSales ??
+            user.kode ??
+            '')
+        .trim();
+    final rowSalesKode = (_detail!.rawJson?['mh_sal_kode']?.toString() ??
+            _detail!.rawJson?['sal_kode']?.toString() ??
+            '')
+        .trim();
+
+    if (authSalesKode.isNotEmpty && rowSalesKode.isNotEmpty) {
+      if (authSalesKode.toUpperCase() == rowSalesKode.toUpperCase()) {
+        return true;
+      }
+    }
+
+    final authNama = user.nama.trim().toUpperCase();
+    final rowUserCreate = _detail!.userCreate.trim().toUpperCase();
+    final rowSalesNama = _detail!.salesNama.trim().toUpperCase();
+
+    if (authNama.isNotEmpty) {
+      if (rowUserCreate.isNotEmpty &&
+          (rowUserCreate == authNama ||
+              rowUserCreate.contains(authNama) ||
+              authNama.contains(rowUserCreate))) {
+        return true;
+      }
+      if (rowSalesNama.isNotEmpty &&
+          (rowSalesNama == authNama ||
+              rowSalesNama.contains(authNama) ||
+              authNama.contains(rowSalesNama))) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   String? _resolveImageUrl(int index) {
     if (_detail == null) return null;
 
@@ -414,6 +473,9 @@ class _PermintaanHargaDetailScreenState
 
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(authProvider).user;
+    final canEdit = _canEdit(user);
+
     final statusNorm = (_detail?.status ?? '').trim().toUpperCase();
     final isBelum = statusNorm == 'BELUM';
     final statusMeta = _statusBadgeStyle(statusNorm);
@@ -477,6 +539,30 @@ class _PermintaanHargaDetailScreenState
                         ),
                       ),
                     ),
+                    if (canEdit) ...[
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _handleEdit,
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF4F46E5).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: const Color(0xFF4F46E5).withValues(alpha: 0.2),
+                            ),
+                          ),
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.edit_rounded,
+                            size: 18,
+                            color: Color(0xFF4F46E5),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                     AppReloadButton(
                       onTap: _fetchDetail,
                       isLoading: _isLoading,
@@ -933,8 +1019,8 @@ class _PermintaanHargaDetailScreenState
                       ),
               ),
 
-              // 3. FLOATING BOTTOM ACTION BUTTONS (HANYA MUNCUL JIKA STATUS BELUM)
-              if (isBelum)
+              // 3. FLOATING BOTTOM ACTION BUTTONS
+              if (canEdit)
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -949,7 +1035,7 @@ class _PermintaanHargaDetailScreenState
                   child: Row(
                     children: [
                       Expanded(
-                        child: ElevatedButton(
+                        child: ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF4F46E5),
                             foregroundColor: Colors.white,
@@ -959,19 +1045,23 @@ class _PermintaanHargaDetailScreenState
                             ),
                           ),
                           onPressed: _handleEdit,
-                          child: const Text(
-                            'Edit',
+                          icon: const Icon(Icons.edit_rounded, size: 18),
+                          label: const Text(
+                            'Edit Permintaan Harga',
                             style: TextStyle(fontWeight: FontWeight.w800),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton(
+                      if (isBelum) ...[
+                        const SizedBox(width: 12),
+                        OutlinedButton(
                           style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xFFEF4444),
                             side: const BorderSide(color: Color(0xFFFCA5A5)),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                              horizontal: 16,
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
@@ -982,7 +1072,7 @@ class _PermintaanHargaDetailScreenState
                             style: TextStyle(fontWeight: FontWeight.w800),
                           ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),

@@ -47,29 +47,6 @@ class CustomerRepository {
     }
   }
 
-  Future<bool> createCalonCustomer(CustomerModel customer, String userName) async {
-    final payload = customer.toJson();
-    payload['user_create'] = userName;
-
-    try {
-      final response = await _api.dio.post(ApiConfig.calonCustomer, data: payload);
-      return response.data != null && response.data['success'] == true;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  Future<bool> updateCalonCustomer(String ccKode, CustomerModel customer) async {
-    final payload = customer.toJson();
-
-    try {
-      final response = await _api.dio.put('/update-customer/$ccKode', data: payload);
-      return response.data != null && response.data['success'] == true;
-    } catch (_) {
-      return false;
-    }
-  }
-
   Future<String?> getRekapCalonCustomerWA(String? keyword) async {
     try {
       final response = await _api.dio.get(

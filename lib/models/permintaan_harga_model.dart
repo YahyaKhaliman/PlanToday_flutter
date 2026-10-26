@@ -28,15 +28,32 @@ class PermintaanHargaItem {
   factory PermintaanHargaItem.fromJson(Map<String, dynamic> json) {
     return PermintaanHargaItem(
       nomor: json['nomor']?.toString() ?? json['mh_nomor']?.toString() ?? '',
-      tanggal: json['tanggal']?.toString() ?? json['created_at_fmt']?.toString() ?? json['mh_tanggal']?.toString() ?? '',
+      tanggal:
+          json['tanggal']?.toString() ??
+          json['created_at_fmt']?.toString() ??
+          json['mh_tanggal']?.toString() ??
+          '',
       nama: json['nama']?.toString() ?? json['mh_nama']?.toString() ?? '',
-      customer: json['customer']?.toString() ?? json['mh_cus_nama']?.toString() ?? '',
+      customer:
+          json['customer']?.toString() ?? json['mh_cus_nama']?.toString() ?? '',
       divisi: json['divisi']?.toString() ?? json['mh_divisi']?.toString() ?? '',
-      jmlOrder: (json['jml_order'] as num?)?.toDouble() ?? (json['mh_jmlorder'] as num?)?.toDouble() ?? 0.0,
-      harga: (json['harga'] as num?)?.toDouble() ?? (json['mh_harga'] as num?)?.toDouble() ?? 0.0,
-      hargaKalkulasi: (json['harga_kalkulasi'] as num?)?.toDouble() ?? (json['mh_harga_kalkulasi'] as num?)?.toDouble() ?? 0.0,
+      jmlOrder:
+          (json['jml_order'] as num?)?.toDouble() ??
+          (json['mh_jmlorder'] as num?)?.toDouble() ??
+          0.0,
+      harga:
+          (json['harga'] as num?)?.toDouble() ??
+          (json['mh_harga'] as num?)?.toDouble() ??
+          0.0,
+      hargaKalkulasi:
+          (json['harga_kalkulasi'] as num?)?.toDouble() ??
+          (json['mh_harga_kalkulasi'] as num?)?.toDouble() ??
+          0.0,
       status: json['status']?.toString() ?? json['mh_status']?.toString() ?? '',
-      ketKalkulasi: json['ket_kalkulasi']?.toString() ?? json['mh_ket_kalkulasi']?.toString() ?? '',
+      ketKalkulasi:
+          json['ket_kalkulasi']?.toString() ??
+          json['mh_ket_kalkulasi']?.toString() ??
+          '',
       userCreate: json['user_create']?.toString() ?? '',
     );
   }
@@ -130,10 +147,11 @@ class PermintaanHargaDetail {
   });
 
   bool get isSalesKalkulasi {
-    final kalNo = (nomorKalkulasi.isNotEmpty
-            ? nomorKalkulasi
-            : (kalkulasiDetail?['hdr']?['kal_nomor']?.toString() ?? ''))
-        .toUpperCase();
+    final kalNo =
+        (nomorKalkulasi.isNotEmpty
+                ? nomorKalkulasi
+                : (kalkulasiDetail?['hdr']?['kal_nomor']?.toString() ?? ''))
+            .toUpperCase();
     if (kalNo.startsWith('KALS')) return true;
 
     final kalMh = kalkulasiDetail?['hdr']?['kal_mh_nomor']?.toString() ?? '';
@@ -143,14 +161,14 @@ class PermintaanHargaDetail {
   }
 
   String get kodeKh {
-    final fromHdr =
-        kalkulasiDetail?['hdr']?['kal_kh_kode']?.toString().trim();
+    final fromHdr = kalkulasiDetail?['hdr']?['kal_kh_kode']?.toString().trim();
     if (fromHdr != null && fromHdr.isNotEmpty) {
       return fromHdr.toUpperCase();
     }
 
     if (rawJson != null) {
-      final fromRaw = rawJson!['kal_kh_kode']?.toString().trim() ??
+      final fromRaw =
+          rawJson!['kal_kh_kode']?.toString().trim() ??
           rawJson!['kh_kode']?.toString().trim() ??
           rawJson!['garmen_model']?.toString().trim() ??
           rawJson!['kode_model']?.toString().trim() ??
@@ -210,6 +228,151 @@ class PermintaanHargaDetail {
     return code;
   }
 
+  List<Map<String, dynamic>> get garmenTambahanList {
+    final List<Map<String, dynamic>> result = [];
+
+    // 1. Dari kalkulasiDetail['aksesories']
+    final aksList = kalkulasiDetail?['aksesories'];
+    if (aksList is List && aksList.isNotEmpty) {
+      for (final a in aksList) {
+        if (a is Map) {
+          final ket =
+              a['ka_aksesories']?.toString() ??
+              a['ket']?.toString() ??
+              a['nama']?.toString() ??
+              '';
+          final tarif =
+              (a['ka_biaya'] as num?)?.toInt() ??
+              (a['tarif'] as num?)?.toInt() ??
+              (a['biaya'] as num?)?.toInt() ??
+              0;
+          if (ket.isNotEmpty) {
+            result.add({'ket': ket, 'tarif': tarif});
+          }
+        }
+      }
+    }
+
+    // 2. Fallback dari rawJson['garmen_tambahan']
+    if (result.isEmpty && rawJson?['garmen_tambahan'] is List) {
+      for (final a in rawJson!['garmen_tambahan'] as List) {
+        if (a is Map) {
+          final ket = a['ket']?.toString() ?? a['nama']?.toString() ?? '';
+          final tarif =
+              (a['tarif'] as num?)?.toInt() ??
+              (a['biaya'] as num?)?.toInt() ??
+              0;
+          if (ket.isNotEmpty) {
+            result.add({'ket': ket, 'tarif': tarif});
+          }
+        }
+      }
+    }
+
+    return result;
+  }
+
+  List<Map<String, dynamic>> get garmenCetakList {
+    final List<Map<String, dynamic>> result = [];
+
+    // 1. Dari kalkulasiDetail['ctk_list']
+    final ctkList = kalkulasiDetail?['ctk_list'];
+    if (ctkList is List && ctkList.isNotEmpty) {
+      for (final c in ctkList) {
+        if (c is Map) {
+          final ket =
+              c['kc_ket']?.toString() ??
+              c['ket']?.toString() ??
+              c['nama']?.toString() ??
+              '';
+          final biaya =
+              (c['kc_biaya'] as num?)?.toInt() ??
+              (c['biaya'] as num?)?.toInt() ??
+              0;
+
+          String jenis = c['jenis']?.toString().toUpperCase().trim() ?? '';
+          if (jenis.isEmpty) {
+            final uKet = ket.toUpperCase();
+            if (uKet.startsWith('DTF')) {
+              jenis = 'DTF';
+            } else if (uKet.startsWith('BORDIR')) {
+              jenis = 'BORDIR';
+            } else if (uKet.startsWith('SUBLIM')) {
+              jenis = 'SUBLIM';
+            } else if (uKet.startsWith('POLYFLEX')) {
+              jenis = 'POLYFLEX';
+            } else {
+              jenis = 'SABLON';
+            }
+          }
+
+          if (ket.isNotEmpty) {
+            result.add({'jenis': jenis, 'ket': ket, 'biaya': biaya});
+          }
+        }
+      }
+    }
+
+    // 2. Fallback jika ctk_list kosong: dari kalkulasiDetail sub-objek cetak
+    if (result.isEmpty && kalkulasiDetail != null) {
+      // Bordir
+      final bor = kalkulasiDetail!['bordir'];
+      if (bor is Map) {
+        final rp = (bor['kald_rpbordir'] as num?)?.toInt() ?? 0;
+        final cm = (bor['kald_cmbordir'] as num?)?.toDouble() ?? 0.0;
+        if (rp > 0) {
+          final label = cm > 0 ? 'BORDIR ${cm.toInt()} cm' : 'BORDIR';
+          result.add({'jenis': 'BORDIR', 'ket': label, 'biaya': rp});
+        }
+      }
+
+      // DTF
+      final dtf = kalkulasiDetail!['dtf'];
+      if (dtf is Map) {
+        final rp = (dtf['kald_rpdtf'] as num?)?.toInt() ?? 0;
+        final cm = (dtf['kald_cmdtf'] as num?)?.toDouble() ?? 0.0;
+        if (rp > 0) {
+          final label = cm > 0 ? 'DTF ${cm.toInt()} cm' : 'DTF';
+          result.add({'jenis': 'DTF', 'ket': label, 'biaya': rp});
+        }
+      }
+
+      // Sublim
+      final sub = kalkulasiDetail!['sublim'];
+      if (sub is Map) {
+        final rp = (sub['kald_rpsublim'] as num?)?.toInt() ?? 0;
+        if (rp > 0) {
+          result.add({'jenis': 'SUBLIM', 'ket': 'SUBLIM', 'biaya': rp});
+        }
+      }
+
+      // Sablon (tkalkulasi_cetak)
+      final ctk = kalkulasiDetail!['cetak'];
+      if (ctk is Map) {
+        final rp = (ctk['kald_rpcetak'] as num?)?.toInt() ?? 0;
+        if (rp > 0) {
+          result.add({'jenis': 'SABLON', 'ket': 'SABLON', 'biaya': rp});
+        }
+      }
+    }
+
+    // 3. Fallback dari rawJson['garmen_cetak']
+    if (result.isEmpty && rawJson?['garmen_cetak'] is List) {
+      for (final c in rawJson!['garmen_cetak'] as List) {
+        if (c is Map) {
+          final ket = c['ket']?.toString() ?? c['nama']?.toString() ?? '';
+          final biaya = (c['biaya'] as num?)?.toInt() ?? 0;
+          final jenis = c['jenis']?.toString().toUpperCase() ?? 'SABLON';
+          if (ket.isNotEmpty) {
+            result.add({'jenis': jenis, 'ket': ket, 'biaya': biaya});
+          }
+        }
+      }
+    }
+
+    return result;
+  }
+
   factory PermintaanHargaDetail.fromJson(Map<String, dynamic> json) {
     Map<String, dynamic>? kalDetail;
     if (json['kalkulasi_detail'] is Map<String, dynamic>) {
@@ -218,17 +381,31 @@ class PermintaanHargaDetail {
 
     return PermintaanHargaDetail(
       nomor: json['mh_nomor']?.toString() ?? json['nomor']?.toString() ?? '',
-      tanggal: json['mh_tanggal']?.toString() ?? json['tanggal']?.toString() ?? '',
+      tanggal:
+          json['mh_tanggal']?.toString() ?? json['tanggal']?.toString() ?? '',
       divisi: json['mh_divisi']?.toString() ?? json['divisi']?.toString() ?? '',
       divisiNama: json['divisi_nama']?.toString() ?? '',
       cusKode: json['mh_cus_kode']?.toString() ?? '',
-      cusNama: json['mh_cus_nama']?.toString() ?? json['customer']?.toString() ?? '',
+      cusNama:
+          json['mh_cus_nama']?.toString() ?? json['customer']?.toString() ?? '',
       nama: json['mh_nama']?.toString() ?? json['nama']?.toString() ?? '',
-      jmlOrder: (json['mh_jmlorder'] as num?)?.toDouble() ?? (json['jml_order'] as num?)?.toDouble() ?? 0.0,
-      harga: (json['mh_harga'] as num?)?.toDouble() ?? (json['harga'] as num?)?.toDouble() ?? 0.0,
+      jmlOrder:
+          (json['mh_jmlorder'] as num?)?.toDouble() ??
+          (json['jml_order'] as num?)?.toDouble() ??
+          0.0,
+      harga:
+          (json['mh_harga'] as num?)?.toDouble() ??
+          (json['harga'] as num?)?.toDouble() ??
+          0.0,
       budget: (json['mh_budget'] as num?)?.toDouble() ?? 0.0,
-      hargaKalkulasi: (json['mh_harga_kalkulasi'] as num?)?.toDouble() ?? (json['harga_kalkulasi'] as num?)?.toDouble() ?? 0.0,
-      ongkir: (json['mh_ongkir'] as num?)?.toDouble() ?? (json['kald_rpkirim'] as num?)?.toDouble() ?? 0.0,
+      hargaKalkulasi:
+          (json['mh_harga_kalkulasi'] as num?)?.toDouble() ??
+          (json['harga_kalkulasi'] as num?)?.toDouble() ??
+          0.0,
+      ongkir:
+          (json['mh_ongkir'] as num?)?.toDouble() ??
+          (json['kald_rpkirim'] as num?)?.toDouble() ??
+          0.0,
       kain: json['mh_kain']?.toString() ?? '',
       panjang: (json['mh_panjang'] as num?)?.toDouble() ?? 0.0,
       lebar: (json['mh_lebar'] as num?)?.toDouble() ?? 0.0,
@@ -237,16 +414,21 @@ class PermintaanHargaDetail {
       finishing: json['mh_finishing']?.toString() ?? '',
       sublim: json['mh_sublim']?.toString() ?? '',
       warna: json['mh_warna']?.toString() ?? '',
-      proNomor: json['mh_pro_nomor']?.toString() ?? json['pro_nomor']?.toString() ?? '',
+      proNomor:
+          json['mh_pro_nomor']?.toString() ??
+          json['pro_nomor']?.toString() ??
+          '',
       gambarUrl: json['mh_gambar']?.toString() ?? '',
-      gambar1Url: json['gambar_1_url']?.toString() ??
+      gambar1Url:
+          json['gambar_1_url']?.toString() ??
           json['gambar1_url']?.toString() ??
           json['img1']?.toString() ??
           json['image1']?.toString() ??
           json['mh_gambar1']?.toString() ??
           json['gambar1']?.toString() ??
           '',
-      gambar2Url: json['gambar_2_url']?.toString() ??
+      gambar2Url:
+          json['gambar_2_url']?.toString() ??
           json['gambar2_url']?.toString() ??
           json['img2']?.toString() ??
           json['image2']?.toString() ??
@@ -255,7 +437,8 @@ class PermintaanHargaDetail {
           '',
       workshop: json['mh_workshop']?.toString() ?? '',
       dateOrder: json['mh_dateorder']?.toString() ?? '',
-      createdAtFmt: json['created_at_fmt']?.toString() ??
+      createdAtFmt:
+          json['created_at_fmt']?.toString() ??
           json['date_create']?.toString() ??
           '',
       keterangan: json['mh_ket']?.toString() ?? '',
@@ -263,12 +446,19 @@ class PermintaanHargaDetail {
       nomorCreate: json['nomor_create']?.toString() ?? '',
       salesNama: json['sales_nama']?.toString() ?? '',
       status: json['status']?.toString() ?? json['mh_status']?.toString() ?? '',
-      nomorKalkulasi: (json['mh_nomor_kalkulasi'] != null && json['mh_nomor_kalkulasi'].toString().isNotEmpty)
+      nomorKalkulasi:
+          (json['mh_nomor_kalkulasi'] != null &&
+              json['mh_nomor_kalkulasi'].toString().isNotEmpty)
           ? json['mh_nomor_kalkulasi'].toString()
-          : (kalDetail?['hdr']?['kal_nomor']?.toString() ?? json['nomor_kalkulasi']?.toString() ?? ''),
+          : (kalDetail?['hdr']?['kal_nomor']?.toString() ??
+                json['nomor_kalkulasi']?.toString() ??
+                ''),
       dateKalkulasi: json['mh_date_kalkulasi']?.toString() ?? '',
       ketKalkulasi: json['mh_ket_kalkulasi']?.toString() ?? '',
-      userKalkulasi: json['user_kalkulasi']?.toString() ?? json['mh_apv_usr']?.toString() ?? '',
+      userKalkulasi:
+          json['user_kalkulasi']?.toString() ??
+          json['mh_apv_usr']?.toString() ??
+          '',
       kalRpSales: (json['kal_rpsales'] as num?)?.toDouble() ?? 0.0,
       kalRpSistem: (json['kal_rpsistem'] as num?)?.toDouble() ?? 0.0,
       kalPpn: (json['kal_ppn'] as num?)?.toDouble() ?? 0.0,
@@ -277,4 +467,3 @@ class PermintaanHargaDetail {
     );
   }
 }
-

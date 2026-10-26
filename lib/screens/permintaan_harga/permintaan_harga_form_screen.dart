@@ -613,15 +613,65 @@ class _PermintaanHargaFormScreenState
     if (d.warna.isNotEmpty) _garmenWarna = d.warna.toLowerCase();
     if (_selectedDivisi == '4') {
       final rawUpper = rawKet.toUpperCase();
-      if (rawUpper.contains('KH-0002') || rawUpper.contains('2 WARNA')) {
+      final resolvedKh = d.kodeKh;
+      if (resolvedKh.isNotEmpty) {
+        _garmenKodeModel = resolvedKh;
+      } else if (rawUpper.contains('KH-0002') || rawUpper.contains('2 WARNA')) {
         _garmenKodeModel = 'KH-0002';
       } else if (rawUpper.contains('KH-0001') || rawUpper.contains('1 WARNA')) {
         _garmenKodeModel = 'KH-0001';
       }
-      if (rawUpper.contains('PREMIUM') || rawUpper.contains('P04')) {
+
+      final w = d.workshop.trim().toUpperCase();
+      if (w == 'P04' || w == 'PREMIUM') {
         _garmenWorkshop = 'PREMIUM';
-      } else if (rawUpper.contains('MEDIUM') || rawUpper.contains('P01')) {
+      } else if (w == 'P01' || w == 'MEDIUM') {
         _garmenWorkshop = 'MEDIUM';
+      } else if (rawUpper.contains('PREMIUM') || rawUpper.contains('P04')) {
+        _garmenWorkshop = 'PREMIUM';
+      } else {
+        _garmenWorkshop = 'MEDIUM';
+      }
+
+      if (d.warna.trim().isNotEmpty) {
+        _garmenWarna = d.warna.trim().toLowerCase();
+      } else if (d.kalkulasiDetail?['komponen'] is List) {
+        final kompList = d.kalkulasiDetail!['komponen'] as List;
+        final firstWarna = kompList.firstWhere(
+          (k) => (k['kk_warna']?.toString() ?? '').isNotEmpty,
+          orElse: () => null,
+        );
+        if (firstWarna != null) {
+          _garmenWarna = firstWarna['kk_warna'].toString().toLowerCase();
+        }
+      }
+
+      // Panggil dan isi detail tambahan garmen
+      _garmenSelectedTambahan.clear();
+      _garmenSelectedTambahan.addAll(d.garmenTambahanList);
+
+      // Panggil dan isi detail cetak garmen (Sablon, DTF, Bordir, Sublim, dll)
+      _garmenSelectedCetak.clear();
+      _garmenSelectedCetak.addAll(d.garmenCetakList);
+
+      final tambahanKey = _garmenSelectedTambahan
+          .map((t) => '${t['ket']}:${t['tarif']}')
+          .join(';');
+      final cetakKey = _garmenSelectedCetak
+          .map((c) => '${c['jenis']}:${c['ket']}:${c['biaya']}')
+          .join(';');
+      _garmenCalculatedParams =
+          '$_garmenKodeModel|$_garmenJenisKain|$_garmenWarna|${_qtyController.text}|$_garmenWorkshop|$tambahanKey|$cetakKey|$_includePpn|${_currentOngkirResult.ongkirPerPcs}';
+    } else if (_selectedDivisi == '1') {
+      final rawUpper = rawKet.toUpperCase();
+      if (rawUpper.contains('MACHINE') ||
+          rawUpper.contains('PRINT') ||
+          rawUpper.contains('CETAK MESIN')) {
+        _spandukMetode = 'MACHINE';
+      } else if (rawUpper.contains('MANUAL') ||
+          rawUpper.contains('SABLON') ||
+          rawUpper.contains('SABLON MANUAL')) {
+        _spandukMetode = 'MANUAL';
       }
     }
     if (d.proNomor.isNotEmpty) _praOrderNomor = d.proNomor;
@@ -787,6 +837,29 @@ class _PermintaanHargaFormScreenState
                   ((matched['biaya'] ?? matched['mhb_biaya'] ?? 0) as num)
                       .toInt();
               _garmenSelectedCetak[i]['biaya'] = newBiaya;
+            }
+          }
+
+          // Sinkronkan item tambahan terpilih jika ada di master baru
+          for (int i = 0; i < _garmenSelectedTambahan.length; i++) {
+            final selected = _garmenSelectedTambahan[i];
+            final matched = tambahan.firstWhere(
+              (t) =>
+                  (t['mhb_ket'] ?? t['ket'] ?? t['nama'] ?? '')
+                      .toString()
+                      .toLowerCase() ==
+                  (selected['ket'] ?? '').toString().toLowerCase(),
+              orElse: () => <String, dynamic>{},
+            );
+            if (matched.isNotEmpty) {
+              final newTarif = ((matched['biaya'] ??
+                      matched['mhb_biaya'] ??
+                      matched['tarif'] ??
+                      0) as num)
+                  .toInt();
+              if (newTarif > 0) {
+                _garmenSelectedTambahan[i]['tarif'] = newTarif;
+              }
             }
           }
         });
@@ -3098,34 +3171,6 @@ class _PermintaanHargaFormScreenState
                           style: TextStyle(
                             color: Color(0xFFEF4444),
                             fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  InkWell(
-                    onTap: () async {
-                      final refresh = await context.push<bool>(
-                        '/permintaan-harga/tambah-customer',
-                      );
-                      if (refresh == true && _selectedCustomerKode.isNotEmpty) {
-                        _fetchCustomerHistory(_selectedCustomerKode);
-                      }
-                    },
-                    child: Row(
-                      children: const [
-                        Icon(
-                          Icons.person_add_alt_1_rounded,
-                          size: 14,
-                          color: Color(0xFF4F46E5),
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          '+ Customer Baru',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF4F46E5),
                           ),
                         ),
                       ],

@@ -72,7 +72,6 @@ class AppRoutes {
 
   // Customer
   static const String customer = '/customer';
-  static const String tambahCustomer = '/customer/tambah';
 
   // Visit
   static const String visit = '/visit';
