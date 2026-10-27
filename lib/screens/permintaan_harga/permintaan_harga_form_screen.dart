@@ -412,7 +412,8 @@ class _PermintaanHargaFormScreenState
   Map<String, dynamic>? _masterOptions;
 
   // Pengiriman & Ongkos Kirim
-  String _alokasiOngkir = 'Tanpa Ongkir';
+  String? _ongkirMode; // null = belum dipilih, 'TANPA_ONGKIR', 'DENGAN_ONGKIR'
+  String _alokasiOngkir = '';
 
   final _namaDaerahKirimController = TextEditingController();
   bool _isCustomOngkir = false;
@@ -494,9 +495,19 @@ class _PermintaanHargaFormScreenState
 
     // Deteksi ongkir dari initial
     if (d.ongkir > 0) {
+      _ongkirMode = 'DENGAN_ONGKIR';
       _alokasiOngkir = 'Custom';
       _isCustomOngkir = true;
       _customOngkirValController.text = d.ongkir.toInt().toString();
+    } else if (d.keterangan.toLowerCase().contains('kirim ke')) {
+      _ongkirMode = 'DENGAN_ONGKIR';
+      _isCustomOngkir = false;
+    } else if (d.keterangan.toLowerCase().contains('tanpa ongkir')) {
+      _ongkirMode = 'TANPA_ONGKIR';
+      _alokasiOngkir = 'Tanpa Ongkir';
+    } else {
+      _ongkirMode = 'TANPA_ONGKIR';
+      _alokasiOngkir = 'Tanpa Ongkir';
     }
 
     // Deteksi PPN & Keterangan Kalkulasi
@@ -1057,17 +1068,21 @@ class _PermintaanHargaFormScreenState
   void _syncOngkirKet(String daerah) {
     final trimmed = daerah.trim();
     final regex = RegExp(
-      r'(?:[;,.\s]*\b(?:include\s+)?(?:ongkir\s+)?kirim\s+ke\s+[^,;\n]+|[;,.\s]*\b(?:include\s+)?ongkir\s+ke\s+[^,;\n]+)',
+      r'(?:[;,.\s]*\b(?:include\s+)?(?:ongkir\s+)?kirim\s+ke\s+[^,;\n]+|[;,.\s]*\b(?:include\s+)?ongkir\s+ke\s+[^,;\n]+|[;,.\s]*\bTanpa Ongkir\b)',
       caseSensitive: false,
     );
     String cleanKet = _keteranganController.text.replaceAll(regex, '').trim();
     cleanKet = cleanKet.replaceAll(RegExp(r'^[;,.\s]+|[;,.\s]+$'), '');
 
-    if (trimmed.isEmpty || trimmed.toLowerCase() == 'tanpa ongkir') {
-      _keteranganController.text = cleanKet;
-    } else {
+    if (trimmed.toLowerCase() == 'tanpa ongkir') {
+      _keteranganController.text =
+          cleanKet.isEmpty ? 'Tanpa Ongkir' : '$cleanKet; Tanpa Ongkir';
+    } else if (trimmed.isNotEmpty) {
       final inc = 'Include kirim ke $trimmed';
-      _keteranganController.text = cleanKet.isEmpty ? inc : '$cleanKet; $inc';
+      _keteranganController.text =
+          cleanKet.isEmpty ? inc : '$cleanKet; $inc';
+    } else {
+      _keteranganController.text = cleanKet;
     }
   }
 
@@ -1908,10 +1923,16 @@ class _PermintaanHargaFormScreenState
       }
     }
 
-    // 4. Validasi Pengiriman & Ongkir
-    if (_alokasiOngkir != 'Tanpa Ongkir' &&
-        _namaDaerahKirimController.text.trim().isEmpty) {
-      return 'Kota/daerah tujuan pengiriman wajib diisi jika memilih Dengan Ongkir';
+    // 4. Validasi Pengiriman & Ongkir (Wajib Diisi)
+    if (_ongkirMode == null) {
+      return 'Pengiriman & Ongkir wajib dipilih (Tanpa Ongkir atau Dengan Ongkir)';
+    }
+    if (_ongkirMode == 'DENGAN_ONGKIR') {
+      final customVal = _toNumCurrency(_customOngkirValController.text);
+      if (_namaDaerahKirimController.text.trim().isEmpty &&
+          (!_isCustomOngkir || customVal <= 0)) {
+        return 'Kota/daerah tujuan pengiriman wajib diisi jika memilih Dengan Ongkir';
+      }
     }
 
     return null;
@@ -1958,13 +1979,11 @@ class _PermintaanHargaFormScreenState
   // --- SUBMIT FINAL ---
   Future<void> _showConfirmSubmitDialog({required bool isBypass}) async {
     final qty = _toNumCurrency(_qtyController.text);
-    int finalHargaPengajuan = _toNumCurrency(_hargaMintaController.text);
-    if (finalHargaPengajuan == 0 && _hargaKalkulasi > 0) {
-      finalHargaPengajuan = _hargaKalkulasi;
-    }
+    final int finalHargaPengajuan = _toNumCurrency(_hargaMintaController.text);
 
     final int unitCalc = isBypass ? 0 : _hargaKalkulasi;
-    final bool isUnderCalc = unitCalc > 0 && finalHargaPengajuan < unitCalc;
+    final bool isUnderCalc =
+        unitCalc > 0 && (finalHargaPengajuan == 0 || finalHargaPengajuan < unitCalc);
     if (!isBypass &&
         isUnderCalc &&
         _alasanPengajuanController.text.trim().isEmpty) {
@@ -2135,10 +2154,55 @@ class _PermintaanHargaFormScreenState
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Harga permintaan harga lebih rendah Rp ${_formatNumberDisplay(diff)}/pcs ( - Rp ${_formatNumberDisplay(totalDiff)} ) dari kalkulasi harga.',
+                              finalHargaPengajuan == 0
+                                  ? 'Harga permintaan diisi Rp 0, permintaan harga diajukan sebagai NEGO dan memerlukan persetujuan.'
+                                  : 'Harga permintaan harga lebih rendah Rp ${_formatNumberDisplay(diff)}/pcs ( - Rp ${_formatNumberDisplay(totalDiff)} ) dari kalkulasi harga.',
                               style: const TextStyle(
                                 fontSize: 11,
                                 color: Color(0xFF92400E),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else if (_selectedDivisi == '1' || _selectedDivisi == '5')
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFBBF7D0)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.check_circle_rounded,
+                        size: 18,
+                        color: Color(0xFF16A34A),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Text(
+                              'STATUS: DONE (Otomatis Disetujui)',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF15803D),
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              'Harga permintaan memenuhi atau di atas standar kalkulasi sistem.',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF166534),
                               ),
                             ),
                           ],
@@ -2287,11 +2351,7 @@ class _PermintaanHargaFormScreenState
     final ymdFormat = DateFormat('yyyy-MM-dd');
 
     final qty = _toNumCurrency(_qtyController.text);
-    int finalHargaPengajuan = _toNumCurrency(_hargaMintaController.text);
-    if (finalHargaPengajuan == 0 && _hargaKalkulasi > 0) {
-      finalHargaPengajuan = _hargaKalkulasi;
-    }
-
+    final int finalHargaPengajuan = _toNumCurrency(_hargaMintaController.text);
     final int finalHargaKalkulasi = isDirectBypass ? 0 : _hargaKalkulasi;
 
     // Susun String ket_kalkulasi sesuai spesifikasi React Native
@@ -2424,18 +2484,24 @@ class _PermintaanHargaFormScreenState
         final isDone =
             !isDirectBypass &&
             finalHargaKalkulasi > 0 &&
+            finalHargaPengajuan > 0 &&
             finalHargaPengajuan >= finalHargaKalkulasi;
         final isNego =
             !isDirectBypass &&
             finalHargaKalkulasi > 0 &&
-            finalHargaPengajuan < finalHargaKalkulasi;
+            (finalHargaPengajuan == 0 ||
+                finalHargaPengajuan < finalHargaKalkulasi);
 
+        final isAutoDoneDivisi =
+            _selectedDivisi == '1' || _selectedDivisi == '5';
         final successMessage = _isEditMode
             ? 'Permintaan harga berhasil diperbarui'
             : (isDirectBypass || finalHargaKalkulasi <= 0
                   ? 'Permintaan harga berhasil diajukan (Status: BELUM)'
                   : (isDone
-                        ? 'Permintaan harga berhasil diajukan (Status: BELUM DIVERIFIKASI)'
+                        ? (isAutoDoneDivisi
+                            ? 'Permintaan harga berhasil diajukan (Status: DONE - Disetujui Otomatis)'
+                            : 'Permintaan harga berhasil diajukan (Status: BELUM DIVERIFIKASI)')
                         : (isNego
                               ? 'Permintaan harga berhasil diajukan (Status: NEGO - Menunggu Persetujuan)'
                               : 'Permintaan harga berhasil disimpan')));
@@ -4841,10 +4907,16 @@ class _PermintaanHargaFormScreenState
             Expanded(
               child: _buildSelectablePill(
                 'Tanpa Ongkir',
-                _alokasiOngkir == 'Tanpa Ongkir',
+                _ongkirMode == 'TANPA_ONGKIR',
                 () {
-                  setState(() => _alokasiOngkir = 'Tanpa Ongkir');
-                  _syncOngkirKet('');
+                  setState(() {
+                    _ongkirMode = 'TANPA_ONGKIR';
+                    _alokasiOngkir = 'Tanpa Ongkir';
+                    _isCustomOngkir = false;
+                    _customOngkirValController.clear();
+                    _namaDaerahKirimController.clear();
+                  });
+                  _syncOngkirKet('Tanpa Ongkir');
                 },
               ),
             ),
@@ -4852,12 +4924,15 @@ class _PermintaanHargaFormScreenState
             Expanded(
               child: _buildSelectablePill(
                 'Dengan Ongkir',
-                _alokasiOngkir != 'Tanpa Ongkir',
+                _ongkirMode == 'DENGAN_ONGKIR',
                 () {
-                  if (_alokasiOngkir == 'Tanpa Ongkir') {
-                    setState(() => _alokasiOngkir = 'Jakarta');
-                    _syncOngkirKet('Jakarta');
-                  }
+                  setState(() {
+                    _ongkirMode = 'DENGAN_ONGKIR';
+                    if (_alokasiOngkir == 'Tanpa Ongkir' || _alokasiOngkir.isEmpty) {
+                      _alokasiOngkir = '';
+                    }
+                  });
+                  _syncOngkirKet(_namaDaerahKirimController.text.trim());
                 },
               ),
             ),
@@ -4865,7 +4940,36 @@ class _PermintaanHargaFormScreenState
         ),
         const SizedBox(height: 8),
 
-        if (_alokasiOngkir == 'Tanpa Ongkir')
+        if (_ongkirMode == null)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFFBEB),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFFDE68A)),
+            ),
+            child: Row(
+              children: const [
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 18,
+                  color: Color(0xFFD97706),
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Wajib dipilih: Tentukan opsi pengiriman Tanpa Ongkir atau Dengan Ongkir.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFB45309),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else if (_ongkirMode == 'TANPA_ONGKIR')
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
@@ -8732,13 +8836,15 @@ class _PermintaanHargaFormScreenState
                   ),
                   children: [
                     TextSpan(
-                      text: finalHarga < _hargaKalkulasi && _hargaKalkulasi > 0
+                      text: (finalHarga == 0 || finalHarga < _hargaKalkulasi) &&
+                              _hargaKalkulasi > 0
                           ? '(Wajib Diisi)*'
                           : '(Opsional)',
                       style: TextStyle(
                         fontSize: 11,
-                        color:
-                            finalHarga < _hargaKalkulasi && _hargaKalkulasi > 0
+                        color: (finalHarga == 0 ||
+                                    finalHarga < _hargaKalkulasi) &&
+                                _hargaKalkulasi > 0
                             ? const Color(0xFFEF4444)
                             : const Color(0xFF94A3B8),
                         fontWeight: FontWeight.bold,
