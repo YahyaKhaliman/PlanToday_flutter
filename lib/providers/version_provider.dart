@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/constants/app_constants.dart';
@@ -23,6 +26,14 @@ class VersionState {
   final String? apkUrl;
   final String? releaseNotes;
 
+  // Unduhan APK In-App
+  final bool isDownloading;
+  final double downloadProgress; // 0.0 - 1.0
+  final int downloadedBytes;
+  final int totalBytes;
+  final String? downloadedApkPath;
+  final String? downloadError;
+
   const VersionState({
     this.currentVersion = '1.0.0',
     this.currentBuildNumber = '1',
@@ -33,6 +44,12 @@ class VersionState {
     this.isMandatory = false,
     this.apkUrl,
     this.releaseNotes,
+    this.isDownloading = false,
+    this.downloadProgress = 0.0,
+    this.downloadedBytes = 0,
+    this.totalBytes = 0,
+    this.downloadedApkPath,
+    this.downloadError,
   });
 
   String get fullCurrentVersion => '$currentVersion+$currentBuildNumber';
@@ -40,6 +57,29 @@ class VersionState {
       (latestVersion != null && latestBuildNumber != null)
           ? '$latestVersion+$latestBuildNumber'
           : (latestVersion ?? '');
+
+  bool get isApkReady {
+    if (kIsWeb) return false;
+    if (downloadedApkPath == null || downloadedApkPath!.isEmpty) return false;
+    try {
+      return File(downloadedApkPath!).existsSync();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  String formatProgressText() {
+    if (totalBytes <= 0) {
+      if (downloadedBytes > 0) {
+        return '${(downloadedBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+      }
+      return '${(downloadProgress * 100).toInt()}%';
+    }
+    final currentMb = (downloadedBytes / (1024 * 1024)).toStringAsFixed(1);
+    final totalMb = (totalBytes / (1024 * 1024)).toStringAsFixed(1);
+    final percent = (downloadProgress * 100).toInt();
+    return '$percent% ($currentMb MB / $totalMb MB)';
+  }
 
   VersionState copyWith({
     String? currentVersion,
@@ -51,6 +91,12 @@ class VersionState {
     bool? isMandatory,
     String? apkUrl,
     String? releaseNotes,
+    bool? isDownloading,
+    double? downloadProgress,
+    int? downloadedBytes,
+    int? totalBytes,
+    String? downloadedApkPath,
+    String? downloadError,
   }) {
     return VersionState(
       currentVersion: currentVersion ?? this.currentVersion,
@@ -62,6 +108,12 @@ class VersionState {
       isMandatory: isMandatory ?? this.isMandatory,
       apkUrl: apkUrl ?? this.apkUrl,
       releaseNotes: releaseNotes ?? this.releaseNotes,
+      isDownloading: isDownloading ?? this.isDownloading,
+      downloadProgress: downloadProgress ?? this.downloadProgress,
+      downloadedBytes: downloadedBytes ?? this.downloadedBytes,
+      totalBytes: totalBytes ?? this.totalBytes,
+      downloadedApkPath: downloadedApkPath ?? this.downloadedApkPath,
+      downloadError: downloadError ?? this.downloadError,
     );
   }
 }
@@ -70,11 +122,12 @@ class VersionNotifier extends Notifier<VersionState> {
   Timer? _pollingTimer;
   AppLifecycleListener? _lifecycleListener;
   DateTime? _lastCheckTime;
+  CancelToken? _downloadCancelToken;
 
   final Dio _dio = Dio(
     BaseOptions(
-      connectTimeout: const Duration(seconds: 8),
-      receiveTimeout: const Duration(seconds: 8),
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 60),
     ),
   );
 
@@ -84,6 +137,7 @@ class VersionNotifier extends Notifier<VersionState> {
     ref.onDispose(() {
       _pollingTimer?.cancel();
       _lifecycleListener?.dispose();
+      _downloadCancelToken?.cancel();
     });
     return const VersionState();
   }
@@ -222,7 +276,7 @@ class VersionNotifier extends Notifier<VersionState> {
   }
 
   Future<void> checkForUpdate({bool force = false}) async {
-    if (state.isChecking) return;
+    if (state.isChecking || state.isDownloading) return;
 
     final now = DateTime.now();
     if (!force &&
@@ -295,8 +349,116 @@ class VersionNotifier extends Notifier<VersionState> {
   }
 
   void dismissUpdateNotification() {
-    if (state.isMandatory) return;
+    if (state.isMandatory || state.isDownloading) return;
     state = state.copyWith(hasUpdate: false);
+  }
+
+  /// Memulai unduhan APK langsung di latar belakang aplikasi
+  Future<void> startDownloadApk() async {
+    if (kIsWeb || state.isDownloading) return;
+
+    final downloadUrl = state.apkUrl?.isNotEmpty == true
+        ? state.apkUrl!
+        : 'http://103.94.238.252:8182/releases/PlanToday-latest.apk';
+
+    try {
+      state = state.copyWith(
+        isDownloading: true,
+        downloadProgress: 0.0,
+        downloadedBytes: 0,
+        totalBytes: 0,
+        downloadError: null,
+      );
+
+      final tempDir = await getTemporaryDirectory();
+      final targetBuild = state.latestBuildNumber ?? 'latest';
+      final apkFilePath = '${tempDir.path}/plantoday_update_$targetBuild.apk';
+      final apkFile = File(apkFilePath);
+
+      // Bersihkan file sisa jika sebelumnya ada unduhan gagal
+      if (await apkFile.exists()) {
+        try {
+          await apkFile.delete();
+        } catch (_) {}
+      }
+
+      _downloadCancelToken = CancelToken();
+
+      await _dio.download(
+        downloadUrl,
+        apkFilePath,
+        cancelToken: _downloadCancelToken,
+        onReceiveProgress: (received, total) {
+          if (total > 0) {
+            final progress = (received / total).clamp(0.0, 1.0);
+            state = state.copyWith(
+              downloadProgress: progress,
+              downloadedBytes: received,
+              totalBytes: total,
+            );
+          } else {
+            state = state.copyWith(
+              downloadedBytes: received,
+            );
+          }
+        },
+      );
+
+      state = state.copyWith(
+        isDownloading: false,
+        downloadProgress: 1.0,
+        downloadedApkPath: apkFilePath,
+        downloadError: null,
+      );
+    } catch (e) {
+      if (e is DioException && CancelToken.isCancel(e)) {
+        state = state.copyWith(isDownloading: false);
+        return;
+      }
+      state = state.copyWith(
+        isDownloading: false,
+        downloadError: 'Gagal mengunduh APK: $e',
+      );
+    }
+  }
+
+  void cancelDownload() {
+    _downloadCancelToken?.cancel();
+    state = state.copyWith(isDownloading: false);
+  }
+
+  /// Memicu installer paket bawaan Android untuk menginstal berkas APK
+  Future<OpenResult?> installApk() async {
+    if (kIsWeb) return null;
+    final path = state.downloadedApkPath;
+    if (path == null || !File(path).existsSync()) {
+      await startDownloadApk();
+      if (state.downloadedApkPath == null) return null;
+    }
+
+    try {
+      final result = await OpenFilex.open(
+        state.downloadedApkPath!,
+        type: 'application/vnd.android.package-archive',
+      );
+      return result;
+    } catch (e) {
+      state = state.copyWith(
+        downloadError: 'Gagal membuka installer APK: $e',
+      );
+      return null;
+    }
+  }
+
+  /// Cadangan jika perangkat membatasi instalasi lokal langsung
+  Future<void> openInBrowserFallback() async {
+    final downloadUrl = state.apkUrl?.isNotEmpty == true
+        ? state.apkUrl!
+        : 'http://103.94.238.252:8182/releases/PlanToday-latest.apk';
+    final uri = Uri.parse(downloadUrl);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   Future<void> applyUpdateAndReload() async {
@@ -309,12 +471,10 @@ class VersionNotifier extends Notifier<VersionState> {
       } catch (_) {}
       reloadWebPage();
     } else {
-      final downloadUrl = state.apkUrl?.isNotEmpty == true
-          ? state.apkUrl!
-          : 'http://103.94.238.252:8182/releases/PlanToday-latest.apk';
-      final uri = Uri.parse(downloadUrl);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (state.isApkReady) {
+        await installApk();
+      } else {
+        await startDownloadApk();
       }
     }
   }

@@ -38,6 +38,17 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
     final versionState = ref.watch(versionProvider);
     final isMobile = ResponsiveHelper.isMobile(context);
 
+    // Otomatis munculkan pop up panduan pemasangan saat download selesai 100%
+    ref.listen<VersionState>(versionProvider, (previous, next) {
+      if (previous != null &&
+          previous.isDownloading &&
+          !next.isDownloading &&
+          next.isApkReady &&
+          context.mounted) {
+        _showInstallGuideDialog(context, next);
+      }
+    });
+
     return Material(
       color: Colors.transparent,
       child: Column(
@@ -164,6 +175,7 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
   Widget _buildGradientReloadButton({
     required String label,
     required VoidCallback onPressed,
+    IconData? iconData,
     bool fullWidth = false,
   }) {
     return Container(
@@ -180,7 +192,11 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
       ),
       child: ElevatedButton.icon(
         onPressed: onPressed,
-        icon: const Icon(Icons.refresh_rounded, size: 15, color: Colors.white),
+        icon: Icon(
+          iconData ?? (kIsWeb ? Icons.refresh_rounded : Icons.download_rounded),
+          size: 15,
+          color: Colors.white,
+        ),
         label: Text(
           label,
           style: const TextStyle(
@@ -204,6 +220,61 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
   }
 
   Widget _buildMobileContent(VersionState versionState) {
+    // 1. Tampilan saat proses unduh APK sedang berlangsung
+    if (versionState.isDownloading) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const SizedBox(
+                width: 15,
+                height: 15,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Mengunduh Pembaruan... ${(versionState.downloadProgress * 100).toInt()}%',
+                  style: const TextStyle(
+                    color: AppColors.ink,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12.5,
+                  ),
+                ),
+              ),
+              Text(
+                versionState.formatProgressText(),
+                style: const TextStyle(
+                  color: AppColors.muted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: versionState.downloadProgress > 0
+                  ? versionState.downloadProgress
+                  : null,
+              minHeight: 6,
+              backgroundColor: const Color(0xFFE2E8F0),
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(AppColors.primary),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // 2. Tampilan normal banner
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -287,30 +358,102 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
           )
         else
           Text(
-            versionState.releaseNotes?.isNotEmpty == true
-                ? versionState.releaseNotes!
-                : (versionState.isMandatory
-                    ? '⚠️ Pembaruan penting wajib diunduh untuk melanjutkan pemakaian aplikasi.'
-                    : 'File APK versi baru telah tersedia. Unduh dan pasang pembaruan sekarang.'),
-            style: const TextStyle(
-              color: AppColors.muted,
+            versionState.downloadError != null
+                ? '⚠️ ${versionState.downloadError}'
+                : (versionState.isApkReady
+                    ? 'Berkas APK versi baru telah siap dipasang ke perangkat.'
+                    : (versionState.releaseNotes?.isNotEmpty == true
+                        ? versionState.releaseNotes!
+                        : (versionState.isMandatory
+                            ? '⚠️ Pembaruan penting wajib diunduh untuk melanjutkan pemakaian aplikasi.'
+                            : 'Pembaruan aplikasi versi baru tersedia. Unduh dan pasang langsung dalam aplikasi.'))),
+            style: TextStyle(
+              color: versionState.downloadError != null
+                  ? const Color(0xFFEF4444)
+                  : AppColors.muted,
               fontSize: 11,
               height: 1.35,
             ),
           ),
         const SizedBox(height: 8),
-        _buildGradientReloadButton(
-          label: kIsWeb ? 'Muat Ulang Sekarang' : 'Unduh & Pasang Update (APK)',
-          fullWidth: true,
-          onPressed: () {
-            ref.read(versionProvider.notifier).applyUpdateAndReload();
-          },
-        ),
+        if (!kIsWeb && versionState.isApkReady)
+          _buildGradientReloadButton(
+            label: 'Pasang Pembaruan Sekarang',
+            iconData: Icons.install_mobile_rounded,
+            fullWidth: true,
+            onPressed: () => _showInstallGuideDialog(context, versionState),
+          )
+        else
+          _buildGradientReloadButton(
+            label: kIsWeb
+                ? 'Muat Ulang Sekarang'
+                : (versionState.downloadError != null
+                    ? 'Coba Unduh Ulang'
+                    : 'Unduh & Pasang Update'),
+            iconData: kIsWeb ? Icons.refresh_rounded : Icons.download_rounded,
+            fullWidth: true,
+            onPressed: () {
+              if (kIsWeb) {
+                ref.read(versionProvider.notifier).applyUpdateAndReload();
+              } else {
+                ref.read(versionProvider.notifier).startDownloadApk();
+              }
+            },
+          ),
       ],
     );
   }
 
   Widget _buildDesktopContent(VersionState versionState) {
+    if (versionState.isDownloading) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.2,
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            'Mengunduh Pembaruan... ${(versionState.downloadProgress * 100).toInt()}%',
+            style: const TextStyle(
+              color: AppColors.ink,
+              fontWeight: FontWeight.w900,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: versionState.downloadProgress > 0
+                    ? versionState.downloadProgress
+                    : null,
+                minHeight: 7,
+                backgroundColor: const Color(0xFFE2E8F0),
+                valueColor:
+                    const AlwaysStoppedAnimation<Color>(AppColors.primary),
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Text(
+            versionState.formatProgressText(),
+            style: const TextStyle(
+              color: AppColors.muted,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      );
+    }
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -370,12 +513,18 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
                         ),
                       )
                     : Text(
-                        versionState.releaseNotes?.isNotEmpty == true
-                            ? versionState.releaseNotes!
-                            : 'Pembaruan aplikasi versi baru telah tersedia di server.',
+                        versionState.downloadError != null
+                            ? '⚠️ ${versionState.downloadError}'
+                            : (versionState.isApkReady
+                                ? 'Berkas APK versi baru telah siap dipasang ke perangkat.'
+                                : (versionState.releaseNotes?.isNotEmpty == true
+                                    ? versionState.releaseNotes!
+                                    : 'Pembaruan aplikasi versi baru telah tersedia di server.')),
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.muted,
+                        style: TextStyle(
+                          color: versionState.downloadError != null
+                              ? const Color(0xFFEF4444)
+                              : AppColors.muted,
                           fontSize: 11.5,
                         ),
                       ),
@@ -384,12 +533,28 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
           ),
         ),
         const SizedBox(width: 14),
-        _buildGradientReloadButton(
-          label: kIsWeb ? 'Muat Ulang' : 'Unduh APK',
-          onPressed: () {
-            ref.read(versionProvider.notifier).applyUpdateAndReload();
-          },
-        ),
+        if (!kIsWeb && versionState.isApkReady)
+          _buildGradientReloadButton(
+            label: 'Pasang Pembaruan',
+            iconData: Icons.install_mobile_rounded,
+            onPressed: () => _showInstallGuideDialog(context, versionState),
+          )
+        else
+          _buildGradientReloadButton(
+            label: kIsWeb
+                ? 'Muat Ulang'
+                : (versionState.downloadError != null
+                    ? 'Coba Lagi'
+                    : 'Unduh & Pasang'),
+            iconData: kIsWeb ? Icons.refresh_rounded : Icons.download_rounded,
+            onPressed: () {
+              if (kIsWeb) {
+                ref.read(versionProvider.notifier).applyUpdateAndReload();
+              } else {
+                ref.read(versionProvider.notifier).startDownloadApk();
+              }
+            },
+          ),
         if (!versionState.isMandatory) ...[
           const SizedBox(width: 6),
           IconButton(
@@ -404,6 +569,247 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
             splashRadius: 18,
           ),
         ],
+      ],
+    );
+  }
+
+  /// Pop-up dialog edukasi dan panduan izin pemasangan APK yang ramah untuk user awam
+  void _showInstallGuideDialog(
+    BuildContext context,
+    VersionState versionState,
+  ) {
+    showDialog(
+      context: context,
+      barrierDismissible: !versionState.isMandatory,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Colors.white,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 420),
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header Icon
+              Center(
+                child: Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    shape: BoxShape.circle,
+                    border:
+                        Border.all(color: const Color(0xFFBFDBFE), width: 1.5),
+                  ),
+                  child: const Icon(
+                    Icons.security_update_good_rounded,
+                    color: Color(0xFF2563EB),
+                    size: 30,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Title & Badge
+              const Center(
+                child: Text(
+                  'Pembaruan Siap Dipasang',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF0F172A),
+                    letterSpacing: -0.3,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Center(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Versi Baru: v${versionState.fullLatestVersion}',
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Panduan Card Informatif untuk User Awam
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Petunjuk Pemasangan Cepat:',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF1E293B),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    _buildStepRow(
+                      '1',
+                      'Tekan tombol Lanjutkan Pasang di bawah.',
+                    ),
+                    const SizedBox(height: 8),
+                    _buildStepRow(
+                      '2',
+                      'Jika muncul peringatan keamanan sistem Android, pilih tombol Setelan / Pengaturan.',
+                    ),
+                    const SizedBox(height: 8),
+                    _buildStepRow(
+                      '3',
+                      'Aktifkan sakelar "Izinkan dari sumber ini", lalu tekan tombol Kembali dan pilih Instal.',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Info Box Keamanan
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFBBF7D0)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Icon(
+                      Icons.verified_user_rounded,
+                      size: 16,
+                      color: Color(0xFF16A34A),
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Aman: Ini adalah prosedur resmi Android untuk memperbarui aplikasi internal perusahaan langsung tanpa melalui Play Store.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF166534),
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              // Tombol Aksi
+              Row(
+                children: [
+                  if (!versionState.isMandatory) ...[
+                    Expanded(
+                      flex: 4,
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          side: const BorderSide(color: Color(0xFFCBD5E1)),
+                        ),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        child: const Text(
+                          'Nanti',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                  ],
+                  Expanded(
+                    flex: 6,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: 1,
+                      ),
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        ref.read(versionProvider.notifier).installApk();
+                      },
+                      icon: const Icon(Icons.install_mobile_rounded, size: 18),
+                      label: const Text(
+                        'Lanjutkan Pasang',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStepRow(String number, String text) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 20,
+          height: 20,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: const Color(0xFF2563EB).withValues(alpha: 0.12),
+            shape: BoxShape.circle,
+          ),
+          child: Text(
+            number,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF2563EB),
+            ),
+          ),
+        ),
+        const SizedBox(width: 9),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF334155),
+              height: 1.35,
+            ),
+          ),
+        ),
       ],
     );
   }
