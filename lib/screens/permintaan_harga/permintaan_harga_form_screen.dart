@@ -5638,7 +5638,7 @@ class _PermintaanHargaFormScreenState
                       final String label = qmax >= 99999
                           ? '≥ $qmin M'
                           : '$qmin - $qmax M';
-                      final tarif = s['up'] ?? 0;
+                      final tarif = s['harga'] ?? s['tarif'] ?? s['up'] ?? 0;
 
                       return Container(
                         color: isActive
@@ -9619,7 +9619,17 @@ class _PermintaanHargaFormScreenState
   List<Map<String, dynamic>> get _availableMmtToppingOptions {
     final raw = _masterOptions?['topping'] as List<dynamic>?;
     if (raw != null) {
-      return raw.map((item) => Map<String, dynamic>.from(item as Map)).toList();
+      return raw
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .where((item) {
+            final kode = (item['kode'] ?? '').toString().toUpperCase();
+            final nama = (item['nama'] ?? '').toString().toUpperCase();
+            final kat = (item['kategori'] ?? '').toString().toUpperCase();
+            return !kode.contains('SELONGSONG') &&
+                !nama.contains('SELONGSONG') &&
+                !kat.contains('SELONGSONG');
+          })
+          .toList();
     }
     return [];
   }

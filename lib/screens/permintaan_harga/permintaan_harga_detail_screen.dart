@@ -83,13 +83,132 @@ String _formatNumber(dynamic n) {
   return NumberFormat.decimalPattern('id_ID').format(num);
 }
 
-String _formatOngkirLabel(PermintaanHargaDetail d) {
+class OngkirExtractionResult {
+  final bool hasOngkir;
+  final bool isFreeOngkir;
+  final String alokasi;
+  final double ongkirPerPcs;
+  final double totalOngkir;
+
+  const OngkirExtractionResult({
+    required this.hasOngkir,
+    this.isFreeOngkir = false,
+    this.alokasi = '',
+    this.ongkirPerPcs = 0.0,
+    this.totalOngkir = 0.0,
+  });
+}
+
+OngkirExtractionResult extractOngkirInfo(PermintaanHargaDetail d) {
   final rawText = '${d.keterangan} ${d.ketKalkulasi}'.trim();
-  final detected = OngkirEngine.detectAlokasiFromText(rawText);
-  if (detected != null && detected.alokasi.isNotEmpty) {
-    return 'Rp ${_formatNumber(d.ongkir)} (${detected.alokasi})';
+  final upper = rawText.toUpperCase();
+  final qty = d.jmlOrder > 0 ? d.jmlOrder : 1.0;
+
+  // 1. Cek apakah eksplisit TANPA / EXCLUDE ongkir
+  final isExplicitExclude = upper.contains('EXC ONGKIR') ||
+      upper.contains('EXCLUDE ONGKIR') ||
+      upper.contains('EXCONGKIR') ||
+      upper.contains('TANPA ONGKIR') ||
+      upper.contains('BLM TERMASUK ONGKIR') ||
+      upper.contains('BELUM TERMASUK ONGKIR');
+
+  // 2. Ambil nilai langsung dari database / dtl jika ada
+  final dtlKirim =
+      (d.kalkulasiDetail?['dtl']?['kald_rpkirim'] as num?)?.toDouble() ?? 0.0;
+  final dbOngkir = d.ongkir > 0 ? d.ongkir : 0.0;
+
+  if (dtlKirim > 0 || dbOngkir > 0) {
+    final perPcs = dtlKirim > 0
+        ? dtlKirim
+        : (qty > 0 ? (dbOngkir / qty).roundToDouble() : dbOngkir);
+    final total = dbOngkir > 0 ? dbOngkir : (perPcs * qty).roundToDouble();
+    final detected = OngkirEngine.detectAlokasiFromText(rawText);
+    final alokasiName = detected?.alokasi ?? '';
+
+    return OngkirExtractionResult(
+      hasOngkir: true,
+      isFreeOngkir: total <= 0 && perPcs <= 0,
+      alokasi: alokasiName,
+      ongkirPerPcs: perPcs,
+      totalOngkir: total,
+    );
   }
-  return 'Rp ${_formatNumber(d.ongkir)}';
+
+  // Jika eksplisit exclude ongkir dan database tidak punya data ongkir > 0
+  if (isExplicitExclude) {
+    return const OngkirExtractionResult(hasOngkir: false);
+  }
+
+  // 3. Cek apakah teks menandakan INCLUDE ongkir atau terdapat deteksi alokasi
+  final hasIncOngkirKeyword = upper.contains('INC ONGKIR') ||
+      upper.contains('INCLUDE ONGKIR') ||
+      upper.contains('INCONGKIR') ||
+      upper.contains('TERMASUK ONGKIR') ||
+      upper.contains('HARGA INCLUDE KIRIM') ||
+      upper.contains('INCLUDE KIRIM') ||
+      upper.contains('INC KIRIM') ||
+      upper.contains('BIAYA KIRIM');
+
+  final detected = OngkirEngine.detectAlokasiFromText(rawText);
+
+  if (hasIncOngkirKeyword || detected != null) {
+    final alokasiTarget = detected?.alokasi ?? 'Jakarta';
+
+    // Hitung otomatis menggunakan OngkirEngine
+    final calc = OngkirEngine.hitungOngkirOtomatis(
+      alokasi: alokasiTarget,
+      divisi: d.divisi,
+      panjang: d.panjang,
+      lebar: d.lebar,
+      qty: d.jmlOrder,
+      sublim: d.sublim,
+    );
+
+    double perPcs = calc.ongkirPerPcs.toDouble();
+    double total = calc.totalOngkir.toDouble();
+
+    if (total <= 0 && !calc.isFreeCharge) {
+      final regMatch = RegExp(
+        r'(?:ongkir|kirim)\s*(?:rp\.?|\:)?\s*([0-9\.\,]+)',
+        caseSensitive: false,
+      ).firstMatch(rawText);
+      if (regMatch != null) {
+        final valStr =
+            regMatch.group(1)!.replaceAll('.', '').replaceAll(',', '.');
+        final parsedVal = double.tryParse(valStr) ?? 0.0;
+        if (parsedVal > 0) {
+          if (parsedVal < 50000 && qty > 1) {
+            perPcs = parsedVal;
+            total = (perPcs * qty).roundToDouble();
+          } else {
+            total = parsedVal;
+            perPcs = (total / qty).roundToDouble();
+          }
+        }
+      }
+    }
+
+    return OngkirExtractionResult(
+      hasOngkir: true,
+      isFreeOngkir: calc.isFreeCharge || (total <= 0 && perPcs <= 0),
+      alokasi: detected?.alokasi ?? '',
+      ongkirPerPcs: perPcs,
+      totalOngkir: total,
+    );
+  }
+
+  return const OngkirExtractionResult(hasOngkir: false);
+}
+
+String _formatOngkirLabel(PermintaanHargaDetail d) {
+  final info = extractOngkirInfo(d);
+  if (!info.hasOngkir) return 'Tanpa Ongkir';
+  if (info.isFreeOngkir) return 'Rp 0 (Bebas Ongkir)';
+  final alokasiSuffix = info.alokasi.isNotEmpty ? ' (${info.alokasi})' : '';
+  if (d.jmlOrder > 1 && info.ongkirPerPcs > 0 && info.totalOngkir > 0) {
+    return 'Rp ${_formatNumber(info.totalOngkir)}$alokasiSuffix • Rp ${_formatNumber(info.ongkirPerPcs)}/pcs';
+  }
+  return 'Rp ${_formatNumber(info.totalOngkir > 0 ? info.totalOngkir : info.ongkirPerPcs)}$alokasiSuffix';
 }
 
 class ParsedKetKalkulasi {
@@ -902,7 +1021,7 @@ class _PermintaanHargaDetailScreenState
                                     fullWidth: true,
                                   ),
                                 ],
-                                if (_detail!.ongkir > 0) ...[
+                                if (extractOngkirInfo(_detail!).hasOngkir) ...[
                                   const SizedBox(height: 10),
                                   _CompactCell(
                                     label: 'Ongkos Kirim',
@@ -1341,6 +1460,7 @@ class _HasilKalkulasiSectionWidgetState
         cleanStatus == 'BELUM_DIVERIFIKASI';
 
     final parsed = parseKetKalkulasi(d.ketKalkulasi);
+    final ongkirInfo = extractOngkirInfo(d);
     final cardBadgeCode = d.nomorKalkulasi.isNotEmpty
         ? d.nomorKalkulasi
         : (isNego ? 'KALS' : 'KAL');
@@ -1482,12 +1602,17 @@ class _HasilKalkulasiSectionWidgetState
       final totalEst = totalKomp + allowRp + labaRp + jahitRp;
       hargaBahanUp = totalEst > 0 ? totalEst : totalKomp;
     }
+    if (hargaBahanUp <= 0) {
+      hargaBahanUp = calcPrice > 0
+          ? calcPrice
+          : (d.hargaKalkulasi > 0 ? d.hargaKalkulasi : d.harga);
+    }
 
     final namaKain = d.kain.isNotEmpty
         ? d.kain
         : (komponenList.isNotEmpty
               ? (komponenList.first['kk_jeniskain']?.toString() ?? '-')
-              : '-');
+              : (d.nama.isNotEmpty ? d.nama : '-'));
     final namaWarna = d.warna.isNotEmpty
         ? d.warna
         : (komponenList.isNotEmpty
@@ -1736,33 +1861,7 @@ class _HasilKalkulasiSectionWidgetState
             ),
           ),
 
-          // 4. Ongkir
-          if (d.ongkir > 0) ...[
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Biaya Pengiriman (Ongkir):',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF475569),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  '+Rp ${_formatNumber(d.ongkir)}',
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF0284C7),
-                  ),
-                ),
-              ],
-            ),
-          ],
-
-          // 5. Collapsible Breakdown (Rincian Kalkulasi)
+          // 4. Collapsible Breakdown (Rincian Kalkulasi)
           if (hasAnyBreakdown) ...[
             const SizedBox(height: 10),
             InkWell(
@@ -1846,12 +1945,34 @@ class _HasilKalkulasiSectionWidgetState
                         child: Column(
                           children: [
                             _buildBreakdownRow(
-                              namaKain.isNotEmpty
+                              namaKain.isNotEmpty && namaKain != '-'
                                   ? (namaWarna.isNotEmpty
                                         ? '$namaKain ($namaWarna)'
                                         : namaKain)
-                                  : 'Bahan Kain',
+                                  : (d.nama.isNotEmpty ? d.nama : 'Bahan Kain'),
                               'Rp ${_formatNumber(hargaBahanUp)}',
+                            ),
+                            const SizedBox(height: 4),
+                            const Divider(
+                              height: 6,
+                              thickness: 0.5,
+                              color: Color(0xFFE2E8F0),
+                            ),
+                            const SizedBox(height: 2),
+                            _buildBreakdownRow(
+                              'Keterangan Ongkir',
+                              ongkirInfo.hasOngkir
+                                  ? (ongkirInfo.isFreeOngkir
+                                      ? 'Sudah include ongkir (Bebas Ongkir Rp 0)'
+                                      : (ongkirInfo.ongkirPerPcs > 0
+                                          ? 'Sudah include ongkir (+Rp ${_formatNumber(ongkirInfo.ongkirPerPcs)}/pcs${ongkirInfo.alokasi.isNotEmpty ? " ke ${ongkirInfo.alokasi}" : ""})'
+                                          : 'Sudah include ongkir${ongkirInfo.alokasi.isNotEmpty ? " (${ongkirInfo.alokasi})" : ""}'))
+                                  : 'Belum include ongkir (Exclude Ongkir)',
+                              valueColor: ongkirInfo.hasOngkir
+                                  ? (ongkirInfo.isFreeOngkir
+                                      ? const Color(0xFF15803D)
+                                      : const Color(0xFF0284C7))
+                                  : const Color(0xFFDC2626),
                             ),
                           ],
                         ),
@@ -2094,22 +2215,36 @@ class _HasilKalkulasiSectionWidgetState
     );
   }
 
-  Widget _buildBreakdownRow(String label, String value) {
+  Widget _buildBreakdownRow(
+    String label,
+    String value, {
+    Color? valueColor,
+    bool isBold = true,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: const TextStyle(fontSize: 11, color: Color(0xFF475569)),
+          Flexible(
+            flex: 2,
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 11, color: Color(0xFF475569)),
+            ),
           ),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF1E293B),
+          const SizedBox(width: 8),
+          Flexible(
+            flex: 3,
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: isBold ? FontWeight.w700 : FontWeight.w500,
+                color: valueColor ?? const Color(0xFF1E293B),
+              ),
             ),
           ),
         ],
