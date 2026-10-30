@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme/app_colors.dart';
+import '../core/utils/app_toast.dart';
 import '../core/utils/responsive_helper.dart';
 import '../providers/version_provider.dart';
 
@@ -381,7 +382,7 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
             label: 'Pasang Pembaruan Sekarang',
             iconData: Icons.install_mobile_rounded,
             fullWidth: true,
-            onPressed: () => _showInstallGuideDialog(context, versionState),
+            onPressed: () => _handleInstallApk(context),
           )
         else
           _buildGradientReloadButton(
@@ -537,7 +538,7 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
           _buildGradientReloadButton(
             label: 'Pasang Pembaruan',
             iconData: Icons.install_mobile_rounded,
-            onPressed: () => _showInstallGuideDialog(context, versionState),
+            onPressed: () => _handleInstallApk(context),
           )
         else
           _buildGradientReloadButton(
@@ -757,7 +758,7 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
                       ),
                       onPressed: () {
                         Navigator.of(ctx).pop();
-                        ref.read(versionProvider.notifier).installApk();
+                        _handleInstallApk(context);
                       },
                       icon: const Icon(Icons.install_mobile_rounded, size: 18),
                       label: const Text(
@@ -771,11 +772,66 @@ class _WebUpdateBannerState extends ConsumerState<WebUpdateBanner>
                   ),
                 ],
               ),
+              const SizedBox(height: 10),
+              Center(
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    ref.read(versionProvider.notifier).openInBrowserFallback();
+                  },
+                  child: const Text(
+                    'Kendala instalasi? Pasang manual lewat Browser',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _handleInstallApk(BuildContext context) async {
+    final notifier = ref.read(versionProvider.notifier);
+
+    AppToast.info(
+      context,
+      'Menyiapkan installer pembaruan...',
+      title: 'Memasang Pembaruan',
+      duration: const Duration(milliseconds: 1800),
+    );
+
+    final res = await notifier.installApk();
+    if (!context.mounted) return;
+
+    if (res != null) {
+      if (res.isSuccess) {
+        AppToast.success(
+          context,
+          'Membuka installer paket Android...',
+          title: 'Pasang Pembaruan',
+        );
+      } else if (res.isNeedPermission) {
+        AppToast.warning(
+          context,
+          'Harap aktifkan "Izinkan dari sumber ini" di Setelan Android, lalu kembali dan tekan Pasang Pembaruan.',
+          title: 'Izin Dibutuhkan',
+          duration: const Duration(seconds: 4),
+        );
+        _showInstallGuideDialog(context, ref.read(versionProvider));
+      } else {
+        AppToast.error(
+          context,
+          res.message ?? 'Gagal membuka installer paket.',
+          title: 'Pemasangan Gagal',
+        );
+      }
+    }
   }
 
   Widget _buildStepRow(String number, String text) {

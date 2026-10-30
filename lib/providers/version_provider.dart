@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:open_filex/open_filex.dart';
@@ -12,6 +13,83 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/constants/app_constants.dart';
 import '../core/utils/web_reload.dart';
+
+enum ApkInstallStatus {
+  success,
+  needPermission,
+  fileNotFound,
+  error,
+}
+
+class ApkInstallResult {
+  final ApkInstallStatus status;
+  final String? message;
+
+  const ApkInstallResult(this.status, [this.message]);
+
+  bool get isSuccess => status == ApkInstallStatus.success;
+  bool get isNeedPermission => status == ApkInstallStatus.needPermission;
+}
+
+class ApkInstallerNative {
+  static const MethodChannel _channel =
+      MethodChannel('com.plantoday.flutter/apk_installer');
+
+  static Future<bool> canRequestPackageInstalls() async {
+    if (kIsWeb || !Platform.isAndroid) return true;
+    try {
+      final res = await _channel.invokeMethod<bool>('canRequestPackageInstalls');
+      return res ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  static Future<void> openInstallPermissionSettings() async {
+    if (kIsWeb || !Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod('openInstallPermissionSettings');
+    } catch (_) {}
+  }
+
+  static Future<ApkInstallResult> installApk(String filePath) async {
+    if (kIsWeb || !Platform.isAndroid) {
+      return const ApkInstallResult(
+        ApkInstallStatus.error,
+        'Hanya didukung di Android',
+      );
+    }
+    try {
+      final res = await _channel.invokeMethod<String>('installApk', {
+        'filePath': filePath,
+      });
+
+      if (res == 'SUCCESS') {
+        return const ApkInstallResult(ApkInstallStatus.success);
+      } else if (res == 'NEED_PERMISSION') {
+        return const ApkInstallResult(
+          ApkInstallStatus.needPermission,
+          'Izin memasang aplikasi dari sumber tidak dikenal dibutuhkan.',
+        );
+      } else {
+        return ApkInstallResult(
+          ApkInstallStatus.error,
+          res ?? 'Gagal membuka installer APK.',
+        );
+      }
+    } on PlatformException catch (e) {
+      return ApkInstallResult(
+        ApkInstallStatus.error,
+        e.message ?? e.code,
+      );
+    } catch (e) {
+      return ApkInstallResult(
+        ApkInstallStatus.error,
+        e.toString(),
+      );
+    }
+  }
+}
 
 const String _kAppliedVersionKey = 'plantoday_applied_version';
 
@@ -328,6 +406,7 @@ class VersionNotifier extends Notifier<VersionState> {
           final isNewer = targetBuild > currentBuild;
 
           if (isNewer) {
+            final existingApk = await _findExistingApk(remoteCode);
             state = state.copyWith(
               latestVersion:
                   remoteName.isNotEmpty ? remoteName : state.currentVersion,
@@ -336,6 +415,7 @@ class VersionNotifier extends Notifier<VersionState> {
               isMandatory: mandatory,
               apkUrl: apkUrl,
               releaseNotes: notes,
+              downloadedApkPath: existingApk ?? state.downloadedApkPath,
               isChecking: false,
             );
             return;
@@ -346,6 +426,30 @@ class VersionNotifier extends Notifier<VersionState> {
     } catch (_) {
       state = state.copyWith(isChecking: false);
     }
+  }
+
+  /// Memeriksa apakah berkas APK versi target sudah pernah diunduh dan utuh
+  Future<String?> _findExistingApk(String targetBuild) async {
+    if (kIsWeb) return null;
+    try {
+      final List<Directory> candidates = [];
+      try {
+        final extDirs = await getExternalCacheDirectories();
+        if (extDirs != null) candidates.addAll(extDirs);
+      } catch (_) {}
+      try {
+        candidates.add(await getTemporaryDirectory());
+      } catch (_) {}
+
+      for (final dir in candidates) {
+        final path = '${dir.path}/plantoday_update_$targetBuild.apk';
+        final file = File(path);
+        if (file.existsSync() && file.lengthSync() > 1024 * 1024) {
+          return path;
+        }
+      }
+    } catch (_) {}
+    return null;
   }
 
   void dismissUpdateNotification() {
@@ -370,9 +474,17 @@ class VersionNotifier extends Notifier<VersionState> {
         downloadError: null,
       );
 
-      final tempDir = await getTemporaryDirectory();
+      Directory? targetDir;
+      try {
+        final extDirs = await getExternalCacheDirectories();
+        if (extDirs != null && extDirs.isNotEmpty) {
+          targetDir = extDirs.first;
+        }
+      } catch (_) {}
+      targetDir ??= await getTemporaryDirectory();
+
       final targetBuild = state.latestBuildNumber ?? 'latest';
-      final apkFilePath = '${tempDir.path}/plantoday_update_$targetBuild.apk';
+      final apkFilePath = '${targetDir.path}/plantoday_update_$targetBuild.apk';
       final apkFile = File(apkFilePath);
 
       // Bersihkan file sisa jika sebelumnya ada unduhan gagal
@@ -404,6 +516,11 @@ class VersionNotifier extends Notifier<VersionState> {
         },
       );
 
+      // Validasi berkas setelah unduhan selesai
+      if (!await apkFile.exists() || await apkFile.length() < 1024 * 1024) {
+        throw Exception('Berkas APK tidak lengkap atau gagal tersimpan.');
+      }
+
       state = state.copyWith(
         isDownloading: false,
         downloadProgress: 1.0,
@@ -427,27 +544,88 @@ class VersionNotifier extends Notifier<VersionState> {
     state = state.copyWith(isDownloading: false);
   }
 
-  /// Memicu installer paket bawaan Android untuk menginstal berkas APK
-  Future<OpenResult?> installApk() async {
+  /// Memicu installer paket Android untuk menginstal berkas APK
+  Future<ApkInstallResult?> installApk() async {
     if (kIsWeb) return null;
-    final path = state.downloadedApkPath;
+    var path = state.downloadedApkPath;
+
+    // Jika belum tersimpan di state, coba cari berkas di cache
     if (path == null || !File(path).existsSync()) {
-      await startDownloadApk();
-      if (state.downloadedApkPath == null) return null;
+      final targetBuild = state.latestBuildNumber ?? 'latest';
+      final found = await _findExistingApk(targetBuild);
+      if (found != null) {
+        path = found;
+        state = state.copyWith(downloadedApkPath: found);
+      } else {
+        await startDownloadApk();
+        path = state.downloadedApkPath;
+        if (path == null) {
+          return const ApkInstallResult(
+            ApkInstallStatus.error,
+            'Berkas APK gagal disiapkan.',
+          );
+        }
+      }
     }
 
+    final validPath = path;
+
+    // 1. Coba lewat Native Platform Channel Android (lebih andal & menangani izin)
+    if (Platform.isAndroid) {
+      try {
+        final nativeResult = await ApkInstallerNative.installApk(validPath);
+        if (nativeResult.isSuccess) {
+          state = state.copyWith(downloadError: null);
+          return nativeResult;
+        } else if (nativeResult.isNeedPermission) {
+          state = state.copyWith(
+            downloadError:
+                'Izin diperlukan: Aktifkan "Izinkan dari sumber ini" di Setelan Android.',
+          );
+          return nativeResult;
+        }
+      } catch (_) {}
+    }
+
+    // 2. Fallback menggunakan OpenFilex
     try {
       final result = await OpenFilex.open(
-        state.downloadedApkPath!,
+        validPath,
         type: 'application/vnd.android.package-archive',
       );
-      return result;
+
+      if (result.type == ResultType.done) {
+        state = state.copyWith(downloadError: null);
+        return const ApkInstallResult(ApkInstallStatus.success);
+      } else if (result.type == ResultType.permissionDenied) {
+        if (Platform.isAndroid) {
+          await ApkInstallerNative.openInstallPermissionSettings();
+        }
+        const errMsg =
+            'Izin instalasi ditolak. Mohon aktifkan izin instalasi di Setelan.';
+        state = state.copyWith(downloadError: errMsg);
+        return const ApkInstallResult(
+          ApkInstallStatus.needPermission,
+          errMsg,
+        );
+      } else {
+        final errMsg = 'Gagal membuka installer APK: ${result.message}';
+        state = state.copyWith(downloadError: errMsg);
+        return ApkInstallResult(
+          ApkInstallStatus.error,
+          result.message,
+        );
+      }
     } catch (e) {
-      state = state.copyWith(
-        downloadError: 'Gagal membuka installer APK: $e',
-      );
-      return null;
+      final errMsg = 'Gagal membuka installer APK: $e';
+      state = state.copyWith(downloadError: errMsg);
+      return ApkInstallResult(ApkInstallStatus.error, errMsg);
     }
+  }
+
+  /// Membuka halaman Setelan Android untuk mengaktifkan izin "Izinkan dari sumber ini"
+  Future<void> openInstallPermissionSettings() async {
+    await ApkInstallerNative.openInstallPermissionSettings();
   }
 
   /// Cadangan jika perangkat membatasi instalasi lokal langsung
